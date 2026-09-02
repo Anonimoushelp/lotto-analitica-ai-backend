@@ -2,6 +2,7 @@ from datetime import UTC, datetime, timedelta
 
 import jwt
 import pytest
+import redis
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
 from sqlalchemy import create_engine, delete
@@ -9,6 +10,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.core.config import Settings, settings
+from app.core.rate_limit import login_rate_limiter
 from app.core.security import ALGORITHM, create_access_token, hash_password
 from app.db.session import get_db
 from app.main import app
@@ -205,6 +207,40 @@ def test_login_rejects_inactive_user():
         },
     )
     assert response.status_code == 401
+
+
+def test_login_rate_limit_returns_429(monkeypatch):
+    monkeypatch.setattr(login_rate_limiter, "allow", lambda email, ip: False)
+    response = client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": "limited@example.com",
+            "password": "StrongTestPassword123!",
+        },
+    )
+    assert response.status_code == 429
+    assert response.headers["Retry-After"] == "60"
+
+
+def test_login_fails_closed_when_redis_is_unavailable_in_production(monkeypatch):
+    monkeypatch.setattr(
+        login_rate_limiter,
+        "allow",
+        lambda email, ip: (_ for _ in ()).throw(redis.RedisError()),
+    )
+    original_environment = settings.environment
+    settings.environment = "production"
+    try:
+        response = client.post(
+            "/api/v1/auth/login",
+            json={
+                "email": "unavailable@example.com",
+                "password": "StrongTestPassword123!",
+            },
+        )
+        assert response.status_code == 503
+    finally:
+        settings.environment = original_environment
 
 
 def test_get_lotteries_remains_public():
