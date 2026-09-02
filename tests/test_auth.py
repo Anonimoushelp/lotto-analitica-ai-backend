@@ -13,6 +13,7 @@ from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
 from app.models.lottery import Lottery
+from app.models.lottery_draw import LotteryDraw
 from app.models.user import User
 
 
