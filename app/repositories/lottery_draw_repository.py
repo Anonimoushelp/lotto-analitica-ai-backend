@@ -1,0 +1,81 @@
+from sqlalchemy import select
+from sqlalchemy.orm import Session
+
+from app.models.lottery_draw import LotteryDraw
+
+
+class LotteryDrawRepository:
+
+    @staticmethod
+    def get_by_id(
+        db: Session,
+        draw_id: int,
+    ) -> LotteryDraw | None:
+        return db.get(LotteryDraw, draw_id)
+
+    @staticmethod
+    def list(
+        db: Session,
+        lottery_id: int | None = None,
+    ) -> list[LotteryDraw]:
+
+        statement = select(LotteryDraw).order_by(
+            LotteryDraw.draw_date.desc(),
+            LotteryDraw.id.desc(),
+        )
+
+        if lottery_id is not None:
+            statement = statement.where(
+                LotteryDraw.lottery_id == lottery_id
+            )
+
+        return list(db.scalars(statement).all())
+
+    @staticmethod
+    def get_by_number(
+        db: Session,
+        lottery_id: int,
+        draw_number: str,
+    ) -> LotteryDraw | None:
+
+        statement = select(LotteryDraw).where(
+            LotteryDraw.lottery_id == lottery_id,
+            LotteryDraw.draw_number == draw_number,
+        )
+
+        return db.scalar(statement)
+
+    @staticmethod
+    def get_by_date(
+        db: Session,
+        lottery_id: int,
+        draw_date,
+    ) -> LotteryDraw | None:
+
+        statement = select(LotteryDraw).where(
+            LotteryDraw.lottery_id == lottery_id,
+            LotteryDraw.draw_date == draw_date,
+        )
+
+        return db.scalar(statement)
+
+    @staticmethod
+    def create(
+        db: Session,
+        draw: LotteryDraw,
+    ) -> LotteryDraw:
+
+        db.add(draw)
+        db.commit()
+        db.refresh(draw)
+
+        return draw
+
+    @staticmethod
+    def delete(
+        db: Session,
+        draw: LotteryDraw,
+    ) -> None:
+
+        db.delete(draw)
+        db.commit()
