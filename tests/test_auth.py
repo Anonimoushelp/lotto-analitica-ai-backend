@@ -3,11 +3,12 @@ from datetime import UTC, datetime, timedelta
 import jwt
 import pytest
 from fastapi.testclient import TestClient
+from pydantic import ValidationError
 from sqlalchemy import create_engine, delete
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.core.config import settings
+from app.core.config import Settings, settings
 from app.core.security import ALGORITHM, create_access_token, hash_password
 from app.db.session import get_db
 from app.main import app
@@ -296,3 +297,24 @@ def test_registration_cannot_reopen_after_first_user():
         assert response.status_code == 403
     finally:
         settings.allow_initial_registration = original
+
+
+def test_production_rejects_initial_registration():
+    with pytest.raises(ValidationError):
+        Settings(
+            database_url="sqlite://",
+            secret_key="x" * 32,
+            environment="production",
+            allow_initial_registration=True,
+            cors_allowed_origins=["https://frontend.example.com"],
+        )
+
+
+def test_production_requires_explicit_cors_origins():
+    with pytest.raises(ValidationError):
+        Settings(
+            database_url="sqlite://",
+            secret_key="x" * 32,
+            environment="production",
+            allow_initial_registration=False,
+        )
