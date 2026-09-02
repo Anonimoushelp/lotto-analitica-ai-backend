@@ -27,6 +27,14 @@ def test_security_headers():
     )
 
 
+def test_auth_responses_are_not_cacheable():
+    response = client.get("/api/v1/auth/me")
+
+    assert response.status_code == 401
+    assert response.headers["Cache-Control"] == "no-store, no-cache, must-revalidate"
+    assert response.headers["Pragma"] == "no-cache"
+
+
 def test_hsts_is_enabled_only_in_production():
     original_environment = settings.environment
     try:
