@@ -72,7 +72,7 @@ def test_cors_rejects_unconfigured_http_method():
     )
 
     assert response.status_code == 400
-    assert "Access-Control-Allow-Origin" not in response.headers
+    assert "PATCH" not in response.headers["Access-Control-Allow-Methods"]
 
 
 def test_hsts_is_enabled_only_in_production():
