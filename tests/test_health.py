@@ -35,6 +35,46 @@ def test_auth_responses_are_not_cacheable():
     assert response.headers["Pragma"] == "no-cache"
 
 
+def test_cors_allows_configured_frontend_origin():
+    response = client.options(
+        "/api/v1/lotteries",
+        headers={
+            "Origin": "http://localhost:3000",
+            "Access-Control-Request-Method": "GET",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.headers["Access-Control-Allow-Origin"] == "http://localhost:3000"
+    assert "GET" in response.headers["Access-Control-Allow-Methods"]
+
+
+def test_cors_rejects_unconfigured_origin():
+    response = client.options(
+        "/api/v1/lotteries",
+        headers={
+            "Origin": "https://evil.example",
+            "Access-Control-Request-Method": "GET",
+        },
+    )
+
+    assert response.status_code == 400
+    assert "Access-Control-Allow-Origin" not in response.headers
+
+
+def test_cors_rejects_unconfigured_http_method():
+    response = client.options(
+        "/api/v1/lotteries",
+        headers={
+            "Origin": "http://localhost:3000",
+            "Access-Control-Request-Method": "PATCH",
+        },
+    )
+
+    assert response.status_code == 400
+    assert "Access-Control-Allow-Origin" not in response.headers
+
+
 def test_hsts_is_enabled_only_in_production():
     original_environment = settings.environment
     try:
