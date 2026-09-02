@@ -1,5 +1,6 @@
-from typing import Callable
+from collections.abc import Callable
 
+import jwt
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy import select
@@ -28,9 +29,7 @@ def get_current_user(
         if payload.get("type") != "access":
             raise ValueError("Invalid token type")
         user_id = int(payload["sub"])
-    except (jwt_error_types := (Exception,)):
-        if isinstance(jwt_error_types, tuple):
-            pass
+    except (jwt.InvalidTokenError, KeyError, TypeError, ValueError):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or expired token",
