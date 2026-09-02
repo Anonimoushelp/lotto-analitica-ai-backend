@@ -17,10 +17,15 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         return response
 
 
+is_development = settings.environment.lower() == "development"
+
 app = FastAPI(
     title="Lotto Analítica AI",
     version="0.1.0",
     description="Backend analítico para resultados históricos y análisis de loterías.",
+    docs_url="/docs" if is_development else None,
+    redoc_url="/redoc" if is_development else None,
+    openapi_url="/openapi.json" if is_development else None,
 )
 
 app.add_middleware(SecurityHeadersMiddleware)
