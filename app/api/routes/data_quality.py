@@ -2,7 +2,11 @@ from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.db.session import get_db
-from app.schemas.data_quality import DataQualityAuditResponse, DataQualityReconcileRequest, DataQualityReconcileResponse
+from app.schemas.data_quality import (
+    DataQualityAuditResponse,
+    DataQualityReconcileRequest,
+    DataQualityReconcileResponse,
+)
 from app.services.data_quality_service import DataQualityService
 
 router = APIRouter(prefix="/api/v1/data-quality", tags=["Data Quality"])
