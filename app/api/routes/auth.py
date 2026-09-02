@@ -1,6 +1,6 @@
 import redis
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_user
@@ -64,6 +64,9 @@ def login(
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
 def register(payload: UserCreate, db: Session = Depends(get_db)):
+    if db.bind is not None and db.bind.dialect.name == "postgresql":
+        db.execute(text("SELECT pg_advisory_xact_lock(831746291)"))
+
     existing_user = db.scalar(select(User.id).limit(1))
     if existing_user is not None:
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Registration disabled after bootstrap")
