@@ -32,7 +32,19 @@ def override_get_db():
         db.close()
 
 
-app.dependency_overrides[get_db] = override_get_db
+@pytest.fixture(autouse=True)
+def app_db_override():
+    previous = app.dependency_overrides.get(get_db)
+    app.dependency_overrides[get_db] = override_get_db
+    try:
+        yield
+    finally:
+        if previous is None:
+            app.dependency_overrides.pop(get_db, None)
+        else:
+            app.dependency_overrides[get_db] = previous
+
+
 client = TestClient(app)
 
 
@@ -71,7 +83,7 @@ def fake_draw() -> SimpleNamespace:
         id=1,
         lottery_id=1,
         draw_number="D-001",
-        draw_date=datetime.now(UTC).date(),
+        draw_date=now.date(),
         main_numbers=[1, 2, 3, 4, 5],
         bonus_numbers=None,
         source="test",
