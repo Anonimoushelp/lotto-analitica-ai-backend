@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import require_admin_or_analyst
@@ -51,26 +51,12 @@ def update_draw(
     db: Session = Depends(get_db),
     _: object = Depends(require_admin_or_analyst),
 ):
-    draw = LotteryDrawService.get_draw(db=db, draw_id=draw_id)
     update_data = payload.model_dump(exclude_unset=True)
-    if not update_data:
-        return draw
-
-    if "lottery_id" in update_data:
-        from app.models.lottery import Lottery
-
-        if db.get(Lottery, update_data["lottery_id"]) is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Lottery not found",
-            )
-
-    for field, value in update_data.items():
-        setattr(draw, field, value)
-
-    db.commit()
-    db.refresh(draw)
-    return draw
+    return LotteryDrawService.update_draw(
+        db=db,
+        draw_id=draw_id,
+        update_data=update_data,
+    )
 
 
 @router.delete("/{draw_id}", status_code=status.HTTP_204_NO_CONTENT)
