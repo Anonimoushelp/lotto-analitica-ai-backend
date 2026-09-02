@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import require_admin_or_analyst
@@ -17,8 +17,16 @@ router = APIRouter(
 
 
 @router.get("", response_model=list[LotteryDrawResponse])
-def list_draws(lottery_id: int | None = None, db: Session = Depends(get_db)):
-    return LotteryDrawService.list_draws(db=db, lottery_id=lottery_id)
+def list_draws(
+    lottery_id: int | None = None,
+    limit: int = Query(default=100, ge=1, le=500),
+    db: Session = Depends(get_db),
+):
+    return LotteryDrawService.list_draws(
+        db=db,
+        lottery_id=lottery_id,
+        limit=limit,
+    )
 
 
 @router.get("/{draw_id}", response_model=LotteryDrawResponse)
