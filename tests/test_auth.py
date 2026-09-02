@@ -9,7 +9,6 @@ from sqlalchemy.pool import StaticPool
 
 from app.core.config import settings
 from app.core.security import ALGORITHM, create_access_token, hash_password
-from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
 from app.models.lottery import Lottery
