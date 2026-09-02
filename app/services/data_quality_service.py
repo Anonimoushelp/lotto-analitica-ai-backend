@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import uuid4
 
 from sqlalchemy import select
@@ -84,7 +84,7 @@ class DataQualityService:
         score = round((clean / total) * 100, 2) if total else 100.0
         return DataQualityAuditResponse(
             audit_id=f"DQ-AUDIT-{uuid4().hex[:12].upper()}",
-            executed_at=datetime.now(timezone.utc),
+            executed_at=datetime.now(UTC),
             lottery_id=lottery_id,
             total_draws=total,
             clean_draws=clean,
@@ -122,7 +122,7 @@ class DataQualityService:
             "discrepancy_id": discrepancy_id,
             "strategy": payload.strategy,
             "notes": payload.notes,
-            "executed_at": datetime.now(timezone.utc).isoformat(),
+            "executed_at": datetime.now(UTC).isoformat(),
         }
         draw.metadata_json = metadata
         db.commit()
