@@ -1,7 +1,7 @@
 from datetime import UTC, date, datetime
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import Date, DateTime, ForeignKey, String, UniqueConstraint
+from sqlalchemy import Date, DateTime, ForeignKey, Index, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -24,6 +24,12 @@ class LotteryDraw(Base):
             "lottery_id",
             "draw_date",
             name="uq_lottery_draw_date",
+        ),
+        Index(
+            "ix_lottery_draws_lottery_date_id",
+            "lottery_id",
+            "draw_date",
+            "id",
         ),
     )
 
