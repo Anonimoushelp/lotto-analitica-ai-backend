@@ -1,4 +1,5 @@
 from fastapi import HTTPException, status
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models.lottery import Lottery
@@ -90,10 +91,16 @@ class LotteryDrawService:
             metadata_json=metadata_json,
         )
 
-        return LotteryDrawRepository.create(
-            db=db,
-            draw=draw,
-        )
+        try:
+            return LotteryDrawRepository.create(
+                db=db,
+                draw=draw,
+            )
+        except IntegrityError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Lottery draw conflicts with an existing record",
+            ) from exc
 
     @staticmethod
     def update_draw(
@@ -163,8 +170,15 @@ class LotteryDrawService:
         for field, value in update_data.items():
             setattr(draw, field, value)
 
-        db.commit()
-        db.refresh(draw)
+        try:
+            db.commit()
+            db.refresh(draw)
+        except IntegrityError as exc:
+            db.rollback()
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Lottery draw conflicts with an existing record",
+            ) from exc
 
         return draw
 
