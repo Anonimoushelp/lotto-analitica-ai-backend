@@ -39,12 +39,20 @@ client = TestClient(app)
 
 @pytest.fixture(autouse=True)
 def clean_test_data():
-    yield
-    db = TestingSessionLocal()
-    db.execute(delete(Lottery))
-    db.execute(delete(User))
-    db.commit()
-    db.close()
+    previous_override = app.dependency_overrides.get(get_db)
+    app.dependency_overrides[get_db] = override_get_db
+    try:
+        yield
+    finally:
+        db = TestingSessionLocal()
+        db.execute(delete(Lottery))
+        db.execute(delete(User))
+        db.commit()
+        db.close()
+        if previous_override is None:
+            app.dependency_overrides.pop(get_db, None)
+        else:
+            app.dependency_overrides[get_db] = previous_override
 
 
 def seed_user(email: str, role: str, active: bool = True) -> User:
