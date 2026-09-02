@@ -2,7 +2,8 @@ from datetime import UTC, datetime
 
 import pytest
 from fastapi import HTTPException
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, delete
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 
 from app.models.lottery import Lottery
@@ -12,6 +13,15 @@ from app.services.lottery_service import LotteryService
 engine = create_engine("sqlite://")
 TestingSessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 Lottery.__table__.create(bind=engine)
+
+
+@pytest.fixture(autouse=True)
+def clean_test_data():
+    yield
+    db = TestingSessionLocal()
+    db.execute(delete(Lottery))
+    db.commit()
+    db.close()
 
 
 def new_lottery(code: str) -> Lottery:
@@ -33,7 +43,7 @@ def test_lottery_repository_rolls_back_failed_unique_insert():
         db.commit()
 
         duplicate = new_lottery("ROLLBACK-1")
-        with pytest.raises(Exception):
+        with pytest.raises(IntegrityError):
             LotteryRepository.create(db=db, lottery=duplicate)
 
         db.add(new_lottery("ROLLBACK-2"))
