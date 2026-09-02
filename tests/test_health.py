@@ -43,6 +43,18 @@ def test_hsts_is_enabled_only_in_production():
         settings.environment = original_environment
 
 
+def test_trusted_host_rejects_unapproved_host():
+    response = client.get("/health", headers={"host": "evil.example"})
+
+    assert response.status_code == 400
+
+
+def test_trusted_host_allows_local_test_host():
+    response = client.get("/health", headers={"host": "testserver"})
+
+    assert response.status_code == 200
+
+
 def test_root_does_not_expose_environment():
     response = client.get("/")
 

@@ -4,6 +4,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
+from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app.api.routes.auth import router as auth_router
 from app.api.routes.lotteries import router as lotteries_router
@@ -38,6 +39,7 @@ app = FastAPI(
     openapi_url="/openapi.json" if is_development else None,
 )
 
+app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.trusted_hosts)
 app.add_middleware(SecurityHeadersMiddleware)
 
 if settings.cors_allowed_origins:

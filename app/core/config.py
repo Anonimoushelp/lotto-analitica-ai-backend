@@ -13,16 +13,24 @@ class Settings(BaseSettings):
     secret_key: str = Field(min_length=32)
     allow_initial_registration: bool = False
     cors_allowed_origins: list[str] = Field(default_factory=list)
+    trusted_hosts: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
     def validate_security_settings(self) -> "Settings":
-        if self.environment == "development" and not self.cors_allowed_origins:
-            self.cors_allowed_origins = [
-                "http://localhost:3000",
-                "http://localhost:3001",
-                "http://127.0.0.1:3000",
-                "http://127.0.0.1:3001",
-            ]
+        if self.environment == "development":
+            if not self.cors_allowed_origins:
+                self.cors_allowed_origins = [
+                    "http://localhost:3000",
+                    "http://localhost:3001",
+                    "http://127.0.0.1:3000",
+                    "http://127.0.0.1:3001",
+                ]
+            if not self.trusted_hosts:
+                self.trusted_hosts = [
+                    "localhost",
+                    "127.0.0.1",
+                    "testserver",
+                ]
 
         if self.environment == "production":
             if self.allow_initial_registration:
@@ -32,6 +40,10 @@ class Settings(BaseSettings):
             if not self.cors_allowed_origins:
                 raise ValueError(
                     "CORS_ALLOWED_ORIGINS must be configured in production"
+                )
+            if not self.trusted_hosts:
+                raise ValueError(
+                    "TRUSTED_HOSTS must be configured in production"
                 )
 
         return self
