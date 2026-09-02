@@ -10,6 +10,9 @@ from app.schemas.lottery_draw import (
 )
 from app.services.lottery_draw_service import LotteryDrawService
 
+DEFAULT_DRAW_LIST_LIMIT = 100
+MAX_DRAW_LIST_LIMIT = 500
+
 router = APIRouter(
     prefix="/api/v1/draws",
     tags=["Lottery Draws"],
@@ -19,7 +22,7 @@ router = APIRouter(
 @router.get("", response_model=list[LotteryDrawResponse])
 def list_draws(
     lottery_id: int | None = None,
-    limit: int = Query(default=100, ge=1, le=500),
+    limit: int = Query(default=DEFAULT_DRAW_LIST_LIMIT, ge=1, le=MAX_DRAW_LIST_LIMIT),
     db: Session = Depends(get_db),
 ):
     return LotteryDrawService.list_draws(
