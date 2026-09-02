@@ -4,3 +4,6 @@ line-length = 88
 
 [tool.ruff.lint]
 ignore = ["B008"]
+
+[tool.ruff.lint.isort]
+known-first-party = ["app"]
