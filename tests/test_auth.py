@@ -1,9 +1,8 @@
 from datetime import UTC, datetime, timedelta
 
 import jwt
-import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, delete
+from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -13,6 +12,7 @@ from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
 from app.models.lottery import Lottery
+from app.models.lottery_draw import LotteryDraw  # noqa: F401
 from app.models.user import User
 
 
