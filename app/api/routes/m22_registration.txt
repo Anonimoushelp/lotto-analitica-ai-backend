@@ -1,0 +1,1 @@
+Register the data quality router in app/main.py as part of M22 integration.
