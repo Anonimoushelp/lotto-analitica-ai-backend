@@ -1,7 +1,7 @@
-from fastapi.testclient import TestClient
+from fastapi.testclient import TestClient  # noqa: I001
 
-from app.services.lottery_draw_service import LotteryDrawService
 from app.main import app
+from app.services.lottery_draw_service import LotteryDrawService
 
 
 client = TestClient(app)
