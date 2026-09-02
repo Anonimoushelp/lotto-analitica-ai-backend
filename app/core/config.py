@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     cors_allowed_origins: list[str] = Field(default_factory=list)
 
     @model_validator(mode="after")
-    def configure_development_cors(self) -> "Settings":
+    def validate_security_settings(self) -> "Settings":
         if self.environment == "development" and not self.cors_allowed_origins:
             self.cors_allowed_origins = [
                 "http://localhost:3000",
@@ -23,6 +23,16 @@ class Settings(BaseSettings):
                 "http://127.0.0.1:3000",
                 "http://127.0.0.1:3001",
             ]
+
+        if self.environment == "production":
+            if self.allow_initial_registration:
+                raise ValueError(
+                    "ALLOW_INITIAL_REGISTRATION must be false in production"
+                )
+            if not self.cors_allowed_origins:
+                raise ValueError(
+                    "CORS_ALLOWED_ORIGINS must be configured in production"
+                )
 
         return self
 
