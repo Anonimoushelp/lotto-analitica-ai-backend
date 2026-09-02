@@ -62,8 +62,8 @@ def seed_user(email: str, role: str, active: bool = True) -> User:
     return user
 
 
-def token_for(user: User) -> str:
-    return create_access_token(str(user.id), user.role)
+def token_for(user: User, role: str | None = None) -> str:
+    return create_access_token(str(user.id), role or user.role)
 
 
 def test_mutation_requires_authentication():
@@ -127,6 +127,77 @@ def test_expired_token_is_rejected():
     assert response.status_code == 401
 
 
+def test_token_missing_required_claim_is_rejected():
+    user = seed_user("missing-claim@example.com", "admin")
+    now = datetime.now(UTC)
+    token = jwt.encode(
+        {
+            "sub": str(user.id),
+            "role": user.role,
+            "iat": now,
+            "type": "access",
+        },
+        settings.secret_key,
+        algorithm=ALGORITHM,
+    )
+    response = client.post(
+        "/api/v1/lotteries",
+        headers={"Authorization": f"Bearer {token}"},
+        json={"name": "Test Lottery", "code": "MISS", "country": "CO"},
+    )
+    assert response.status_code == 401
+
+
+def test_db_role_is_authoritative_over_token_role():
+    user = seed_user("role-source@example.com", "admin")
+    response = client.post(
+        "/api/v1/lotteries",
+        headers={"Authorization": f"Bearer {token_for(user, role='viewer')}"},
+        json={"name": "DB Role Lottery", "code": "DBROLE", "country": "CO"},
+    )
+    assert response.status_code == 201
+
+
+def test_login_returns_access_token():
+    seed_user("login@example.com", "viewer")
+    response = client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": "login@example.com",
+            "password": "StrongTestPassword123!",
+        },
+    )
+    assert response.status_code == 200
+    body = response.json()
+    assert body["token_type"] == "bearer"
+    assert body["access_token"]
+
+
+def test_login_rejects_wrong_password():
+    seed_user("wrong-password@example.com", "viewer")
+    response = client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": "wrong-password@example.com",
+            "password": "WrongPassword123!",
+        },
+    )
+    assert response.status_code == 401
+    assert response.headers["WWW-Authenticate"] == "Bearer"
+
+
+def test_login_rejects_inactive_user():
+    seed_user("inactive@example.com", "admin", active=False)
+    response = client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": "inactive@example.com",
+            "password": "StrongTestPassword123!",
+        },
+    )
+    assert response.status_code == 401
+
+
 def test_get_lotteries_remains_public():
     response = client.get("/api/v1/lotteries")
     assert response.status_code == 200
@@ -161,6 +232,42 @@ def test_initial_registration_is_disabled_by_default():
             },
         )
         assert response.status_code == 403
+    finally:
+        settings.allow_initial_registration = original
+
+
+def test_initial_registration_always_creates_admin():
+    original = settings.allow_initial_registration
+    settings.allow_initial_registration = True
+    try:
+        response = client.post(
+            "/api/v1/auth/register",
+            json={
+                "email": "bootstrap@example.com",
+                "password": "StrongTestPassword123!",
+                "role": "viewer",
+            },
+        )
+        assert response.status_code == 201
+        assert response.json()["role"] == "admin"
+        assert "password_hash" not in response.json()
+    finally:
+        settings.allow_initial_registration = original
+
+
+def test_registration_rejects_unsupported_role_value():
+    original = settings.allow_initial_registration
+    settings.allow_initial_registration = True
+    try:
+        response = client.post(
+            "/api/v1/auth/register",
+            json={
+                "email": "invalid-role@example.com",
+                "password": "StrongTestPassword123!",
+                "role": "superadmin",
+            },
+        )
+        assert response.status_code == 422
     finally:
         settings.allow_initial_registration = original
 
