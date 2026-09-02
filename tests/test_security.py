@@ -102,15 +102,14 @@ def test_access_token_rejects_wrong_token_type():
     token = _token_with_payload(type="refresh")
 
     with pytest.raises(jwt.InvalidTokenError):
-        payload = decode_access_token(token)
-        assert payload["type"] == "access"
+        decode_access_token(token)
 
 
 def test_access_token_rejects_tampered_signature():
     token = create_access_token("123", "admin")
     header, payload, signature = token.split(".")
     tampered_signature = ("A" if signature[0] != "A" else "B") + signature[1:]
-    tampered_token = ".".join((header, payload, tampered_signature))
+    tampered_token = f"{header}.{payload}.{tampered_signature}"
 
     with pytest.raises(jwt.InvalidSignatureError):
         decode_access_token(tampered_token)
