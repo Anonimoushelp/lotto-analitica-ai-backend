@@ -9,7 +9,7 @@ on:
       - main
 
 jobs:
-    test:
+  test:
     name: Tests
     runs-on: ubuntu-latest
 
