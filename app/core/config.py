@@ -8,7 +8,15 @@ class Settings(BaseSettings):
     environment: str = "development"
 
     database_url: str
+    database_pool_size: int = Field(default=5, ge=1, le=50)
+    database_max_overflow: int = Field(default=10, ge=0, le=100)
+    database_pool_timeout: int = Field(default=10, ge=1, le=120)
+    database_pool_recycle: int = Field(default=1800, ge=60, le=86400)
+    database_connect_timeout: int = Field(default=5, ge=1, le=60)
     redis_url: str = "redis://localhost:6379/0"
+    redis_connect_timeout: float = Field(default=5.0, gt=0, le=60)
+    redis_socket_timeout: float = Field(default=5.0, gt=0, le=60)
+    redis_health_check_interval: int = Field(default=30, ge=0, le=3600)
 
     secret_key: str = Field(min_length=32)
     allow_initial_registration: bool = False
