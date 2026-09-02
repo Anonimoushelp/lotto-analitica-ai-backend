@@ -1,0 +1,1 @@
+M22 data quality routes are registered from app.main.py.
