@@ -1,14 +1,16 @@
 from datetime import datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
 EMAIL_PATTERN = r"^[^\s@]+@[^\s@]+\.[^\s@]+$"
+UserRole = Literal["admin", "analyst", "viewer", "service"]
 
 
 class UserCreate(BaseModel):
     email: str = Field(min_length=5, max_length=255, pattern=EMAIL_PATTERN)
     password: str = Field(min_length=12, max_length=128)
-    role: str = Field(default="viewer", min_length=1, max_length=30)
+    role: UserRole = "viewer"
 
 
 class UserResponse(BaseModel):
