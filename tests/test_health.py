@@ -5,6 +5,8 @@ from fastapi.testclient import TestClient
 
 from app.core.config import settings
 from app.main import app, unhandled_exception_handler
+from app.services.lottery_draw_service import LotteryDrawService
+from app.services.lottery_service import LotteryService
 
 client = TestClient(app)
 
@@ -177,6 +179,14 @@ def test_protected_draw_mutations_require_authentication():
     assert client.delete("/api/v1/draws/1").status_code == 401
 
 
-def test_public_read_endpoints_remain_available():
-    assert client.get("/api/v1/lotteries").status_code == 200
-    assert client.get("/api/v1/draws").status_code == 200
+def test_public_read_endpoints_remain_available(monkeypatch):
+    monkeypatch.setattr(LotteryService, "list_lotteries", lambda **kwargs: [])
+    monkeypatch.setattr(LotteryDrawService, "list_draws", lambda **kwargs: [])
+
+    lotteries_response = client.get("/api/v1/lotteries")
+    draws_response = client.get("/api/v1/draws")
+
+    assert lotteries_response.status_code == 200
+    assert lotteries_response.json() == []
+    assert draws_response.status_code == 200
+    assert draws_response.json() == []
