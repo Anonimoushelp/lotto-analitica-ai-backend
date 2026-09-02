@@ -11,7 +11,13 @@ LOGIN_MAX_ATTEMPTS_PER_IP = 20
 
 class LoginRateLimiter:
     def __init__(self) -> None:
-        self._redis = redis.Redis.from_url(settings.redis_url, decode_responses=True)
+        self._redis = redis.Redis.from_url(
+            settings.redis_url,
+            decode_responses=True,
+            socket_connect_timeout=settings.redis_connect_timeout,
+            socket_timeout=settings.redis_socket_timeout,
+            health_check_interval=settings.redis_health_check_interval,
+        )
 
     @staticmethod
     def _key(prefix: str, value: str) -> str:
