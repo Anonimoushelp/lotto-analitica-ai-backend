@@ -6,6 +6,7 @@ from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.api.routes.auth import router as auth_router
+from app.api.routes.data_warehouse import router as data_warehouse_router
 from app.api.routes.lotteries import router as lotteries_router
 from app.api.routes.lottery_draws import router as lottery_draws_router
 from app.core.config import settings
@@ -66,3 +67,4 @@ def health():
 app.include_router(auth_router)
 app.include_router(lotteries_router)
 app.include_router(lottery_draws_router)
+app.include_router(data_warehouse_router)
