@@ -152,3 +152,31 @@ def test_openapi_json_matches_environment():
         assert response.status_code == 200
     else:
         assert response.status_code == 404
+
+
+def test_unsupported_methods_return_405():
+    response = client.patch("/api/v1/lotteries")
+    assert response.status_code == 405
+
+    response = client.patch("/api/v1/draws")
+    assert response.status_code == 405
+
+    response = client.post("/health")
+    assert response.status_code == 405
+
+
+def test_protected_lottery_mutations_require_authentication():
+    assert client.post("/api/v1/lotteries").status_code == 401
+    assert client.put("/api/v1/lotteries/1").status_code == 401
+    assert client.delete("/api/v1/lotteries/1").status_code == 401
+
+
+def test_protected_draw_mutations_require_authentication():
+    assert client.post("/api/v1/draws").status_code == 401
+    assert client.put("/api/v1/draws/1").status_code == 401
+    assert client.delete("/api/v1/draws/1").status_code == 401
+
+
+def test_public_read_endpoints_remain_available():
+    assert client.get("/api/v1/lotteries").status_code == 200
+    assert client.get("/api/v1/draws").status_code == 200
