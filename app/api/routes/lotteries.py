@@ -1,12 +1,10 @@
-from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import select
-from sqlalchemy.exc import IntegrityError
+from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import require_admin
 from app.db.session import get_db
-from app.models.lottery import Lottery
 from app.schemas.lottery import LotteryCreate, LotteryResponse, LotteryUpdate
+from app.services.lottery_service import LotteryService
 
 router = APIRouter(
     prefix="/api/v1/lotteries",
@@ -16,19 +14,12 @@ router = APIRouter(
 
 @router.get("", response_model=list[LotteryResponse])
 def list_lotteries(db: Session = Depends(get_db)):
-    statement = select(Lottery).order_by(Lottery.name)
-    return db.scalars(statement).all()
+    return LotteryService.list_lotteries(db=db)
 
 
 @router.get("/{lottery_id}", response_model=LotteryResponse)
 def get_lottery(lottery_id: int, db: Session = Depends(get_db)):
-    lottery = db.get(Lottery, lottery_id)
-    if lottery is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Lottery not found",
-        )
-    return lottery
+    return LotteryService.get_lottery(db=db, lottery_id=lottery_id)
 
 
 @router.post("", response_model=LotteryResponse, status_code=status.HTTP_201_CREATED)
@@ -37,25 +28,10 @@ def create_lottery(
     db: Session = Depends(get_db),
     _: object = Depends(require_admin),
 ):
-    existing = db.scalar(select(Lottery).where(Lottery.code == payload.code))
-    if existing is not None:
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Lottery code already exists",
-        )
-
-    lottery = Lottery(**payload.model_dump())
-    db.add(lottery)
-    try:
-        db.commit()
-        db.refresh(lottery)
-    except IntegrityError as exc:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Lottery code already exists",
-        ) from exc
-    return lottery
+    return LotteryService.create_lottery(
+        db=db,
+        payload=payload.model_dump(),
+    )
 
 
 @router.put("/{lottery_id}", response_model=LotteryResponse)
@@ -65,39 +41,11 @@ def update_lottery(
     db: Session = Depends(get_db),
     _: object = Depends(require_admin),
 ):
-    lottery = db.get(Lottery, lottery_id)
-    if lottery is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Lottery not found",
-        )
-
-    update_data = payload.model_dump(exclude_unset=True)
-    if "code" in update_data:
-        existing = db.scalar(
-            select(Lottery).where(
-                Lottery.code == update_data["code"], Lottery.id != lottery_id
-            )
-        )
-        if existing is not None:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Lottery code already exists",
-            )
-
-    for field, value in update_data.items():
-        setattr(lottery, field, value)
-
-    try:
-        db.commit()
-        db.refresh(lottery)
-    except IntegrityError as exc:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Lottery code already exists",
-        ) from exc
-    return lottery
+    return LotteryService.update_lottery(
+        db=db,
+        lottery_id=lottery_id,
+        update_data=payload.model_dump(exclude_unset=True),
+    )
 
 
 @router.delete("/{lottery_id}", status_code=status.HTTP_204_NO_CONTENT)
@@ -106,19 +54,4 @@ def delete_lottery(
     db: Session = Depends(get_db),
     _: object = Depends(require_admin),
 ):
-    lottery = db.get(Lottery, lottery_id)
-    if lottery is None:
-        raise HTTPException(
-            status_code=status.HTTP_404_NOT_FOUND,
-            detail="Lottery not found",
-        )
-
-    db.delete(lottery)
-    try:
-        db.commit()
-    except IntegrityError as exc:
-        db.rollback()
-        raise HTTPException(
-            status_code=status.HTTP_409_CONFLICT,
-            detail="Lottery could not be deleted",
-        ) from exc
+    LotteryService.delete_lottery(db=db, lottery_id=lottery_id)
