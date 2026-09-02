@@ -21,3 +21,9 @@ def test_security_headers():
     assert response.headers["Permissions-Policy"] == (
         "geolocation=(), microphone=(), camera=()"
     )
+
+
+def test_openapi_docs_available_in_development():
+    response = client.get("/docs")
+
+    assert response.status_code == 200
