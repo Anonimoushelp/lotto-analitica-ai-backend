@@ -27,6 +27,22 @@ def test_security_headers():
     )
 
 
+def test_hsts_is_enabled_only_in_production():
+    original_environment = settings.environment
+    try:
+        settings.environment = "production"
+        production_response = client.get("/health")
+        assert production_response.headers["Strict-Transport-Security"] == (
+            "max-age=31536000; includeSubDomains"
+        )
+
+        settings.environment = "development"
+        development_response = client.get("/health")
+        assert "Strict-Transport-Security" not in development_response.headers
+    finally:
+        settings.environment = original_environment
+
+
 def test_root_does_not_expose_environment():
     response = client.get("/")
 
