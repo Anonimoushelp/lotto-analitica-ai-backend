@@ -1,4 +1,5 @@
 from sqlalchemy import select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session
 
 from app.models.lottery_draw import LotteryDraw
@@ -66,8 +67,12 @@ class LotteryDrawRepository:
     ) -> LotteryDraw:
 
         db.add(draw)
-        db.commit()
-        db.refresh(draw)
+        try:
+            db.commit()
+            db.refresh(draw)
+        except SQLAlchemyError:
+            db.rollback()
+            raise
 
         return draw
 
@@ -78,4 +83,8 @@ class LotteryDrawRepository:
     ) -> None:
 
         db.delete(draw)
-        db.commit()
+        try:
+            db.commit()
+        except SQLAlchemyError:
+            db.rollback()
+            raise
