@@ -9,7 +9,6 @@ from app.schemas.lottery_draw import (
 )
 from app.services.lottery_draw_service import LotteryDrawService
 
-
 router = APIRouter(
     prefix="/api/v1/draws",
     tags=["Lottery Draws"],

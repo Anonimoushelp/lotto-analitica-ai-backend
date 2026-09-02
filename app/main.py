@@ -5,7 +5,6 @@ from app.api.routes.lotteries import router as lotteries_router
 from app.api.routes.lottery_draws import router as lottery_draws_router
 from app.core.config import settings
 
-
 app = FastAPI(
     title="Lotto Analítica AI",
     version="0.1.0",

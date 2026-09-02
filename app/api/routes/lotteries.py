@@ -6,7 +6,6 @@ from app.db.session import get_db
 from app.models.lottery import Lottery
 from app.schemas.lottery import LotteryCreate, LotteryResponse, LotteryUpdate
 
-
 router = APIRouter(
     prefix="/api/v1/lotteries",
     tags=["Lotteries"],
