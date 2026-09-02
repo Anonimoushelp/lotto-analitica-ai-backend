@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from typing import TYPE_CHECKING, Any
 
 from sqlalchemy import Date, DateTime, ForeignKey, String, UniqueConstraint
@@ -69,14 +69,14 @@ class LotteryDraw(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
-        default=datetime.utcnow,
+        default=lambda: datetime.now(UTC),
     )
 
     updated_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         nullable=False,
-        default=datetime.utcnow,
-        onupdate=datetime.utcnow,
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
     )
 
     lottery: Mapped["Lottery"] = relationship(
