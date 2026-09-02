@@ -1,7 +1,7 @@
 from fastapi.testclient import TestClient
 
-from app.main import app
 from app.services.lottery_draw_service import LotteryDrawService
+from app.main import app
 
 
 client = TestClient(app)
