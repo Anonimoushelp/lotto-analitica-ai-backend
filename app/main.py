@@ -46,7 +46,6 @@ def root():
     return {
         "app": "Lotto Analítica AI",
         "version": "0.1.0",
-        "environment": settings.environment,
         "status": "online",
     }
 
