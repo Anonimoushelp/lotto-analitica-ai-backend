@@ -1,10 +1,15 @@
-from fastapi import FastAPI
+import logging
+
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.api.routes.lotteries import router as lotteries_router
 from app.api.routes.lottery_draws import router as lottery_draws_router
 from app.core.config import settings
+
+logger = logging.getLogger(__name__)
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -38,6 +43,20 @@ if settings.cors_allowed_origins:
         allow_methods=["GET", "POST", "PUT", "DELETE"],
         allow_headers=["Authorization", "Content-Type"],
         max_age=600,
+    )
+
+
+@app.exception_handler(Exception)
+async def unhandled_exception_handler(request: Request, exc: Exception):
+    logger.exception("Unhandled application exception on %s %s", request.method, request.url.path)
+
+    detail = "Internal server error"
+    if is_development:
+        detail = "Internal server error"
+
+    return JSONResponse(
+        status_code=500,
+        content={"detail": detail},
     )
 
 
