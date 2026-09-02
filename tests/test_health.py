@@ -24,6 +24,17 @@ def test_security_headers():
     )
 
 
+def test_root_does_not_expose_environment():
+    response = client.get("/")
+
+    assert response.status_code == 200
+    assert response.json() == {
+        "app": "Lotto Analítica AI",
+        "version": "0.1.0",
+        "status": "online",
+    }
+
+
 def test_openapi_documentation_matches_environment():
     response = client.get("/docs")
 
