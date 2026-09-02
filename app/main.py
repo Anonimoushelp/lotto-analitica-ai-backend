@@ -1,9 +1,21 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.base import BaseHTTPMiddleware
 
 from app.api.routes.lotteries import router as lotteries_router
 from app.api.routes.lottery_draws import router as lottery_draws_router
 from app.core.config import settings
+
+
+class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        response = await call_next(request)
+        response.headers["X-Content-Type-Options"] = "nosniff"
+        response.headers["X-Frame-Options"] = "DENY"
+        response.headers["Referrer-Policy"] = "no-referrer"
+        response.headers["Permissions-Policy"] = "geolocation=(), microphone=(), camera=()"
+        return response
+
 
 app = FastAPI(
     title="Lotto Analítica AI",
@@ -11,6 +23,7 @@ app = FastAPI(
     description="Backend analítico para resultados históricos y análisis de loterías.",
 )
 
+app.add_middleware(SecurityHeadersMiddleware)
 
 if settings.cors_allowed_origins:
     app.add_middleware(
@@ -28,7 +41,7 @@ def root():
     return {
         "app": "Lotto Analítica AI",
         "version": "0.1.0",
-        "environment": "development",
+        "environment": settings.environment,
         "status": "online",
     }
 
