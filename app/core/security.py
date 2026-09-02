@@ -31,9 +31,12 @@ def create_access_token(subject: str, role: str) -> str:
 
 
 def decode_access_token(token: str) -> dict:
-    return jwt.decode(
+    payload = jwt.decode(
         token,
         settings.secret_key,
         algorithms=[ALGORITHM],
         options={"require": ["sub", "role", "iat", "exp", "type"]},
     )
+    if payload["type"] != "access":
+        raise jwt.InvalidTokenError("Invalid token type")
+    return payload
