@@ -1,0 +1,61 @@
+import pytest
+from pydantic import ValidationError
+
+from app.schemas.lottery_draw import LotteryDrawCreate, LotteryDrawUpdate
+
+
+def valid_payload() -> dict:
+    return {
+        "lottery_id": 1,
+        "draw_number": "123",
+        "draw_date": "2026-09-01",
+        "main_numbers": [1, 7, 14, 22, 35],
+        "bonus_numbers": [9],
+    }
+
+
+def test_draw_schema_accepts_valid_numbers() -> None:
+    payload = LotteryDrawCreate(**valid_payload())
+
+    assert payload.main_numbers == [1, 7, 14, 22, 35]
+    assert payload.bonus_numbers == [9]
+
+
+@pytest.mark.parametrize(
+    "numbers",
+    [
+        [1, 1, 7],
+        [0, 7, 14],
+        [1, 7, 1001],
+    ],
+)
+def test_draw_schema_rejects_invalid_main_numbers(numbers: list[int]) -> None:
+    payload = valid_payload()
+    payload["main_numbers"] = numbers
+
+    with pytest.raises(ValidationError):
+        LotteryDrawCreate(**payload)
+
+
+def test_draw_schema_rejects_duplicate_bonus_numbers() -> None:
+    payload = valid_payload()
+    payload["bonus_numbers"] = [3, 3]
+
+    with pytest.raises(ValidationError):
+        LotteryDrawCreate(**payload)
+
+
+def test_draw_update_schema_applies_same_number_validation() -> None:
+    with pytest.raises(ValidationError):
+        LotteryDrawUpdate(main_numbers=[4, 4])
+
+    with pytest.raises(ValidationError):
+        LotteryDrawUpdate(bonus_numbers=[1001])
+
+
+def test_draw_schema_rejects_excessive_number_lists() -> None:
+    payload = valid_payload()
+    payload["main_numbers"] = list(range(1, 22))
+
+    with pytest.raises(ValidationError):
+        LotteryDrawCreate(**payload)
