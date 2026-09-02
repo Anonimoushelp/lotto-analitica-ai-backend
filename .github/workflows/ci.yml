@@ -9,16 +9,16 @@ on:
       - main
 
 jobs:
-  test:
+    test:
     name: Tests
     runs-on: ubuntu-latest
 
-       env:
+    env:
       DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
       SECRET_KEY: ci-test-secret
       ENVIRONMENT: test
 
-      steps:
+    steps:
       - name: Checkout del repositorio
         uses: actions/checkout@v4
 
