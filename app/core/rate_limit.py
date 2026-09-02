@@ -8,6 +8,14 @@ LOGIN_WINDOW_SECONDS = 60
 LOGIN_MAX_ATTEMPTS_PER_ACCOUNT = 5
 LOGIN_MAX_ATTEMPTS_PER_IP = 20
 
+_INCREMENT_WITH_EXPIRY = """
+local count = redis.call('INCR', KEYS[1])
+if count == 1 then
+    redis.call('EXPIRE', KEYS[1], ARGV[1])
+end
+return count
+"""
+
 
 class LoginRateLimiter:
     def __init__(self) -> None:
@@ -25,10 +33,14 @@ class LoginRateLimiter:
         return f"auth:login:{prefix}:{digest}"
 
     def _increment(self, key: str) -> int:
-        count = int(self._redis.incr(key))
-        if count == 1:
-            self._redis.expire(key, LOGIN_WINDOW_SECONDS)
-        return count
+        return int(
+            self._redis.eval(
+                _INCREMENT_WITH_EXPIRY,
+                1,
+                key,
+                LOGIN_WINDOW_SECONDS,
+            )
+        )
 
     def allow(self, email: str, client_ip: str) -> bool:
         account_count = self._increment(self._key("account", email.lower()))
