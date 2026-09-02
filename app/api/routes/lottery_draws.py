@@ -3,7 +3,11 @@ from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import require_admin_or_analyst
 from app.db.session import get_db
-from app.schemas.lottery_draw import LotteryDrawCreate, LotteryDrawResponse, LotteryDrawUpdate
+from app.schemas.lottery_draw import (
+    LotteryDrawCreate,
+    LotteryDrawResponse,
+    LotteryDrawUpdate,
+)
 from app.services.lottery_draw_service import LotteryDrawService
 
 router = APIRouter(
@@ -54,8 +58,12 @@ def update_draw(
 
     if "lottery_id" in update_data:
         from app.models.lottery import Lottery
+
         if db.get(Lottery, update_data["lottery_id"]) is None:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lottery not found")
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Lottery not found",
+            )
 
     for field, value in update_data.items():
         setattr(draw, field, value)
