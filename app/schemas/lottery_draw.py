@@ -1,4 +1,5 @@
 from datetime import date, datetime
+import json
 from typing import Any
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -6,6 +7,7 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 MAX_NUMBER_VALUE = 1000
 MAX_MAIN_NUMBERS = 20
 MAX_BONUS_NUMBERS = 10
+MAX_METADATA_BYTES = 16 * 1024
 
 
 def _validate_numbers(
@@ -29,6 +31,19 @@ def _validate_numbers(
 
     if len(value) != len(set(value)):
         raise ValueError(f"{field_name} cannot contain duplicate numbers")
+
+    return value
+
+
+def _validate_metadata(value: dict[str, Any] | None) -> dict[str, Any] | None:
+    if value is None:
+        return None
+
+    serialized = json.dumps(value, ensure_ascii=False, separators=(",", ":"))
+    if len(serialized.encode("utf-8")) > MAX_METADATA_BYTES:
+        raise ValueError(
+            f"metadata_json cannot exceed {MAX_METADATA_BYTES} bytes"
+        )
 
     return value
 
@@ -62,6 +77,7 @@ class LotteryDrawBase(BaseModel):
             max_items=MAX_BONUS_NUMBERS,
         )
     )
+    _validate_metadata_json = field_validator("metadata_json")(_validate_metadata)
 
 
 class LotteryDrawCreate(LotteryDrawBase):
@@ -98,6 +114,7 @@ class LotteryDrawUpdate(BaseModel):
             max_items=MAX_BONUS_NUMBERS,
         )
     )
+    _validate_metadata_json = field_validator("metadata_json")(_validate_metadata)
 
 
 class LotteryDrawResponse(LotteryDrawBase):
