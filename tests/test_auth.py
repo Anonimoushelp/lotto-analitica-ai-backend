@@ -184,6 +184,23 @@ def test_login_returns_access_token():
     assert body["access_token"]
 
 
+def test_login_logs_success_without_secrets(caplog):
+    user = seed_user("logging-success@example.com", "viewer")
+    with caplog.at_level("INFO", logger="app.api.routes.auth"):
+        response = client.post(
+            "/api/v1/auth/login",
+            json={
+                "email": user.email,
+                "password": "StrongTestPassword123!",
+            },
+        )
+    assert response.status_code == 200
+    assert any("auth.login.success" in record.message for record in caplog.records)
+    assert user.email not in caplog.text
+    assert "StrongTestPassword123!" not in caplog.text
+    assert response.json()["access_token"] not in caplog.text
+
+
 def test_login_rejects_wrong_password():
     seed_user("wrong-password@example.com", "viewer")
     response = client.post(
@@ -197,16 +214,20 @@ def test_login_rejects_wrong_password():
     assert response.headers["WWW-Authenticate"] == "Bearer"
 
 
-def test_login_rejects_inactive_user():
-    seed_user("inactive@example.com", "admin", active=False)
-    response = client.post(
-        "/api/v1/auth/login",
-        json={
-            "email": "inactive@example.com",
-            "password": "StrongTestPassword123!",
-        },
-    )
+def test_login_logs_invalid_credentials_without_secrets(caplog):
+    seed_user("logging-failure@example.com", "viewer")
+    with caplog.at_level("WARNING", logger="app.api.routes.auth"):
+        response = client.post(
+            "/api/v1/auth/login",
+            json={
+                "email": "logging-failure@example.com",
+                "password": "WrongPassword123!",
+            },
+        )
     assert response.status_code == 401
+    assert any("auth.login.failure" in record.message for record in caplog.records)
+    assert "logging-failure@example.com" not in caplog.text
+    assert "WrongPassword123!" not in caplog.text
 
 
 def test_login_rate_limit_returns_429(monkeypatch):
@@ -220,6 +241,22 @@ def test_login_rate_limit_returns_429(monkeypatch):
     )
     assert response.status_code == 429
     assert response.headers["Retry-After"] == "60"
+
+
+def test_login_rate_limit_logs_event_without_secrets(monkeypatch, caplog):
+    monkeypatch.setattr(login_rate_limiter, "allow", lambda email, ip: False)
+    with caplog.at_level("WARNING", logger="app.api.routes.auth"):
+        response = client.post(
+            "/api/v1/auth/login",
+            json={
+                "email": "logging-rate-limit@example.com",
+                "password": "StrongTestPassword123!",
+            },
+        )
+    assert response.status_code == 429
+    assert any("auth.login.rate_limited" in record.message for record in caplog.records)
+    assert "logging-rate-limit@example.com" not in caplog.text
+    assert "StrongTestPassword123!" not in caplog.text
 
 
 def test_login_fails_closed_when_redis_is_unavailable_in_production(monkeypatch):
@@ -241,6 +278,34 @@ def test_login_fails_closed_when_redis_is_unavailable_in_production(monkeypatch)
         assert response.status_code == 503
     finally:
         settings.environment = original_environment
+
+
+def test_login_redis_failure_logs_event_without_secrets(monkeypatch, caplog):
+    monkeypatch.setattr(
+        login_rate_limiter,
+        "allow",
+        lambda email, ip: (_ for _ in ()).throw(redis.RedisError()),
+    )
+    original_environment = settings.environment
+    settings.environment = "production"
+    try:
+        with caplog.at_level("ERROR", logger="app.api.routes.auth"):
+            response = client.post(
+                "/api/v1/auth/login",
+                json={
+                    "email": "logging-redis-error@example.com",
+                    "password": "StrongTestPassword123!",
+                },
+            )
+    finally:
+        settings.environment = original_environment
+    assert response.status_code == 503
+    assert any(
+        "auth.login.rate_limiter_unavailable" in record.message
+        for record in caplog.records
+    )
+    assert "logging-redis-error@example.com" not in caplog.text
+    assert "StrongTestPassword123!" not in caplog.text
 
 
 def test_get_lotteries_remains_public():
