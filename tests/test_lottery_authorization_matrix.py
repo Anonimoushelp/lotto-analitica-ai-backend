@@ -1,3 +1,4 @@
+from datetime import UTC, datetime
 from types import SimpleNamespace
 
 import pytest
@@ -31,7 +32,19 @@ def override_get_db():
         db.close()
 
 
-app.dependency_overrides[get_db] = override_get_db
+@pytest.fixture(autouse=True)
+def app_db_override():
+    previous = app.dependency_overrides.get(get_db)
+    app.dependency_overrides[get_db] = override_get_db
+    try:
+        yield
+    finally:
+        if previous is None:
+            app.dependency_overrides.pop(get_db, None)
+        else:
+            app.dependency_overrides[get_db] = previous
+
+
 client = TestClient(app)
 
 
@@ -65,20 +78,26 @@ def auth_header(user: User) -> dict[str, str]:
 
 
 def fake_lottery() -> SimpleNamespace:
+    now = datetime.now(UTC)
     return SimpleNamespace(
         id=1,
         name="Test Lottery",
         code="TEST",
         country="CO",
         is_active=True,
+        created_at=now,
+        updated_at=now,
     )
 
 
-@pytest.mark.parametrize("method,path,json_body", [
-    ("post", "/api/v1/lotteries", {"name": "Test Lottery", "code": "TEST", "country": "CO"}),
-    ("put", "/api/v1/lotteries/1", {"name": "Updated Lottery"}),
-    ("delete", "/api/v1/lotteries/1", None),
-])
+@pytest.mark.parametrize(
+    "method,path,json_body",
+    [
+        ("post", "/api/v1/lotteries", {"name": "Test Lottery", "code": "TEST", "country": "CO"}),
+        ("put", "/api/v1/lotteries/1", {"name": "Updated Lottery"}),
+        ("delete", "/api/v1/lotteries/1", None),
+    ],
+)
 def test_lottery_mutations_require_authentication(method, path, json_body, monkeypatch):
     called = False
 
@@ -98,11 +117,14 @@ def test_lottery_mutations_require_authentication(method, path, json_body, monke
 
 
 @pytest.mark.parametrize("role", ["viewer", "service", "analyst"])
-@pytest.mark.parametrize("method,path,json_body", [
-    ("post", "/api/v1/lotteries", {"name": "Test Lottery", "code": "TEST", "country": "CO"}),
-    ("put", "/api/v1/lotteries/1", {"name": "Updated Lottery"}),
-    ("delete", "/api/v1/lotteries/1", None),
-])
+@pytest.mark.parametrize(
+    "method,path,json_body",
+    [
+        ("post", "/api/v1/lotteries", {"name": "Test Lottery", "code": "TEST", "country": "CO"}),
+        ("put", "/api/v1/lotteries/1", {"name": "Updated Lottery"}),
+        ("delete", "/api/v1/lotteries/1", None),
+    ],
+)
 def test_only_admin_can_mutate_lotteries(role, method, path, json_body, monkeypatch):
     user = seed_user(f"{role}@example.com", role)
     called = False
@@ -122,10 +144,13 @@ def test_only_admin_can_mutate_lotteries(role, method, path, json_body, monkeypa
     assert called is False
 
 
-@pytest.mark.parametrize("method,path,json_body,expected_status", [
-    ("post", "/api/v1/lotteries", {"name": "Test Lottery", "code": "TEST", "country": "CO"}, 201),
-    ("put", "/api/v1/lotteries/1", {"name": "Updated Lottery"}, 200),
-])
+@pytest.mark.parametrize(
+    "method,path,json_body,expected_status",
+    [
+        ("post", "/api/v1/lotteries", {"name": "Test Lottery", "code": "TEST", "country": "CO"}, 201),
+        ("put", "/api/v1/lotteries/1", {"name": "Updated Lottery"}, 200),
+    ],
+)
 def test_admin_can_create_and_update_lotteries(method, path, json_body, expected_status, monkeypatch):
     user = seed_user("admin@example.com", "admin")
     called = False
