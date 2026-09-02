@@ -1,5 +1,6 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import require_admin
@@ -23,7 +24,10 @@ def list_lotteries(db: Session = Depends(get_db)):
 def get_lottery(lottery_id: int, db: Session = Depends(get_db)):
     lottery = db.get(Lottery, lottery_id)
     if lottery is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lottery not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Lottery not found",
+        )
     return lottery
 
 
@@ -35,12 +39,22 @@ def create_lottery(
 ):
     existing = db.scalar(select(Lottery).where(Lottery.code == payload.code))
     if existing is not None:
-        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Lottery code already exists")
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Lottery code already exists",
+        )
 
     lottery = Lottery(**payload.model_dump())
     db.add(lottery)
-    db.commit()
-    db.refresh(lottery)
+    try:
+        db.commit()
+        db.refresh(lottery)
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Lottery code already exists",
+        ) from exc
     return lottery
 
 
@@ -53,7 +67,10 @@ def update_lottery(
 ):
     lottery = db.get(Lottery, lottery_id)
     if lottery is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lottery not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Lottery not found",
+        )
 
     update_data = payload.model_dump(exclude_unset=True)
     if "code" in update_data:
@@ -63,13 +80,23 @@ def update_lottery(
             )
         )
         if existing is not None:
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="Lottery code already exists")
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Lottery code already exists",
+            )
 
     for field, value in update_data.items():
         setattr(lottery, field, value)
 
-    db.commit()
-    db.refresh(lottery)
+    try:
+        db.commit()
+        db.refresh(lottery)
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Lottery code already exists",
+        ) from exc
     return lottery
 
 
@@ -81,7 +108,17 @@ def delete_lottery(
 ):
     lottery = db.get(Lottery, lottery_id)
     if lottery is None:
-        raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lottery not found")
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Lottery not found",
+        )
 
     db.delete(lottery)
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError as exc:
+        db.rollback()
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Lottery could not be deleted",
+        ) from exc
