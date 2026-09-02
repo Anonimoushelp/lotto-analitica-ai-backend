@@ -1,9 +1,15 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import jwt
 
-from app.core.security import ALGORITHM, create_access_token, decode_access_token, hash_password, verify_password
 from app.core.config import settings
+from app.core.security import (
+    ALGORITHM,
+    create_access_token,
+    decode_access_token,
+    hash_password,
+    verify_password,
+)
 
 
 def test_password_is_hashed_and_verifies():
@@ -22,7 +28,7 @@ def test_access_token_contains_required_claims():
     assert payload["sub"] == "123"
     assert payload["role"] == "admin"
     assert payload["type"] == "access"
-    assert datetime.fromtimestamp(payload["exp"], tz=timezone.utc) > datetime.now(timezone.utc)
+    assert datetime.fromtimestamp(payload["exp"], tz=UTC) > datetime.now(UTC)
 
 
 def test_access_token_rejects_wrong_secret():
