@@ -14,7 +14,7 @@ jobs:
     runs-on: ubuntu-latest
 
     env:
-      DATABASE_URL: postgresql://ci:ci@localhost:5432/ci
+      DATABASE_URL: postgresql+psycopg://ci:ci@localhost:5432/ci
       SECRET_KEY: ci-test-secret
       ENVIRONMENT: test
 
