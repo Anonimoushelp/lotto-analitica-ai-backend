@@ -5,6 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from starlette.middleware.base import BaseHTTPMiddleware
 
+from app.api.routes.auth import router as auth_router
 from app.api.routes.lotteries import router as lotteries_router
 from app.api.routes.lottery_draws import router as lottery_draws_router
 from app.core.config import settings
@@ -49,38 +50,19 @@ if settings.cors_allowed_origins:
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
     logger.exception("Unhandled application exception on %s %s", request.method, request.url.path)
-
-    detail = "Internal server error"
-    if is_development:
-        detail = "Internal server error"
-
-    return JSONResponse(
-        status_code=500,
-        content={"detail": detail},
-    )
+    return JSONResponse(status_code=500, content={"detail": "Internal server error"})
 
 
 @app.get("/")
 def root():
-    return {
-        "app": "Lotto Analítica AI",
-        "version": "0.1.0",
-        "status": "online",
-    }
+    return {"app": "Lotto Analítica AI", "version": "0.1.0", "status": "online"}
 
 
 @app.get("/health")
 def health():
-    return {
-        "status": "healthy",
-        "service": "Lotto Analítica AI",
-    }
+    return {"status": "healthy", "service": "Lotto Analítica AI"}
 
 
-app.include_router(
-    lotteries_router,
-)
-
-app.include_router(
-    lottery_draws_router,
-)
+app.include_router(auth_router)
+app.include_router(lotteries_router)
+app.include_router(lottery_draws_router)
