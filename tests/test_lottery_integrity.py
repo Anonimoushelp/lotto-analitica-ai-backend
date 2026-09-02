@@ -5,12 +5,17 @@ from fastapi import HTTPException
 from sqlalchemy import create_engine, delete
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
 from app.models.lottery import Lottery
 from app.repositories.lottery_repository import LotteryRepository
 from app.services.lottery_service import LotteryService
 
-engine = create_engine("sqlite://")
+engine = create_engine(
+    "sqlite://",
+    connect_args={"check_same_thread": False},
+    poolclass=StaticPool,
+)
 TestingSessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 Lottery.__table__.create(bind=engine)
 
