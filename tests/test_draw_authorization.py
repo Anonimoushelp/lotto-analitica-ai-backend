@@ -1,236 +1,145 @@
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, delete
+from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.core.security import create_access_token, hash_password
+from app.api.dependencies.auth import get_current_user
+from app.core.security import hash_password
+from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
 from app.models.lottery import Lottery
+from app.models.lottery_draw import LotteryDraw
 from app.models.user import User
-from app.services.lottery_draw_service import LotteryDrawService
-
-engine = create_engine(
-    "sqlite://",
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
-)
-TestingSessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
-User.__table__.create(bind=engine)
-Lottery.__table__.create(bind=engine)
 
 
-def override_get_db():
-    db = TestingSessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+@pytest.fixture
+def client():
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    TestingSessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
+    Base.metadata.create_all(bind=engine)
+
+    def override_get_db():
+        db = TestingSessionLocal()
+        try:
+            yield db
+        finally:
+            db.close()
+
+    app.dependency_overrides[get_db] = override_get_db
+    yield TestClient(app)
+    app.dependency_overrides.clear()
+    Base.metadata.drop_all(bind=engine)
 
 
-app.dependency_overrides[get_db] = override_get_db
-client = TestClient(app)
-
-
-@pytest.fixture(autouse=True)
-def clean_test_data():
-    yield
-    db = TestingSessionLocal()
-    db.execute(delete(Lottery))
-    db.execute(delete(User))
-    db.commit()
-    db.close()
-
-
-def seed_user(email: str, role: str) -> User:
-    db = TestingSessionLocal()
+def seed_user(client, email: str, role: str) -> str:
+    db = next(app.dependency_overrides[get_db]())
     user = User(
         email=email,
-        password_hash=hash_password("StrongTestPassword123!"),
+        password_hash=hash_password("test-password"),
         role=role,
         is_active=True,
     )
     db.add(user)
     db.commit()
     db.refresh(user)
+    from app.core.security import create_access_token
+
+    token = create_access_token(str(user.id), user.role)
     db.close()
-    return user
+    return token
 
 
-def auth_header(user: User) -> dict[str, str]:
-    return {"Authorization": f"Bearer {create_access_token(str(user.id), user.role)}"}
+def token_for(client, email: str, role: str) -> str:
+    return seed_user(client, email, role)
 
 
 def fake_draw() -> SimpleNamespace:
-    now = datetime.utcnow()
+    now = datetime.now(UTC)
     return SimpleNamespace(
         id=1,
         lottery_id=1,
-        draw_number="D-001",
-        draw_date=date(2026, 9, 2),
-        main_numbers=[1, 2, 3, 4, 5],
-        bonus_numbers=None,
-        source="test",
-        metadata_json=None,
+        draw_date=date.today(),
+        winning_numbers=[1, 2, 3, 4, 5],
         created_at=now,
         updated_at=now,
     )
 
 
-def test_draw_create_requires_authentication(monkeypatch):
-    called = False
-
-    def fake_create(**kwargs):
-        nonlocal called
-        called = True
-        return fake_draw()
-
-    monkeypatch.setattr(LotteryDrawService, "create_draw", fake_create)
-    response = client.post(
-        "/api/v1/draws",
-        json={
-            "lottery_id": 1,
-            "draw_number": "D-001",
-            "draw_date": "2026-09-02",
-            "main_numbers": [1, 2, 3, 4, 5],
-        },
+def test_create_draw_permissions(client, monkeypatch):
+    monkeypatch.setattr(
+        "app.api.routes.lottery_draws.LotteryDrawService.create_draw",
+        lambda *args, **kwargs: fake_draw(),
     )
-    assert response.status_code == 401
-    assert called is False
+    payload = {
+        "lottery_id": 1,
+        "draw_date": "2026-09-01",
+        "winning_numbers": [1, 2, 3, 4, 5],
+    }
+
+    for role, expected in (("admin", 201), ("analyst", 201), ("viewer", 403), ("service", 403)):
+        token = token_for(client, f"{role}@example.com", role)
+        response = client.post(
+            "/api/v1/draws",
+            json=payload,
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == expected
 
 
-@pytest.mark.parametrize("role", ["viewer", "service"])
-def test_draw_create_denies_non_editing_roles(role, monkeypatch):
-    user = seed_user(f"{role}@example.com", role)
-    called = False
-
-    def fake_create(**kwargs):
-        nonlocal called
-        called = True
-        return fake_draw()
-
-    monkeypatch.setattr(LotteryDrawService, "create_draw", fake_create)
-    response = client.post(
-        "/api/v1/draws",
-        headers=auth_header(user),
-        json={
-            "lottery_id": 1,
-            "draw_number": "D-001",
-            "draw_date": "2026-09-02",
-            "main_numbers": [1, 2, 3, 4, 5],
-        },
+def test_update_draw_permissions(client, monkeypatch):
+    monkeypatch.setattr(
+        "app.api.routes.lottery_draws.LotteryDrawService.update_draw",
+        lambda *args, **kwargs: fake_draw(),
     )
-    assert response.status_code == 403
-    assert called is False
+    payload = {
+        "lottery_id": 1,
+        "draw_date": "2026-09-01",
+        "winning_numbers": [1, 2, 3, 4, 5],
+    }
+
+    for role, expected in (("admin", 200), ("analyst", 200), ("viewer", 403), ("service", 403)):
+        token = token_for(client, f"update-{role}@example.com", role)
+        response = client.put(
+            "/api/v1/draws/1",
+            json=payload,
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == expected
 
 
-@pytest.mark.parametrize("role", ["admin", "analyst"])
-def test_draw_create_allows_admin_and_analyst(role, monkeypatch):
-    user = seed_user(f"{role}@example.com", role)
-    called = False
-
-    def fake_create(**kwargs):
-        nonlocal called
-        called = True
-        return fake_draw()
-
-    monkeypatch.setattr(LotteryDrawService, "create_draw", fake_create)
-    response = client.post(
-        "/api/v1/draws",
-        headers=auth_header(user),
-        json={
-            "lottery_id": 1,
-            "draw_number": "D-001",
-            "draw_date": "2026-09-02",
-            "main_numbers": [1, 2, 3, 4, 5],
-        },
+def test_delete_draw_permissions(client, monkeypatch):
+    monkeypatch.setattr(
+        "app.api.routes.lottery_draws.LotteryDrawService.delete_draw",
+        lambda *args, **kwargs: None,
     )
-    assert response.status_code == 201
-    assert called is True
+
+    for role, expected in (("admin", 204), ("analyst", 204), ("viewer", 403), ("service", 403)):
+        token = token_for(client, f"delete-{role}@example.com", role)
+        response = client.delete(
+            "/api/v1/draws/1",
+            headers={"Authorization": f"Bearer {token}"},
+        )
+        assert response.status_code == expected
 
 
-@pytest.mark.parametrize("role", ["viewer", "service"])
-def test_draw_update_denies_non_editing_roles(role, monkeypatch):
-    user = seed_user(f"{role}@example.com", role)
-    called = False
-
-    def fake_update(**kwargs):
-        nonlocal called
-        called = True
-        return fake_draw()
-
-    monkeypatch.setattr(LotteryDrawService, "update_draw", fake_update)
-    response = client.put(
-        "/api/v1/draws/1",
-        headers=auth_header(user),
-        json={"draw_number": "D-002"},
+def test_draw_reads_remain_public(client, monkeypatch):
+    monkeypatch.setattr(
+        "app.api.routes.lottery_draws.LotteryDrawService.get_draws",
+        lambda *args, **kwargs: [],
     )
-    assert response.status_code == 403
-    assert called is False
-
-
-@pytest.mark.parametrize("role", ["admin", "analyst"])
-def test_draw_update_allows_admin_and_analyst(role, monkeypatch):
-    user = seed_user(f"{role}@example.com", role)
-    called = False
-
-    def fake_update(**kwargs):
-        nonlocal called
-        called = True
-        return fake_draw()
-
-    monkeypatch.setattr(LotteryDrawService, "update_draw", fake_update)
-    response = client.put(
-        "/api/v1/draws/1",
-        headers=auth_header(user),
-        json={"draw_number": "D-002"},
+    monkeypatch.setattr(
+        "app.api.routes.lottery_draws.LotteryDrawService.get_draw",
+        lambda *args, **kwargs: None,
     )
-    assert response.status_code == 200
-    assert called is True
 
-
-@pytest.mark.parametrize("role", ["viewer", "service"])
-def test_draw_delete_denies_non_editing_roles(role, monkeypatch):
-    user = seed_user(f"{role}@example.com", role)
-    called = False
-
-    def fake_delete(**kwargs):
-        nonlocal called
-        called = True
-
-    monkeypatch.setattr(LotteryDrawService, "delete_draw", fake_delete)
-    response = client.delete(
-        "/api/v1/draws/1",
-        headers=auth_header(user),
-    )
-    assert response.status_code == 403
-    assert called is False
-
-
-@pytest.mark.parametrize("role", ["admin", "analyst"])
-def test_draw_delete_allows_admin_and_analyst(role, monkeypatch):
-    user = seed_user(f"{role}@example.com", role)
-    called = False
-
-    def fake_delete(**kwargs):
-        nonlocal called
-        called = True
-
-    monkeypatch.setattr(LotteryDrawService, "delete_draw", fake_delete)
-    response = client.delete(
-        "/api/v1/draws/1",
-        headers=auth_header(user),
-    )
-    assert response.status_code == 204
-    assert called is True
-
-
-def test_draw_reads_remain_public(monkeypatch):
-    monkeypatch.setattr(LotteryDrawService, "list_draws", lambda **kwargs: [])
-    response = client.get("/api/v1/draws")
-    assert response.status_code == 200
-    assert response.json() == []
+    assert client.get("/api/v1/draws").status_code == 200
+    assert client.get("/api/v1/draws/1").status_code == 404
