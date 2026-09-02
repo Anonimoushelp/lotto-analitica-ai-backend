@@ -1,7 +1,10 @@
+import asyncio
+
+from fastapi import Request
 from fastapi.testclient import TestClient
 
 from app.core.config import settings
-from app.main import app
+from app.main import app, unhandled_exception_handler
 
 client = TestClient(app)
 
@@ -33,6 +36,28 @@ def test_root_does_not_expose_environment():
         "version": "0.1.0",
         "status": "online",
     }
+
+
+def test_unhandled_exception_handler_hides_internal_error_details():
+    scope = {
+        "type": "http",
+        "method": "GET",
+        "path": "/internal-test",
+        "headers": [],
+        "query_string": b"",
+        "server": ("testserver", 80),
+        "client": ("testclient", 50000),
+        "scheme": "http",
+    }
+    request = Request(scope)
+
+    response = asyncio.run(
+        unhandled_exception_handler(request, RuntimeError("secret internal detail"))
+    )
+
+    assert response.status_code == 500
+    assert response.body == b'{"detail":"Internal server error"}'
+    assert b"secret internal detail" not in response.body
 
 
 def test_openapi_documentation_matches_environment():
