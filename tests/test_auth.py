@@ -1,7 +1,7 @@
 from datetime import UTC, datetime, timedelta
 
-import jwt
 from fastapi.testclient import TestClient
+import jwt
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -11,7 +11,7 @@ from app.core.security import ALGORITHM, create_access_token, hash_password
 from app.db.base import Base
 from app.db.session import get_db
 from app.main import app
-from app.models import LotteryDraw
+from app.models.lottery_draw import LotteryDraw  # noqa: F401
 from app.models.user import User
 
 
