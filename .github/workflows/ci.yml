@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - feat/m23-dwh-final
   pull_request:
     branches:
       - main
