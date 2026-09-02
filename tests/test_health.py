@@ -1,5 +1,6 @@
 from fastapi.testclient import TestClient
 
+from app.core.config import settings
 from app.main import app
 
 client = TestClient(app)
@@ -23,7 +24,19 @@ def test_security_headers():
     )
 
 
-def test_openapi_docs_available_in_development():
+def test_openapi_documentation_matches_environment():
     response = client.get("/docs")
 
-    assert response.status_code == 200
+    if settings.environment.lower() == "development":
+        assert response.status_code == 200
+    else:
+        assert response.status_code == 404
+
+
+def test_openapi_json_matches_environment():
+    response = client.get("/openapi.json")
+
+    if settings.environment.lower() == "development":
+        assert response.status_code == 200
+    else:
+        assert response.status_code == 404
