@@ -1,3 +1,5 @@
+import logging
+
 import redis
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select, text
@@ -10,6 +12,8 @@ from app.core.security import create_access_token, hash_password, verify_passwor
 from app.db.session import get_db
 from app.models.user import User
 from app.schemas.user import LoginRequest, TokenResponse, UserCreate, UserResponse
+
+logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/api/v1/auth", tags=["Authentication"])
 
@@ -27,6 +31,7 @@ def login(
         allowed = login_rate_limiter.allow(email, client_ip)
     except redis.RedisError:
         if settings.environment == "production":
+            logger.error("auth.login.rate_limiter_unavailable")
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Authentication service temporarily unavailable",
@@ -34,6 +39,7 @@ def login(
         allowed = True
 
     if not allowed:
+        logger.warning("auth.login.rate_limited")
         raise HTTPException(
             status_code=status.HTTP_429_TOO_MANY_REQUESTS,
             detail="Too many login attempts. Try again later.",
@@ -44,6 +50,7 @@ def login(
     if user is None or not user.is_active or not verify_password(
         payload.password, user.password_hash
     ):
+        logger.warning("auth.login.failure reason=invalid_credentials")
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid credentials",
@@ -54,11 +61,13 @@ def login(
         login_rate_limiter.reset(email, client_ip)
     except redis.RedisError:
         if settings.environment == "production":
+            logger.error("auth.login.rate_limiter_unavailable")
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 detail="Authentication service temporarily unavailable",
             ) from None
 
+    logger.info("auth.login.success user_id=%s", user.id)
     return TokenResponse(access_token=create_access_token(str(user.id), user.role))
 
 
