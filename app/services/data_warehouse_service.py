@@ -1,5 +1,5 @@
 from collections import Counter
-from datetime import UTC, date, datetime
+from datetime import UTC, datetime
 
 from sqlalchemy import func
 from sqlalchemy.orm import Session
@@ -82,11 +82,14 @@ class DataWarehouseService:
             for draw in lottery_draws:
                 for number in draw.main_numbers or []:
                     frequency[str(number)] += 1
+            sorted_frequency = dict(
+                sorted(frequency.items(), key=lambda item: int(item[0]))
+            )
             rows.append(
                 OlapQueryRow(
                     lottery_id=lottery_id,
                     draw_count=len(lottery_draws),
-                    number_frequency=dict(sorted(frequency.items(), key=lambda item: int(item[0]))),
+                    number_frequency=sorted_frequency,
                 )
             )
 
