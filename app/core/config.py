@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     database_url: str
     redis_url: str = "redis://localhost:6379/0"
 
-    secret_key: str
+    secret_key: str = Field(min_length=32)
     allow_initial_registration: bool = False
     cors_allowed_origins: list[str] = Field(default_factory=list)
 
