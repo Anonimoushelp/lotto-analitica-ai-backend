@@ -17,7 +17,7 @@ class Settings(BaseSettings):
 
     @model_validator(mode="after")
     def validate_security_settings(self) -> "Settings":
-        if self.environment == "development":
+        if self.environment != "production":
             if not self.cors_allowed_origins:
                 self.cors_allowed_origins = [
                     "http://localhost:3000",
