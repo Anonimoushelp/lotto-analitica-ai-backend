@@ -1,3 +1,5 @@
+from urllib.parse import parse_qs, urlparse
+
 from pydantic import Field, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -53,6 +55,14 @@ class Settings(BaseSettings):
                 raise ValueError(
                     "DATABASE_URL must use PostgreSQL in production"
                 )
+
+            database_query = parse_qs(urlparse(self.database_url).query)
+            sslmode = database_query.get("sslmode", [""])[0].lower()
+            if sslmode not in {"require", "verify-ca", "verify-full"}:
+                raise ValueError(
+                    "DATABASE_URL must require PostgreSQL TLS in production"
+                )
+
             if self.allow_initial_registration:
                 raise ValueError(
                     "ALLOW_INITIAL_REGISTRATION must be false in production"
