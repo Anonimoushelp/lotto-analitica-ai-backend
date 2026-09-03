@@ -27,6 +27,12 @@ class Settings(BaseSettings):
     def validate_security_settings(self) -> "Settings":
         self.environment = self.environment.strip().lower()
 
+        allowed_environments = {"development", "test", "production"}
+        if self.environment not in allowed_environments:
+            raise ValueError(
+                "ENVIRONMENT must be one of: development, test, production"
+            )
+
         if self.environment != "production":
             if not self.cors_allowed_origins:
                 self.cors_allowed_origins = [
