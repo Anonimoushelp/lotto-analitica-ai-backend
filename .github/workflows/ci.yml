@@ -38,7 +38,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip
           pip install -r requirements.txt
-          pip install ruff pip-audit
+          pip install ruff==0.16.5 pip-audit==2.10.1
 
       - name: Verificar linting Ruff
         run: ruff check app tests
