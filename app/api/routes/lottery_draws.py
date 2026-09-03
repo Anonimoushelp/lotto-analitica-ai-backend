@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import require_admin_or_analyst
+from app.core.audit import log_mutation
 from app.db.session import get_db
 from app.schemas.lottery_draw import (
     LotteryDrawCreate,
@@ -45,9 +46,9 @@ def get_draw(draw_id: int, db: Session = Depends(get_db)):
 def create_draw(
     payload: LotteryDrawCreate,
     db: Session = Depends(get_db),
-    _: object = Depends(require_admin_or_analyst),
+    current_user=Depends(require_admin_or_analyst),
 ):
-    return LotteryDrawService.create_draw(
+    draw = LotteryDrawService.create_draw(
         db=db,
         lottery_id=payload.lottery_id,
         draw_number=payload.draw_number,
@@ -57,6 +58,13 @@ def create_draw(
         source=payload.source,
         metadata_json=payload.metadata_json,
     )
+    log_mutation(
+        action="create",
+        resource="draw",
+        resource_id=draw.id,
+        actor=current_user,
+    )
+    return draw
 
 
 @router.put("/{draw_id}", response_model=LotteryDrawResponse)
@@ -64,20 +72,33 @@ def update_draw(
     draw_id: int,
     payload: LotteryDrawUpdate,
     db: Session = Depends(get_db),
-    _: object = Depends(require_admin_or_analyst),
+    current_user=Depends(require_admin_or_analyst),
 ):
     update_data = payload.model_dump(exclude_unset=True)
-    return LotteryDrawService.update_draw(
+    draw = LotteryDrawService.update_draw(
         db=db,
         draw_id=draw_id,
         update_data=update_data,
     )
+    log_mutation(
+        action="update",
+        resource="draw",
+        resource_id=draw.id,
+        actor=current_user,
+    )
+    return draw
 
 
 @router.delete("/{draw_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_draw(
     draw_id: int,
     db: Session = Depends(get_db),
-    _: object = Depends(require_admin_or_analyst),
+    current_user=Depends(require_admin_or_analyst),
 ):
     LotteryDrawService.delete_draw(db=db, draw_id=draw_id)
+    log_mutation(
+        action="delete",
+        resource="draw",
+        resource_id=draw_id,
+        actor=current_user,
+    )
