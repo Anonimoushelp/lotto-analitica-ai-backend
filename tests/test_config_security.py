@@ -41,3 +41,13 @@ def test_mixed_case_production_requires_explicit_cors_and_trusted_hosts():
             environment="PRODUCTION",
             cors_allowed_origins=["https://api.example.com"],
         )
+
+
+def test_unknown_environment_value_fails_closed():
+    with pytest.raises(ValueError, match="ENVIRONMENT must be one of"):
+        _settings(environment="prod")
+
+
+def test_supported_non_production_environments_are_accepted():
+    assert _settings(environment="development").environment == "development"
+    assert _settings(environment="test").environment == "test"
