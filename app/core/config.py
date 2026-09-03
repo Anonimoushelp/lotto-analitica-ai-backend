@@ -49,6 +49,10 @@ class Settings(BaseSettings):
                 ]
 
         if self.environment == "production":
+            if not self.database_url.startswith("postgresql"):
+                raise ValueError(
+                    "DATABASE_URL must use PostgreSQL in production"
+                )
             if self.allow_initial_registration:
                 raise ValueError(
                     "ALLOW_INITIAL_REGISTRATION must be false in production"
