@@ -1,7 +1,4 @@
-from pathlib import Path
-
-
-REQUIREMENTS = Path("requirements.txt").read_text(encoding="utf-8")
+REQUIREMENTS = open("requirements.txt", encoding="utf-8").read()
 
 
 def test_unused_runtime_dependency_groups_are_not_declared():
