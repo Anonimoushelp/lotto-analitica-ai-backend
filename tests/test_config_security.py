@@ -16,6 +16,7 @@ def test_production_environment_is_normalized_before_security_checks():
     configured = _settings(
         environment="  PrOdUcTiOn  ",
         database_url="postgresql://user:password@localhost:5432/lotto?sslmode=require",
+        redis_url="rediss://localhost:6379/0",
         cors_allowed_origins=["https://api.example.com"],
         trusted_hosts=["api.example.com"],
     )
@@ -28,6 +29,7 @@ def test_mixed_case_production_still_rejects_initial_registration():
         _settings(
             environment="Production",
             database_url="postgresql://user:password@localhost:5432/lotto?sslmode=require",
+            redis_url="rediss://localhost:6379/0",
             allow_initial_registration=True,
             cors_allowed_origins=["https://api.example.com"],
             trusted_hosts=["api.example.com"],
@@ -39,12 +41,14 @@ def test_mixed_case_production_requires_explicit_cors_and_trusted_hosts():
         _settings(
             environment="PRODUCTION",
             database_url="postgresql://user:password@localhost:5432/lotto?sslmode=require",
+            redis_url="rediss://localhost:6379/0",
         )
 
     with pytest.raises(ValueError, match="TRUSTED_HOSTS"):
         _settings(
             environment="PRODUCTION",
             database_url="postgresql://user:password@localhost:5432/lotto?sslmode=require",
+            redis_url="rediss://localhost:6379/0",
             cors_allowed_origins=["https://api.example.com"],
         )
 
@@ -59,6 +63,7 @@ def test_production_requires_encrypted_postgresql_connection():
         _settings(
             environment="production",
             database_url="postgresql://user:password@localhost:5432/lotto",
+            redis_url="rediss://localhost:6379/0",
             cors_allowed_origins=["https://api.example.com"],
             trusted_hosts=["api.example.com"],
         )
@@ -72,6 +77,7 @@ def test_production_accepts_supported_postgresql_tls_modes():
                 "postgresql://user:password@localhost:5432/lotto"
                 f"?sslmode={sslmode}"
             ),
+            redis_url="rediss://localhost:6379/0",
             cors_allowed_origins=["https://api.example.com"],
             trusted_hosts=["api.example.com"],
         )
@@ -85,9 +91,33 @@ def test_production_rejects_non_tls_postgresql_sslmode():
             database_url=(
                 "postgresql://user:password@localhost:5432/lotto?sslmode=disable"
             ),
+            redis_url="rediss://localhost:6379/0",
             cors_allowed_origins=["https://api.example.com"],
             trusted_hosts=["api.example.com"],
         )
+
+
+def test_production_requires_encrypted_redis_connection():
+    with pytest.raises(ValueError, match="REDIS_URL must use TLS"):
+        _settings(
+            environment="production",
+            database_url="postgresql://user:password@localhost:5432/lotto?sslmode=require",
+            redis_url="redis://localhost:6379/0",
+            cors_allowed_origins=["https://api.example.com"],
+            trusted_hosts=["api.example.com"],
+        )
+
+
+def test_production_accepts_tls_redis_connection():
+    configured = _settings(
+        environment="production",
+        database_url="postgresql://user:password@localhost:5432/lotto?sslmode=require",
+        redis_url="rediss://redis.example.com:6379/0",
+        cors_allowed_origins=["https://api.example.com"],
+        trusted_hosts=["api.example.com"],
+    )
+
+    assert configured.redis_url.startswith("rediss://")
 
 
 def test_supported_non_production_environments_are_accepted():
