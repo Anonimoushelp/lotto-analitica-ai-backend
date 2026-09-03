@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import require_admin
+from app.core.audit import log_mutation
 from app.db.session import get_db
 from app.schemas.lottery import LotteryCreate, LotteryResponse, LotteryUpdate
 from app.services.lottery_service import LotteryService
@@ -26,12 +27,19 @@ def get_lottery(lottery_id: int, db: Session = Depends(get_db)):
 def create_lottery(
     payload: LotteryCreate,
     db: Session = Depends(get_db),
-    _: object = Depends(require_admin),
+    current_user=Depends(require_admin),
 ):
-    return LotteryService.create_lottery(
+    lottery = LotteryService.create_lottery(
         db=db,
         payload=payload.model_dump(),
     )
+    log_mutation(
+        action="create",
+        resource="lottery",
+        resource_id=lottery.id,
+        actor=current_user,
+    )
+    return lottery
 
 
 @router.put("/{lottery_id}", response_model=LotteryResponse)
@@ -39,19 +47,32 @@ def update_lottery(
     lottery_id: int,
     payload: LotteryUpdate,
     db: Session = Depends(get_db),
-    _: object = Depends(require_admin),
+    current_user=Depends(require_admin),
 ):
-    return LotteryService.update_lottery(
+    lottery = LotteryService.update_lottery(
         db=db,
         lottery_id=lottery_id,
         update_data=payload.model_dump(exclude_unset=True),
     )
+    log_mutation(
+        action="update",
+        resource="lottery",
+        resource_id=lottery.id,
+        actor=current_user,
+    )
+    return lottery
 
 
 @router.delete("/{lottery_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_lottery(
     lottery_id: int,
     db: Session = Depends(get_db),
-    _: object = Depends(require_admin),
+    current_user=Depends(require_admin),
 ):
     LotteryService.delete_lottery(db=db, lottery_id=lottery_id)
+    log_mutation(
+        action="delete",
+        resource="lottery",
+        resource_id=lottery_id,
+        actor=current_user,
+    )
