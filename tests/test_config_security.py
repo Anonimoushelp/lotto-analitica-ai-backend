@@ -15,7 +15,7 @@ def _settings(**overrides: object) -> Settings:
 def test_production_environment_is_normalized_before_security_checks():
     configured = _settings(
         environment="  PrOdUcTiOn  ",
-        database_url="postgresql://user:password@localhost:5432/lotto",
+        database_url="postgresql://user:password@localhost:5432/lotto?sslmode=require",
         cors_allowed_origins=["https://api.example.com"],
         trusted_hosts=["api.example.com"],
     )
@@ -27,7 +27,7 @@ def test_mixed_case_production_still_rejects_initial_registration():
     with pytest.raises(ValueError, match="ALLOW_INITIAL_REGISTRATION"):
         _settings(
             environment="Production",
-            database_url="postgresql://user:password@localhost:5432/lotto",
+            database_url="postgresql://user:password@localhost:5432/lotto?sslmode=require",
             allow_initial_registration=True,
             cors_allowed_origins=["https://api.example.com"],
             trusted_hosts=["api.example.com"],
@@ -38,13 +38,13 @@ def test_mixed_case_production_requires_explicit_cors_and_trusted_hosts():
     with pytest.raises(ValueError, match="CORS_ALLOWED_ORIGINS"):
         _settings(
             environment="PRODUCTION",
-            database_url="postgresql://user:password@localhost:5432/lotto",
+            database_url="postgresql://user:password@localhost:5432/lotto?sslmode=require",
         )
 
     with pytest.raises(ValueError, match="TRUSTED_HOSTS"):
         _settings(
             environment="PRODUCTION",
-            database_url="postgresql://user:password@localhost:5432/lotto",
+            database_url="postgresql://user:password@localhost:5432/lotto?sslmode=require",
             cors_allowed_origins=["https://api.example.com"],
         )
 
@@ -52,6 +52,42 @@ def test_mixed_case_production_requires_explicit_cors_and_trusted_hosts():
 def test_unknown_environment_value_fails_closed():
     with pytest.raises(ValueError, match="ENVIRONMENT must be one of"):
         _settings(environment="prod")
+
+
+def test_production_requires_encrypted_postgresql_connection():
+    with pytest.raises(ValueError, match="PostgreSQL TLS"):
+        _settings(
+            environment="production",
+            database_url="postgresql://user:password@localhost:5432/lotto",
+            cors_allowed_origins=["https://api.example.com"],
+            trusted_hosts=["api.example.com"],
+        )
+
+
+def test_production_accepts_supported_postgresql_tls_modes():
+    for sslmode in ("require", "verify-ca", "verify-full"):
+        configured = _settings(
+            environment="production",
+            database_url=(
+                "postgresql://user:password@localhost:5432/lotto"
+                f"?sslmode={sslmode}"
+            ),
+            cors_allowed_origins=["https://api.example.com"],
+            trusted_hosts=["api.example.com"],
+        )
+        assert configured.environment == "production"
+
+
+def test_production_rejects_non_tls_postgresql_sslmode():
+    with pytest.raises(ValueError, match="PostgreSQL TLS"):
+        _settings(
+            environment="production",
+            database_url=(
+                "postgresql://user:password@localhost:5432/lotto?sslmode=disable"
+            ),
+            cors_allowed_origins=["https://api.example.com"],
+            trusted_hosts=["api.example.com"],
+        )
 
 
 def test_supported_non_production_environments_are_accepted():
