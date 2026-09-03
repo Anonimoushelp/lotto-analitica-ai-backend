@@ -28,7 +28,7 @@ python-dotenv==1.2.2
 pwdlib[argon2]==0.3.1
 redis==8.1.0
 six==1.17.0
-SQLAlchemy==2.0.51
+SQLAlchemy==2.0.52
 starlette==1.6.0
 typing-inspection==0.4.2
 typing_extensions==4.16.0
