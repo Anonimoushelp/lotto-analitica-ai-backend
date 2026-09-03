@@ -63,6 +63,11 @@ class Settings(BaseSettings):
                     "DATABASE_URL must require PostgreSQL TLS in production"
                 )
 
+            if not self.redis_url.startswith("rediss://"):
+                raise ValueError(
+                    "REDIS_URL must use TLS in production"
+                )
+
             if self.allow_initial_registration:
                 raise ValueError(
                     "ALLOW_INITIAL_REGISTRATION must be false in production"
