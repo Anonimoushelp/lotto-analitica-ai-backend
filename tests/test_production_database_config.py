@@ -17,7 +17,7 @@ def test_production_requires_postgresql_database():
 
 def test_production_accepts_postgresql_database():
     settings = Settings(
-        database_url="postgresql+psycopg://user:password@db.example.com/lotto",
+        database_url="postgresql+psycopg://user:password@db.example.com/lotto?sslmode=require",
         secret_key="ci-test-secret-key-with-at-least-32-characters",
         environment="production",
         cors_allowed_origins=["https://app.example.com"],
