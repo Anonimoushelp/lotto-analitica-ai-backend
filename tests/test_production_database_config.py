@@ -10,6 +10,7 @@ def test_production_requires_postgresql_database():
             database_url="sqlite:///./production.db",
             secret_key="ci-test-secret-key-with-at-least-32-characters",
             environment="production",
+            redis_url="rediss://redis.example.com:6379/0",
             cors_allowed_origins=["https://app.example.com"],
             trusted_hosts=["api.example.com"],
         )
@@ -20,6 +21,7 @@ def test_production_accepts_postgresql_database():
         database_url="postgresql+psycopg://user:password@db.example.com/lotto?sslmode=require",
         secret_key="ci-test-secret-key-with-at-least-32-characters",
         environment="production",
+        redis_url="rediss://redis.example.com:6379/0",
         cors_allowed_origins=["https://app.example.com"],
         trusted_hosts=["api.example.com"],
     )
