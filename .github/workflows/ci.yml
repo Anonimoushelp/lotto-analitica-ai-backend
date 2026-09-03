@@ -15,6 +15,7 @@ jobs:
   test:
     name: Tests
     runs-on: ubuntu-latest
+    timeout-minutes: 10
 
     env:
       DATABASE_URL: postgresql+psycopg://ci:ci@localhost:5432/ci
