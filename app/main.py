@@ -12,6 +12,8 @@ from starlette.middleware.trustedhost import TrustedHostMiddleware
 from app.api.routes.auth import router as auth_router
 from app.api.routes.lotteries import router as lotteries_router
 from app.api.routes.lottery_draws import router as lottery_draws_router
+from app.api.routes.predictions import router as predictions_router
+from app.api.routes.statistics import router as statistics_router
 from app.core.config import settings
 from app.core.rate_limit import login_rate_limiter
 from app.db.session import get_db
@@ -99,3 +101,5 @@ def health(db: Session = Depends(get_db)):
 app.include_router(auth_router)
 app.include_router(lotteries_router)
 app.include_router(lottery_draws_router)
+app.include_router(statistics_router)
+app.include_router(predictions_router)
