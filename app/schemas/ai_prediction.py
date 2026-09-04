@@ -3,6 +3,14 @@ from typing import Literal
 from pydantic import BaseModel, ConfigDict, Field
 
 
+class ModelStatusResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
+    model_name: str
+    version: str
+    status: Literal["INITIALIZED", "TRAINING", "IDLE", "UNAVAILABLE"]
+
+
 class AiPredictionRequest(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
@@ -61,11 +69,3 @@ class AiPredictionResponse(BaseModel):
     predictions: list[AiPredictionItem]
     insights: list[AiPatternInsight]
     model_status: ModelStatusResponse
-
-
-class ModelStatusResponse(BaseModel):
-    model_config = ConfigDict(extra="forbid")
-
-    model_name: str
-    version: str
-    status: Literal["INITIALIZED", "TRAINING", "IDLE", "UNAVAILABLE"]
