@@ -42,7 +42,7 @@ class AiPatternInsight(BaseModel):
 
     id: str
     pattern_name: str
-    category: Literal["Frecuencia", "Mora", "Dispersión", "Anomalía"]
+    category: Literal["Frecuencia", "Mora", "Dispersión", "Anomalía", "IA"]
     weight_percentage: float
     status: Literal["Detectado", "En Observación", "Inactivo"]
     description: str
