@@ -15,7 +15,7 @@ def validate_predictions(value: object, expected_count: int) -> bool:
         if (
             not isinstance(numbers, list)
             or len(numbers) != 5
-            or any(not isinstance(number, int) for number in numbers)
+            or any(not isinstance(number, int) or not 1 <= number <= 1000 for number in numbers)
             or len(set(numbers)) != 5
             or not isinstance(confidence, (int, float))
             or not 0 <= confidence <= 100
