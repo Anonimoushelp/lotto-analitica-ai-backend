@@ -1,7 +1,9 @@
 from fastapi.testclient import TestClient
+from pydantic import ValidationError
 
 from app.core.config import settings
 from app.main import app
+from app.schemas.ai_prediction import AiPatternInsight, AiPredictionRequest
 from app.services.gemini_validator import validate_predictions
 from app.services.statistical_service import StatisticalService
 
@@ -77,3 +79,29 @@ def test_gemini_validator_rejects_out_of_range_numbers():
     assert validate_predictions(valid, expected_count=1) is True
     assert validate_predictions(invalid_low, expected_count=1) is False
     assert validate_predictions(invalid_high, expected_count=1) is False
+
+
+def test_ai_pattern_insight_accepts_ai_category():
+    insight = AiPatternInsight(
+        id="ins-gemini",
+        pattern_name="Análisis de patrones con Gemini",
+        category="IA",
+        weight_percentage=100.0,
+        status="Detectado",
+        description="Structured AI insight",
+    )
+
+    assert insight.category == "IA"
+
+
+def test_ai_prediction_request_rejects_out_of_bounds_parameters():
+    for field, value in (
+        ("lottery_id", 0),
+        ("prediction_count", 11),
+        ("temperature", 0.0),
+        ("temperature", 1.1),
+        ("min_confidence_threshold", 49),
+        ("min_confidence_threshold", 96),
+    ):
+        with pytest.raises(ValidationError):
+            AiPredictionRequest(**{"lottery_id": 1, field: value})
