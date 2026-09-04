@@ -1,6 +1,12 @@
-from fastapi import APIRouter
+from fastapi import APIRouter, Depends
+from sqlalchemy.orm import Session
 
-from app.schemas.prediction import ModelStatusResponse
+from app.db.session import get_db
+from app.schemas.ai_prediction import (
+    AiPredictionRequest,
+    AiPredictionResponse,
+    ModelStatusResponse,
+)
 from app.services.prediction_service import PredictionService
 
 router = APIRouter(
@@ -12,3 +18,11 @@ router = APIRouter(
 @router.get("/model-status", response_model=ModelStatusResponse)
 def get_model_status():
     return PredictionService.model_status()
+
+
+@router.post("", response_model=AiPredictionResponse)
+def generate_predictions(
+    payload: AiPredictionRequest,
+    db: Session = Depends(get_db),
+):
+    return PredictionService.generate(db=db, payload=payload)
