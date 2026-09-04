@@ -17,6 +17,21 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
 
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: ci
+          POSTGRES_PASSWORD: ci
+          POSTGRES_DB: ci
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U ci -d ci"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     env:
       DATABASE_URL: postgresql+psycopg://ci:ci@localhost:5432/ci
       SECRET_KEY: ci-test-secret-key-with-at-least-32-characters
@@ -48,6 +63,13 @@ jobs:
 
       - name: Verificar sintaxis Python
         run: python -m compileall -q app tests
+
+      - name: Verificar migraciones Alembic
+        run: |
+          alembic upgrade head
+          alembic downgrade base
+          alembic upgrade head
+          test "$(alembic current | tail -n 1 | tr -d '[:space:]')" = "(head)"
 
       - name: Ejecutar pruebas
         run: pytest -q
