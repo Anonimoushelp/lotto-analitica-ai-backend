@@ -1,7 +1,7 @@
 from datetime import UTC, date, datetime
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import Date, DateTime, ForeignKey, Index, String, UniqueConstraint
+from sqlalchemy import Date, DateTime, ForeignKey, Index, JSON, String, UniqueConstraint
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -9,6 +9,9 @@ from app.db.base import Base
 
 if TYPE_CHECKING:
     from app.models.lottery import Lottery
+
+
+DRAW_JSON_TYPE = JSON().with_variant(JSONB, "postgresql")
 
 
 class LotteryDraw(Base):
@@ -53,12 +56,12 @@ class LotteryDraw(Base):
     )
 
     main_numbers: Mapped[list[int]] = mapped_column(
-        JSONB,
+        DRAW_JSON_TYPE,
         nullable=False,
     )
 
     bonus_numbers: Mapped[list[int] | None] = mapped_column(
-        JSONB,
+        DRAW_JSON_TYPE,
         nullable=True,
     )
 
@@ -68,7 +71,7 @@ class LotteryDraw(Base):
     )
 
     metadata_json: Mapped[dict[str, Any] | None] = mapped_column(
-        JSONB,
+        DRAW_JSON_TYPE,
         nullable=True,
     )
 
