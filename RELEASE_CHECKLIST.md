@@ -11,13 +11,20 @@
 - [ ] Migraciones Alembic verificadas con upgrade/downgrade/upgrade en CI.
 - [ ] Compatibilidad aplicación-esquema revisada.
 - [ ] Backup PostgreSQL disponible y restauración verificable según el checklist de producción.
+- [ ] Si el cambio introduce datos personales: propósito, acceso, retención, eliminación/anonimización, logging y efecto en backups documentados.
 
 ## Después del despliegue
 
 - [ ] `/health` responde correctamente.
 - [ ] Readiness de base de datos validada.
 - [ ] Rutas críticas verificadas.
-- [ ] Logs revisados sin exposición de secretos.
+- [ ] Logs revisados sin exposición de secretos o datos personales innecesarios.
+
+## Retención y privacidad
+
+- [ ] Revisar anualmente usuarios inactivos y aplicar eliminación/anonimización cuando ya no exista una necesidad legítima de conservación.
+- [ ] Confirmar que backups y registros de auditoría siguen una retención coherente con su finalidad.
+- [ ] No almacenar contraseñas, tokens, hashes de contraseña ni payloads con PII en logs.
 
 ## Si el despliegue falla
 
