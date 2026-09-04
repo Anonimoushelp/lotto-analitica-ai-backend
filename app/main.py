@@ -1,8 +1,11 @@
 import logging
 
-from fastapi import FastAPI, Request
+from fastapi import APIRouter, Depends, FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
+from sqlalchemy import text
+from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.orm import Session
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
@@ -10,6 +13,8 @@ from app.api.routes.auth import router as auth_router
 from app.api.routes.lotteries import router as lotteries_router
 from app.api.routes.lottery_draws import router as lottery_draws_router
 from app.core.config import settings
+from app.core.rate_limit import login_rate_limiter
+from app.db.session import get_db
 
 logger = logging.getLogger(__name__)
 
@@ -68,7 +73,26 @@ def root():
 
 
 @app.get("/health")
-def health():
+def health(db: Session = Depends(get_db)):
+    try:
+        db.execute(text("SELECT 1"))
+    except SQLAlchemyError:
+        logger.exception("Health check failed: PostgreSQL unavailable")
+        return JSONResponse(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            content={"status": "unhealthy", "service": "Lotto Analítica AI"},
+        )
+
+    if settings.environment.lower() == "production":
+        try:
+            login_rate_limiter.health_check()
+        except Exception:
+            logger.exception("Health check failed: Redis unavailable")
+            return JSONResponse(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                content={"status": "unhealthy", "service": "Lotto Analítica AI"},
+            )
+
     return {"status": "healthy", "service": "Lotto Analítica AI"}
 
 
