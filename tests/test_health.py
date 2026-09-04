@@ -2,6 +2,7 @@ import asyncio
 
 from fastapi import Request
 from fastapi.testclient import TestClient
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.config import settings
 from app.core.rate_limit import login_rate_limiter
@@ -21,10 +22,12 @@ def test_health():
 
 
 def test_health_reports_database_failure(monkeypatch):
-    def failing_db():
-        raise RuntimeError("database unavailable")
+    def failing_execute(*args, **kwargs):
+        raise SQLAlchemyError("database unavailable")
 
-    app.dependency_overrides[get_db] = failing_db
+    db = next(get_db())
+    monkeypatch.setattr(db, "execute", failing_execute)
+    app.dependency_overrides[get_db] = lambda: db
     try:
         response = client.get("/health")
         assert response.status_code == 503
@@ -34,6 +37,7 @@ def test_health_reports_database_failure(monkeypatch):
         }
     finally:
         app.dependency_overrides.clear()
+        db.close()
 
 
 def test_health_reports_redis_failure_in_production(monkeypatch):
