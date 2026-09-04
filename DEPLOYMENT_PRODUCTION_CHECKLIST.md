@@ -23,7 +23,7 @@
 
 ## Runtime checks
 
-- `/health` returns healthy only when the service is running; verify database readiness separately during deployment validation.
+- `/health` returns `healthy` only when the application and required runtime dependencies are healthy; in production this includes PostgreSQL and Redis availability.
 - Verify authentication, authorization, rate limiting, security headers, and production docs behavior after deployment.
 - Confirm logs contain no credentials, tokens, password hashes, or connection strings.
 
