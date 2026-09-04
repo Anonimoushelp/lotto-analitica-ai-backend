@@ -42,6 +42,9 @@ class LoginRateLimiter:
             )
         )
 
+    def health_check(self) -> None:
+        self._redis.ping()
+
     def allow(self, email: str, client_ip: str) -> bool:
         account_count = self._increment(self._key("account", email.lower()))
         ip_count = self._increment(self._key("ip", client_ip))
