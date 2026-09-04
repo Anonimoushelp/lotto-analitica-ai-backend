@@ -25,6 +25,7 @@ class MockResponse:
 
 class MockClient:
     response = None
+    last_request = None
 
     def __init__(self, *args, **kwargs):
         self.timeout = kwargs.get("timeout")
@@ -36,9 +37,7 @@ class MockClient:
         return False
 
     def post(self, url, *, headers, json):
-        self.url = url
-        self.headers = headers
-        self.body = json
+        type(self).last_request = {"url": url, "headers": headers, "body": json}
         return self.response
 
 
@@ -53,11 +52,9 @@ def test_gemini_client_requires_api_key(monkeypatch):
 
 
 def test_gemini_client_maps_timeout_to_504(monkeypatch):
-    MockClient.response = httpx.TimeoutException("timeout")
-
     class TimeoutClient(MockClient):
         def post(self, url, *, headers, json):
-            raise MockClient.response
+            raise httpx.TimeoutException("timeout")
 
     monkeypatch.setattr(settings, "gemini_api_key", "test-key")
     monkeypatch.setattr("app.services.gemini_client.httpx.Client", TimeoutClient)
@@ -114,7 +111,9 @@ def test_gemini_client_keeps_api_key_out_of_url_and_body(monkeypatch):
     monkeypatch.setattr("app.services.gemini_client.httpx.Client", MockClient)
 
     result = GeminiClient.generate_json("historical lottery prompt")
+    request = MockClient.last_request
 
     assert result == {"predictions": []}
-    assert secret not in MockClient().url if hasattr(MockClient(), "url") else True
-    assert secret not in json.dumps(MockClient.body) if hasattr(MockClient(), "body") else True
+    assert secret not in request["url"]
+    assert secret not in json.dumps(request["body"])
+    assert request["headers"]["x-goog-api-key"] == secret
