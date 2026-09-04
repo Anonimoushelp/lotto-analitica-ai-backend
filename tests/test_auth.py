@@ -1,4 +1,5 @@
 from datetime import UTC, datetime, timedelta
+from unittest.mock import patch
 
 import jwt
 import pytest
@@ -363,6 +364,65 @@ def test_initial_registration_always_creates_admin():
         assert "password_hash" not in response.json()
     finally:
         settings.allow_initial_registration = original
+
+
+def test_initial_registration_emits_safe_audit_event():
+    original = settings.allow_initial_registration
+    settings.allow_initial_registration = True
+    try:
+        with patch("app.api.routes.auth.log_mutation") as audit:
+            response = client.post(
+                "/api/v1/auth/register",
+                json={
+                    "email": "bootstrap-audit@example.com",
+                    "password": "StrongTestPassword123!",
+                    "role": "viewer",
+                },
+            )
+    finally:
+        settings.allow_initial_registration = original
+
+    assert response.status_code == 201
+    db = TestingSessionLocal()
+    user = db.scalar(select(User).where(User.email == "bootstrap-audit@example.com"))
+    db.close()
+    assert user is not None
+    audit.assert_called_once_with(
+        action="create",
+        resource="bootstrap_admin",
+        resource_id=user.id,
+        actor=user,
+    )
+    assert "bootstrap-audit@example.com" not in str(audit.call_args)
+    assert "StrongTestPassword123!" not in str(audit.call_args)
+
+
+def test_initial_registration_does_not_audit_rejected_second_user():
+    original = settings.allow_initial_registration
+    settings.allow_initial_registration = True
+    try:
+        first = client.post(
+            "/api/v1/auth/register",
+            json={
+                "email": "first-bootstrap@example.com",
+                "password": "StrongTestPassword123!",
+            },
+        )
+        assert first.status_code == 201
+
+        with patch("app.api.routes.auth.log_mutation") as audit:
+            response = client.post(
+                "/api/v1/auth/register",
+                json={
+                    "email": "second-bootstrap@example.com",
+                    "password": "StrongTestPassword123!",
+                },
+            )
+    finally:
+        settings.allow_initial_registration = original
+
+    assert response.status_code == 403
+    audit.assert_not_called()
 
 
 def test_registration_rejects_unsupported_role_value():
