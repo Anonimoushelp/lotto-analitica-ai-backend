@@ -6,6 +6,7 @@ from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_user
+from app.core.audit import log_mutation
 from app.core.config import settings
 from app.core.rate_limit import login_rate_limiter
 from app.core.security import create_access_token, hash_password, verify_password
@@ -87,6 +88,12 @@ def register(payload: UserCreate, db: Session = Depends(get_db)):
     db.add(user)
     db.commit()
     db.refresh(user)
+    log_mutation(
+        action="create",
+        resource="bootstrap_admin",
+        resource_id=user.id,
+        actor=user,
+    )
     return user
 
 
