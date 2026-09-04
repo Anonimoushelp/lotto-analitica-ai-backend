@@ -36,7 +36,7 @@ class GeminiClient:
             with httpx.Client(timeout=15.0) as client:
                 response = client.post(
                     cls.API_URL,
-                    params={"key": api_key},
+                    headers={"x-goog-api-key": api_key},
                     json=body,
                 )
                 response.raise_for_status()
@@ -51,9 +51,10 @@ class GeminiClient:
                 detail="Gemini AI request failed",
             ) from exc
         try:
-            text = response.json()["candidates"][0]["content"]["parts"][0]["text"]
+            payload = response.json()
+            text = payload["candidates"][0]["content"]["parts"][0]["text"]
             result = json.loads(text.strip().strip("`"))
-        except (KeyError, IndexError, TypeError, json.JSONDecodeError) as exc:
+        except (KeyError, IndexError, TypeError, ValueError, json.JSONDecodeError) as exc:
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 detail="Gemini returned an invalid structured response",
