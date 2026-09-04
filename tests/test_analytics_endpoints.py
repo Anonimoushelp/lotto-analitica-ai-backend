@@ -1,9 +1,14 @@
 from __future__ import annotations
 
+import pytest
+
+from app.models.lottery import Lottery
 from app.services.gemini_validator import validate_predictions
 
 
-def test_statistics_overview(client):
+def test_statistics_overview(client, db_session):
+    db_session.add(Lottery(name="Baloto", slug="baloto"))
+    db_session.commit()
     response = client.get("/api/v1/statistics/overview")
     assert response.status_code == 200
     data = response.json()
