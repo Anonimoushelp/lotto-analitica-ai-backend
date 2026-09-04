@@ -387,12 +387,13 @@ def test_initial_registration_emits_safe_audit_event():
     user = db.scalar(select(User).where(User.email == "bootstrap-audit@example.com"))
     db.close()
     assert user is not None
-    audit.assert_called_once_with(
-        action="create",
-        resource="bootstrap_admin",
-        resource_id=user.id,
-        actor=user,
-    )
+    audit.assert_called_once()
+    audit_kwargs = audit.call_args.kwargs
+    assert audit_kwargs["action"] == "create"
+    assert audit_kwargs["resource"] == "bootstrap_admin"
+    assert audit_kwargs["resource_id"] == user.id
+    assert audit_kwargs["actor"].id == user.id
+    assert audit_kwargs["actor"].role == "admin"
     assert "bootstrap-audit@example.com" not in str(audit.call_args)
     assert "StrongTestPassword123!" not in str(audit.call_args)
 
