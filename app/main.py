@@ -1,6 +1,6 @@
 import logging
 
-from fastapi import APIRouter, Depends, FastAPI, Request, status
+from fastapi import Depends, FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 from sqlalchemy import text
