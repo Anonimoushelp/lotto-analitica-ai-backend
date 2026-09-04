@@ -7,6 +7,9 @@ from sqlalchemy.orm import Session
 from app.core.config import settings
 from app.models.lottery import Lottery
 from app.repositories.lottery_draw_repository import LotteryDrawRepository
+from app.services.gemini_client import GeminiClient
+from app.services.gemini_prompt import build_prediction_prompt
+from app.services.gemini_validator import validate_predictions
 
 
 class PredictionService:
@@ -15,7 +18,7 @@ class PredictionService:
         configured = bool(getattr(settings, "gemini_api_key", ""))
         return {
             "model_name": "Lotto-Net Gemini AI Core",
-            "version": "2.5-pro-ready" if configured else "not-configured",
+            "version": "gemini-2.5-flash" if configured else "not-configured",
             "status": "IDLE" if configured else "UNAVAILABLE",
         }
 
@@ -39,53 +42,52 @@ class PredictionService:
                 detail="The selected lottery has no historical draws available",
             )
 
-        frequency = Counter(
-            number
+        historical_numbers = [
+            draw.main_numbers or []
             for draw in draws
-            for number in (draw.main_numbers or [])
-        )
-        ranked = [number for number, _ in frequency.most_common()]
-        if not ranked:
+            if draw.main_numbers
+        ]
+        if not historical_numbers:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="The selected lottery has no main numbers available",
             )
 
-        predictions = []
-        for index in range(payload.prediction_count):
-            numbers = []
-            for offset in range(len(ranked)):
-                candidate = ranked[(index * 2 + offset) % len(ranked)]
-                if candidate not in numbers:
-                    numbers.append(candidate)
-                if len(numbers) == 5:
-                    break
+        prompt = build_prediction_prompt(
+            lottery_name=lottery.name,
+            strategy=payload.strategy,
+            prediction_count=payload.prediction_count,
+            historical_numbers=historical_numbers,
+        )
+        generated = GeminiClient.generate_json(prompt)
+        if not validate_predictions(generated, payload.prediction_count):
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Gemini returned predictions that do not match the required contract",
+            )
 
-            numbers.sort()
+        frequency = Counter(
+            number
+            for numbers in historical_numbers
+            for number in numbers
+        )
+        ranked = [number for number, _ in frequency.most_common()]
+        predictions = []
+        for index, item in enumerate(generated["predictions"]):
+            numbers = sorted(item["numbers"])
             even = sum(number % 2 == 0 for number in numbers)
-            confidence = min(
-                98.0,
-                max(
-                    payload.min_confidence_threshold,
-                    70.0 + (sum(frequency[n] for n in numbers) / len(numbers)),
-                ),
-            )
-            risk = (
-                "Bajo"
-                if payload.strategy == "conservador"
-                else "Alto"
-                if payload.strategy == "agresivo"
-                else "Moderado"
-            )
             predictions.append(
                 {
                     "id": f"ai-pred-{payload.lottery_id}-{index + 1}",
                     "numbers": numbers,
-                    "extra_number": None,
-                    "confidence_score": round(confidence, 2),
-                    "risk_level": risk,
-                    "pattern_detected": "Frecuencia histórica y dispersión",
-                    "rationale": "Combinación generada exclusivamente con el histórico real disponible en el backend; no representa una garantía de resultado futuro.",
+                    "extra_number": item.get("extra_number"),
+                    "confidence_score": round(float(item["confidence_score"]), 2),
+                    "risk_level": item.get("risk_level", "Moderado"),
+                    "pattern_detected": item.get("pattern_detected", "Análisis Gemini"),
+                    "rationale": item.get(
+                        "rationale",
+                        "Análisis generado por Gemini a partir del histórico real disponible en el backend; no representa una garantía de resultado futuro.",
+                    ),
                     "expected_sum": sum(numbers),
                     "parity_ratio": f"{even} Par / {len(numbers) - even} Impar",
                     "timestamp": datetime.now(UTC).isoformat(),
@@ -93,16 +95,7 @@ class PredictionService:
             )
 
         top = ranked[:5]
-        cold = sorted(
-            ranked,
-            key=lambda number: (
-                next(
-                    (index for index, draw in enumerate(draws) if number in (draw.main_numbers or [])),
-                    -1,
-                ),
-                frequency[number],
-            ),
-        )[:4]
+        cold = sorted(frequency, key=lambda number: (frequency[number], number))[:4]
         model_status = PredictionService.model_status()
         return {
             "summary": {
@@ -119,12 +112,12 @@ class PredictionService:
             "predictions": predictions,
             "insights": [
                 {
-                    "id": "ins-frequency",
-                    "pattern_name": "Concentración de frecuencia histórica",
-                    "category": "Frecuencia",
+                    "id": "ins-gemini",
+                    "pattern_name": "Análisis de patrones con Gemini",
+                    "category": "IA",
                     "weight_percentage": 100.0,
                     "status": "Detectado",
-                    "description": "Los números recomendados se seleccionan por frecuencia observada en los últimos 100 sorteos disponibles.",
+                    "description": "Gemini analiza el histórico real proporcionado por el backend y devuelve predicciones estructuradas.",
                 }
             ],
             "model_status": model_status,
