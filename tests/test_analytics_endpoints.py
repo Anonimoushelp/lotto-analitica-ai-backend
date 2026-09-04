@@ -1,7 +1,5 @@
 from __future__ import annotations
 
-import pytest
-
 from app.models.lottery import Lottery
 from app.services.gemini_validator import validate_predictions
 
