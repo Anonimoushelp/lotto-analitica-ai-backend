@@ -25,7 +25,11 @@ def db_session():
 
 
 def seed_lottery(db, name: str) -> Lottery:
-    lottery = Lottery(name=name, code=name.lower().replace(" ", "-"))
+    lottery = Lottery(
+        name=name,
+        code=name.lower().replace(" ", "-"),
+        country="Colombia",
+    )
     db.add(lottery)
     db.commit()
     db.refresh(lottery)
