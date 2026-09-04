@@ -12,6 +12,7 @@
 - [ ] Compatibilidad aplicación-esquema revisada.
 - [ ] Backup PostgreSQL disponible y restauración verificable según el checklist de producción.
 - [ ] Si el cambio introduce datos personales: propósito, acceso, retención, eliminación/anonimización, logging y efecto en backups documentados.
+- [ ] Runbook de observabilidad y respuesta ante abuso revisado: `docs/OBSERVABILITY_RUNBOOK.md`.
 
 ## Después del despliegue
 
@@ -19,6 +20,7 @@
 - [ ] Readiness de base de datos validada.
 - [ ] Rutas críticas verificadas.
 - [ ] Logs revisados sin exposición de secretos o datos personales innecesarios.
+- [ ] Revisar 4xx/5xx/429, latencia y errores de PostgreSQL/Redis durante la ventana posterior al despliegue.
 
 ## Retención y privacidad
 
