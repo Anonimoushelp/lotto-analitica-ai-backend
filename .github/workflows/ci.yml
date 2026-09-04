@@ -69,7 +69,7 @@ jobs:
           alembic upgrade head
           alembic downgrade base
           alembic upgrade head
-          test "$(alembic current | tail -n 1 | tr -d '[:space:]')" = "(head)"
+          alembic current | grep -q "(head)"
 
       - name: Ejecutar pruebas
         run: pytest -q
