@@ -1,12 +1,9 @@
 from __future__ import annotations
 
-from app.models.lottery import Lottery
 from app.services.gemini_validator import validate_predictions
 
 
-def test_statistics_overview(client, db_session):
-    db_session.add(Lottery(name="Baloto", slug="baloto"))
-    db_session.commit()
+def test_statistics_overview(client):
     response = client.get("/api/v1/statistics/overview")
     assert response.status_code == 200
     data = response.json()
@@ -22,22 +19,9 @@ def test_prediction_model_status(client):
 
 
 def test_gemini_validator_rejects_out_of_range_numbers():
-    valid = {
-        "predictions": [
-            {"numbers": [1, 20, 300, 700, 1000], "confidence_score": 80}
-        ]
-    }
-    invalid_low = {
-        "predictions": [
-            {"numbers": [0, 20, 300, 700, 1000], "confidence_score": 80}
-        ]
-    }
-    invalid_high = {
-        "predictions": [
-            {"numbers": [1, 20, 300, 700, 1001], "confidence_score": 80}
-        ]
-    }
-
+    valid = {"predictions": [{"numbers": [1, 20, 300, 700, 1000], "confidence_score": 80}]}
+    invalid_low = {"predictions": [{"numbers": [0, 20, 300, 700, 1000], "confidence_score": 80}]}
+    invalid_high = {"predictions": [{"numbers": [1, 20, 300, 700, 1001], "confidence_score": 80}]}
     assert validate_predictions(valid, expected_count=1) is True
     assert validate_predictions(invalid_low, expected_count=1) is False
     assert validate_predictions(invalid_high, expected_count=1) is False
