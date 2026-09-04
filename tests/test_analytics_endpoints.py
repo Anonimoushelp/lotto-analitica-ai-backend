@@ -49,7 +49,7 @@ def test_prediction_model_status_is_idle_when_key_is_configured(monkeypatch):
     assert response.status_code == 200
     assert response.json() == {
         "model_name": "Lotto-Net Gemini AI Core",
-        "version": "2.5-pro-ready",
+        "version": "gemini-2.5-flash",
         "status": "IDLE",
     }
 
