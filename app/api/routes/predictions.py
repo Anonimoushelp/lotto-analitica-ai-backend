@@ -1,5 +1,5 @@
 import redis
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import require_admin_or_analyst
@@ -28,7 +28,6 @@ def get_model_status():
 @router.post("", response_model=AiPredictionResponse)
 def generate_predictions(
     payload: AiPredictionRequest,
-    request: Request,
     db: Session = Depends(get_db),
     user: User = Depends(require_admin_or_analyst),
 ):
