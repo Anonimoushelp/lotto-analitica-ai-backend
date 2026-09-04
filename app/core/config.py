@@ -21,6 +21,7 @@ class Settings(BaseSettings):
     redis_health_check_interval: int = Field(default=30, ge=0, le=3600)
 
     secret_key: str = Field(min_length=32)
+    gemini_api_key: str = ""
     allow_initial_registration: bool = False
     cors_allowed_origins: list[str] = Field(default_factory=list)
     trusted_hosts: list[str] = Field(default_factory=list)
