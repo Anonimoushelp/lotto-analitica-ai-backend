@@ -4,6 +4,8 @@ from fastapi import Request
 from fastapi.testclient import TestClient
 
 from app.core.config import settings
+from app.core.rate_limit import login_rate_limiter
+from app.db.session import get_db
 from app.main import app, unhandled_exception_handler
 from app.services.lottery_draw_service import LotteryDrawService
 from app.services.lottery_service import LotteryService
@@ -16,6 +18,47 @@ def test_health():
 
     assert response.status_code == 200
     assert response.json()["status"] == "healthy"
+
+
+def test_health_reports_database_failure(monkeypatch):
+    def failing_db():
+        raise RuntimeError("database unavailable")
+
+    app.dependency_overrides[get_db] = failing_db
+    try:
+        response = client.get("/health")
+        assert response.status_code == 503
+        assert response.json() == {
+            "status": "unhealthy",
+            "service": "Lotto Analítica AI",
+        }
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_health_reports_redis_failure_in_production(monkeypatch):
+    original_environment = settings.environment
+    original_health_check = login_rate_limiter.health_check
+    try:
+        settings.environment = "production"
+        monkeypatch.setattr(
+            login_rate_limiter,
+            "health_check",
+            lambda: (_ for _ in ()).throw(RuntimeError("redis unavailable")),
+        )
+        response = client.get("/health")
+        assert response.status_code == 503
+        assert response.json() == {
+            "status": "unhealthy",
+            "service": "Lotto Analítica AI",
+        }
+    finally:
+        settings.environment = original_environment
+        monkeypatch.setattr(
+            login_rate_limiter,
+            "health_check",
+            original_health_check,
+        )
 
 
 def test_security_headers():
@@ -77,10 +120,11 @@ def test_cors_rejects_unconfigured_http_method():
     assert "PATCH" not in response.headers["Access-Control-Allow-Methods"]
 
 
-def test_hsts_is_enabled_only_in_production():
+def test_hsts_is_enabled_only_in_production(monkeypatch):
     original_environment = settings.environment
     try:
         settings.environment = "production"
+        monkeypatch.setattr(login_rate_limiter, "health_check", lambda: None)
         production_response = client.get("/health")
         assert production_response.headers["Strict-Transport-Security"] == (
             "max-age=31536000; includeSubDomains"
