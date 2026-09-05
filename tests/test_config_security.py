@@ -97,8 +97,8 @@ def test_production_rejects_non_tls_postgresql_sslmode():
         )
 
 
-def test_production_requires_encrypted_redis_connection():
-    with pytest.raises(ValueError, match="REDIS_URL must use TLS"):
+def test_production_rejects_plain_redis_outside_railway_private_network():
+    with pytest.raises(ValueError, match="REDIS_URL must use TLS or Railway private networking"):
         _settings(
             environment="production",
             database_url="postgresql://user:password@localhost:5432/lotto?sslmode=require",
@@ -118,6 +118,29 @@ def test_production_accepts_tls_redis_connection():
     )
 
     assert configured.redis_url.startswith("rediss://")
+
+
+def test_production_accepts_railway_private_redis_connection():
+    configured = _settings(
+        environment="production",
+        database_url="postgresql://user:password@localhost:5432/lotto?sslmode=require",
+        redis_url="redis://redis.railway.internal:6379/0",
+        cors_allowed_origins=["https://api.example.com"],
+        trusted_hosts=["api.example.com"],
+    )
+
+    assert configured.redis_url.startswith("redis://")
+
+
+def test_production_rejects_plain_redis_with_railway_like_public_hostname():
+    with pytest.raises(ValueError, match="REDIS_URL must use TLS or Railway private networking"):
+        _settings(
+            environment="production",
+            database_url="postgresql://user:password@localhost:5432/lotto?sslmode=require",
+            redis_url="redis://redis.example.com:6379/0",
+            cors_allowed_origins=["https://api.example.com"],
+            trusted_hosts=["api.example.com"],
+        )
 
 
 def test_supported_non_production_environments_are_accepted():
