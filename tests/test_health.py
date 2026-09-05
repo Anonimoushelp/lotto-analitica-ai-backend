@@ -74,6 +74,7 @@ def test_security_headers():
     assert response.headers["Permissions-Policy"] == (
         "geolocation=(), microphone=(), camera=()"
     )
+    assert "Set-Cookie" not in response.headers
 
 
 def test_auth_responses_are_not_cacheable():
@@ -96,6 +97,7 @@ def test_cors_allows_configured_frontend_origin():
     assert response.status_code == 200
     assert response.headers["Access-Control-Allow-Origin"] == "http://localhost:3000"
     assert "GET" in response.headers["Access-Control-Allow-Methods"]
+    assert response.headers.get("Access-Control-Allow-Credentials") != "true"
 
 
 def test_cors_rejects_unconfigured_origin():
@@ -122,6 +124,21 @@ def test_cors_rejects_unconfigured_http_method():
 
     assert response.status_code == 400
     assert "PATCH" not in response.headers["Access-Control-Allow-Methods"]
+
+
+def test_cors_rejects_credentials_for_preflight():
+    response = client.options(
+        "/api/v1/lotteries",
+        headers={
+            "Origin": "http://localhost:3000",
+            "Access-Control-Request-Method": "GET",
+            "Access-Control-Request-Headers": "Authorization",
+        },
+    )
+
+    assert response.status_code == 200
+    assert response.headers["Access-Control-Allow-Origin"] == "http://localhost:3000"
+    assert response.headers.get("Access-Control-Allow-Credentials") != "true"
 
 
 def test_hsts_is_enabled_only_in_production(monkeypatch):
