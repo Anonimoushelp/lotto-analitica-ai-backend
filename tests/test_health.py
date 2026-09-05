@@ -227,14 +227,12 @@ def test_protected_draw_mutations_require_authentication():
     assert client.delete("/api/v1/draws/1").status_code == 401
 
 
-def test_public_read_endpoints_remain_available(monkeypatch):
+def test_protected_read_endpoints_require_authentication(monkeypatch):
     monkeypatch.setattr(LotteryService, "list_lotteries", lambda **kwargs: [])
     monkeypatch.setattr(LotteryDrawService, "list_draws", lambda **kwargs: [])
 
     lotteries_response = client.get("/api/v1/lotteries")
     draws_response = client.get("/api/v1/draws")
 
-    assert lotteries_response.status_code == 200
-    assert lotteries_response.json() == []
-    assert draws_response.status_code == 200
-    assert draws_response.json() == []
+    assert lotteries_response.status_code == 401
+    assert draws_response.status_code == 401
