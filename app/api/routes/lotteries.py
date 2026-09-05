@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
-from app.api.dependencies.auth import require_admin
+from app.api.dependencies.auth import require_admin, require_admin_or_analyst
 from app.core.audit import log_mutation
 from app.db.session import get_db
 from app.schemas.lottery import LotteryCreate, LotteryResponse, LotteryUpdate
@@ -14,12 +14,19 @@ router = APIRouter(
 
 
 @router.get("", response_model=list[LotteryResponse])
-def list_lotteries(db: Session = Depends(get_db)):
+def list_lotteries(
+    db: Session = Depends(get_db),
+    current_user=Depends(require_admin_or_analyst),
+):
     return LotteryService.list_lotteries(db=db)
 
 
 @router.get("/{lottery_id}", response_model=LotteryResponse)
-def get_lottery(lottery_id: int, db: Session = Depends(get_db)):
+def get_lottery(
+    lottery_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_admin_or_analyst),
+):
     return LotteryService.get_lottery(db=db, lottery_id=lottery_id)
 
 
