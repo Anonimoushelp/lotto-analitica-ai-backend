@@ -96,8 +96,15 @@ def fake_draw():
     )()
 
 
-@pytest.mark.parametrize("method,path", [("put", "/api/v1/draws/1"), ("delete", "/api/v1/draws/1")])
-def test_anonymous_draw_mutations_are_denied_before_service(method, path, monkeypatch):
+@pytest.mark.parametrize(
+    "method,path,json_body",
+    [
+        ("post", "/api/v1/draws", {"lottery_id": 1, "draw_number": "D-001", "draw_date": "2026-09-02", "main_numbers": [1, 2, 3, 4, 5]}),
+        ("put", "/api/v1/draws/1", {"draw_number": "D-002"}),
+        ("delete", "/api/v1/draws/1", None),
+    ],
+)
+def test_anonymous_draw_mutations_are_denied_before_service(method, path, json_body, monkeypatch):
     called = False
 
     def forbidden_service(**kwargs):
@@ -105,31 +112,26 @@ def test_anonymous_draw_mutations_are_denied_before_service(method, path, monkey
         called = True
         return fake_draw()
 
-    service_method = "update_draw" if method == "put" else "delete_draw"
+    service_method = {"post": "create_draw", "put": "update_draw", "delete": "delete_draw"}[method]
     monkeypatch.setattr(LotteryDrawService, service_method, forbidden_service)
 
-    kwargs = {"json": {"draw_number": "D-002"}} if method == "put" else {}
+    kwargs = {"json": json_body} if json_body is not None else {}
     response = getattr(client, method)(path, **kwargs)
 
     assert response.status_code == 401
     assert called is False
 
 
-@pytest.mark.parametrize("path", ["/api/v1/draws", "/api/v1/draws/1"])
-def test_anonymous_draw_reads_require_authentication(path, monkeypatch):
-    if path.endswith("/1"):
-        monkeypatch.setattr(LotteryDrawService, "get_draw", lambda **kwargs: fake_draw())
-    else:
-        monkeypatch.setattr(LotteryDrawService, "list_draws", lambda **kwargs: [])
-
-    response = client.get(path)
-
-    assert response.status_code == 401
-
-
-@pytest.mark.parametrize("role", ["viewer", "service"])
-@pytest.mark.parametrize("method,path,json_body", [("post", "/api/v1/draws", {"lottery_id": 1, "draw_number": "D-001", "draw_date": "2026-09-02", "main_numbers": [1, 2, 3, 4, 5]}), ("put", "/api/v1/draws/1", {"draw_number": "D-002"}), ("delete", "/api/v1/draws/1", None)])
-def test_read_only_roles_cannot_mutate_draws(role, method, path, json_body, monkeypatch):
+@pytest.mark.parametrize("role", ["viewer", "service", "analyst"])
+@pytest.mark.parametrize(
+    "method,path,json_body",
+    [
+        ("post", "/api/v1/draws", {"lottery_id": 1, "draw_number": "D-001", "draw_date": "2026-09-02", "main_numbers": [1, 2, 3, 4, 5]}),
+        ("put", "/api/v1/draws/1", {"draw_number": "D-002"}),
+        ("delete", "/api/v1/draws/1", None),
+    ],
+)
+def test_non_admin_roles_cannot_mutate_draws(role, method, path, json_body, monkeypatch):
     user = seed_user(f"{role}-{method}@example.com", role)
     called = False
 
@@ -148,10 +150,16 @@ def test_read_only_roles_cannot_mutate_draws(role, method, path, json_body, monk
     assert called is False
 
 
-@pytest.mark.parametrize("role", ["admin", "analyst"])
-@pytest.mark.parametrize("method,path", [("post", "/api/v1/draws"), ("put", "/api/v1/draws/1"), ("delete", "/api/v1/draws/1")])
-def test_editing_roles_reach_draw_mutation_service(role, method, path, monkeypatch):
-    user = seed_user(f"{role}-{method}@example.com", role)
+@pytest.mark.parametrize(
+    "method,path,json_body,expected_status",
+    [
+        ("post", "/api/v1/draws", {"lottery_id": 1, "draw_number": "D-001", "draw_date": "2026-09-02", "main_numbers": [1, 2, 3, 4, 5]}, 201),
+        ("put", "/api/v1/draws/1", {"draw_number": "D-002"}, 200),
+        ("delete", "/api/v1/draws/1", None, 204),
+    ],
+)
+def test_admin_can_mutate_draws(method, path, json_body, expected_status, monkeypatch):
+    user = seed_user(f"admin-{method}@example.com", "admin")
     called = False
 
     def allowed_service(**kwargs):
@@ -162,18 +170,33 @@ def test_editing_roles_reach_draw_mutation_service(role, method, path, monkeypat
     service_method = {"post": "create_draw", "put": "update_draw", "delete": "delete_draw"}[method]
     monkeypatch.setattr(LotteryDrawService, service_method, allowed_service)
 
-    kwargs = {}
-    if method == "post":
-        kwargs["json"] = {
-            "lottery_id": 1,
-            "draw_number": "D-001",
-            "draw_date": "2026-09-02",
-            "main_numbers": [1, 2, 3, 4, 5],
-        }
-    elif method == "put":
-        kwargs["json"] = {"draw_number": "D-002"}
-
+    kwargs = {"json": json_body} if json_body is not None else {}
     response = getattr(client, method)(path, headers=auth_header(user), **kwargs)
 
-    assert response.status_code in {200, 201, 204}
+    assert response.status_code == expected_status
     assert called is True
+
+
+@pytest.mark.parametrize("path", ["/api/v1/draws", "/api/v1/draws/1"])
+def test_authenticated_read_roles_can_access_draws(path, monkeypatch):
+    user = seed_user("analyst@example.com", "analyst")
+    if path.endswith("/1"):
+        monkeypatch.setattr(LotteryDrawService, "get_draw", lambda **kwargs: fake_draw())
+    else:
+        monkeypatch.setattr(LotteryDrawService, "list_draws", lambda **kwargs: [])
+
+    response = client.get(path, headers=auth_header(user))
+
+    assert response.status_code == 200
+
+
+@pytest.mark.parametrize("path", ["/api/v1/draws", "/api/v1/draws/1"])
+def test_anonymous_draw_reads_require_authentication(path, monkeypatch):
+    if path.endswith("/1"):
+        monkeypatch.setattr(LotteryDrawService, "get_draw", lambda **kwargs: fake_draw())
+    else:
+        monkeypatch.setattr(LotteryDrawService, "list_draws", lambda **kwargs: [])
+
+    response = client.get(path)
+
+    assert response.status_code == 401
