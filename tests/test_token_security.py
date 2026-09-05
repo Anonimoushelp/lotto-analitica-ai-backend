@@ -3,8 +3,8 @@ from datetime import UTC, datetime, timedelta
 import jwt
 import pytest
 
-from app.core.security import ALGORITHM, create_access_token, decode_access_token
 from app.core.config import settings
+from app.core.security import ALGORITHM, create_access_token, decode_access_token
 
 
 def test_access_token_contains_required_security_claims():
