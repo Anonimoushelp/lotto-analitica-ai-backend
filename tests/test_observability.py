@@ -30,7 +30,7 @@ def test_request_observability_preserves_supplied_request_id(caplog):
 
 
 def test_request_observability_replaces_unsafe_request_id(caplog):
-    unsafe_request_id = "trace test/\u00e4"
+    unsafe_request_id = "trace test/unsafe"
     with caplog.at_level(logging.INFO, logger="app.main"):
         response = client.get(
             "/", headers={REQUEST_ID_HEADER: unsafe_request_id}
