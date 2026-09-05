@@ -21,5 +21,6 @@ def log_mutation(
         _safe_log_value(action),
         _safe_log_value(resource),
         resource_id,
+        actor.id,
         _safe_log_value(actor.role),
     )
