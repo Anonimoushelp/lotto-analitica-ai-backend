@@ -64,9 +64,16 @@ class Settings(BaseSettings):
                     "DATABASE_URL must require PostgreSQL TLS in production"
                 )
 
-            if not self.redis_url.startswith("rediss://"):
+            redis = urlparse(self.redis_url)
+            redis_host = (redis.hostname or "").lower().rstrip(".")
+            redis_is_tls = redis.scheme == "rediss"
+            redis_is_railway_private = redis.scheme == "redis" and (
+                redis_host == "railway.internal"
+                or redis_host.endswith(".railway.internal")
+            )
+            if not (redis_is_tls or redis_is_railway_private):
                 raise ValueError(
-                    "REDIS_URL must use TLS in production"
+                    "REDIS_URL must use TLS or Railway private networking in production"
                 )
 
             if self.allow_initial_registration:
