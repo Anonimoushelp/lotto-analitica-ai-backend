@@ -241,8 +241,7 @@ def test_draw_delete_allows_admin_and_analyst(role, monkeypatch):
     assert called is True
 
 
-def test_draw_reads_remain_public(monkeypatch):
+def test_draw_reads_require_authentication(monkeypatch):
     monkeypatch.setattr(LotteryDrawService, "list_draws", lambda **kwargs: [])
     response = client.get("/api/v1/draws")
-    assert response.status_code == 200
-    assert response.json() == []
+    assert response.status_code == 401
