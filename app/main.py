@@ -1,4 +1,6 @@
 import logging
+import time
+import uuid
 
 from fastapi import Depends, FastAPI, Request, status
 from fastapi.middleware.cors import CORSMiddleware
@@ -20,6 +22,7 @@ from app.db.session import get_db
 
 logger = logging.getLogger(__name__)
 MAX_REQUEST_BODY_BYTES = 1_048_576
+REQUEST_ID_HEADER = "X-Request-ID"
 
 
 class RequestBodyLimitMiddleware(BaseHTTPMiddleware):
@@ -39,6 +42,36 @@ class RequestBodyLimitMiddleware(BaseHTTPMiddleware):
                     content={"detail": "Request body too large"},
                 )
         return await call_next(request)
+
+
+class RequestObservabilityMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        request_id = request.headers.get(REQUEST_ID_HEADER) or str(uuid.uuid4())
+        request.state.request_id = request_id
+        started = time.perf_counter()
+        try:
+            response = await call_next(request)
+        except Exception:
+            duration_ms = (time.perf_counter() - started) * 1000
+            logger.exception(
+                "request_failed request_id=%s method=%s path=%s duration_ms=%.2f",
+                request_id,
+                request.method,
+                request.url.path,
+                duration_ms,
+            )
+            raise
+        duration_ms = (time.perf_counter() - started) * 1000
+        response.headers[REQUEST_ID_HEADER] = request_id
+        logger.info(
+            "request_completed request_id=%s method=%s path=%s status_code=%s duration_ms=%.2f",
+            request_id,
+            request.method,
+            request.url.path,
+            response.status_code,
+            duration_ms,
+        )
+        return response
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -71,6 +104,7 @@ app = FastAPI(
 
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.trusted_hosts)
 app.add_middleware(RequestBodyLimitMiddleware)
+app.add_middleware(RequestObservabilityMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
 
 if settings.cors_allowed_origins:
