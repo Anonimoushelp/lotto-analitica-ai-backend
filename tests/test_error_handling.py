@@ -1,13 +1,12 @@
+import asyncio
 import logging
 
-import pytest
 from fastapi import Request
 
 from app.main import unhandled_exception_handler
 
 
-@pytest.mark.asyncio
-async def test_unhandled_exception_returns_generic_500_without_sensitive_details(caplog):
+def test_unhandled_exception_returns_generic_500_without_sensitive_details(caplog):
     secret = "super-secret-api-key"
     scope = {
         "type": "http",
@@ -22,9 +21,11 @@ async def test_unhandled_exception_returns_generic_500_without_sensitive_details
     request = Request(scope)
 
     with caplog.at_level(logging.ERROR, logger="app.main"):
-        response = await unhandled_exception_handler(
-            request,
-            RuntimeError(secret),
+        response = asyncio.run(
+            unhandled_exception_handler(
+                request,
+                RuntimeError(secret),
+            )
         )
 
     assert response.status_code == 500
