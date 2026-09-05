@@ -1,10 +1,31 @@
-from fastapi.testclient import TestClient  # noqa: I001
+from types import SimpleNamespace
 
+import pytest
+from fastapi.testclient import TestClient
+
+from app.api.dependencies.auth import get_current_user
 from app.main import app
 from app.services.lottery_draw_service import LotteryDrawService
 
 
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def authenticated_read_context():
+    previous = app.dependency_overrides.get(get_current_user)
+    app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(
+        id=1,
+        role="admin",
+        is_active=True,
+    )
+    try:
+        yield
+    finally:
+        if previous is None:
+            app.dependency_overrides.pop(get_current_user, None)
+        else:
+            app.dependency_overrides[get_current_user] = previous
 
 
 def test_draw_list_uses_bounded_default_limit(monkeypatch):
