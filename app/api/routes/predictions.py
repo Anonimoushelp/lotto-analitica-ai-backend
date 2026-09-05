@@ -21,7 +21,7 @@ router = APIRouter(
 
 
 @router.get("/model-status", response_model=ModelStatusResponse)
-def get_model_status():
+def get_model_status(user: User = Depends(require_admin_or_analyst)):
     return PredictionService.model_status()
 
 
