@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Query, status
 from sqlalchemy.orm import Session
 
-from app.api.dependencies.auth import require_admin_or_analyst
+from app.api.dependencies.auth import require_admin, require_admin_or_analyst
 from app.core.audit import log_mutation
 from app.db.session import get_db
 from app.schemas.lottery_draw import (
@@ -51,7 +51,7 @@ def get_draw(
 def create_draw(
     payload: LotteryDrawCreate,
     db: Session = Depends(get_db),
-    current_user=Depends(require_admin_or_analyst),
+    current_user=Depends(require_admin),
 ):
     draw = LotteryDrawService.create_draw(
         db=db,
@@ -77,7 +77,7 @@ def update_draw(
     draw_id: int,
     payload: LotteryDrawUpdate,
     db: Session = Depends(get_db),
-    current_user=Depends(require_admin_or_analyst),
+    current_user=Depends(require_admin),
 ):
     update_data = payload.model_dump(exclude_unset=True)
     draw = LotteryDrawService.update_draw(
@@ -98,7 +98,7 @@ def update_draw(
 def delete_draw(
     draw_id: int,
     db: Session = Depends(get_db),
-    current_user=Depends(require_admin_or_analyst),
+    current_user=Depends(require_admin),
 ):
     LotteryDrawService.delete_draw(db=db, draw_id=draw_id)
     log_mutation(
