@@ -142,3 +142,21 @@ def test_ai_rate_limiter_enforces_ten_requests_per_minute(monkeypatch):
 
     assert results[:10] == [True] * 10
     assert results[10] is False
+
+
+def test_lottery_reads_require_authentication():
+    assert client.get("/api/v1/lotteries").status_code == 401
+    assert client.get("/api/v1/lotteries/1").status_code == 401
+
+
+def test_draw_reads_require_authentication():
+    assert client.get("/api/v1/draws").status_code == 401
+    assert client.get("/api/v1/draws/1").status_code == 401
+
+
+def test_statistics_read_requires_authentication():
+    assert client.get("/api/v1/statistics/overview").status_code == 401
+
+
+def test_ai_model_status_requires_authentication():
+    assert client.get("/api/v1/predictions/model-status").status_code == 401
