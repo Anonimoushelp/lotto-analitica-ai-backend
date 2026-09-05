@@ -1,4 +1,5 @@
 import pytest
+from sqlalchemy import UniqueConstraint
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.models.lottery import Lottery
@@ -44,7 +45,7 @@ def test_lottery_draw_requires_lottery_and_enforces_unique_number_and_date():
     unique_constraints = {
         tuple(constraint.columns.keys())
         for constraint in table.constraints
-        if isinstance(constraint, __import__("sqlalchemy").UniqueConstraint)
+        if isinstance(constraint, UniqueConstraint)
     }
 
     assert table.c.lottery_id.nullable is False
@@ -71,7 +72,13 @@ def test_lottery_relationship_uses_delete_orphan_cascade():
 
 @pytest.mark.parametrize(
     "repository_action",
-    ["create_draw", "delete_draw", "create_lottery", "update_lottery", "delete_lottery"],
+    [
+        "create_draw",
+        "delete_draw",
+        "create_lottery",
+        "update_lottery",
+        "delete_lottery",
+    ],
 )
 def test_repository_transaction_failure_rolls_back(repository_action):
     db = FailingSession()
