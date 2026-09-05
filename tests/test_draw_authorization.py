@@ -115,8 +115,8 @@ def test_draw_create_requires_authentication(monkeypatch):
     assert called is False
 
 
-@pytest.mark.parametrize("role", ["viewer", "service"])
-def test_draw_create_denies_non_editing_roles(role, monkeypatch):
+@pytest.mark.parametrize("role", ["viewer", "service", "analyst"])
+def test_draw_create_denies_non_admin_roles(role, monkeypatch):
     user = seed_user(f"{role}@example.com", role)
     called = False
 
@@ -140,9 +140,8 @@ def test_draw_create_denies_non_editing_roles(role, monkeypatch):
     assert called is False
 
 
-@pytest.mark.parametrize("role", ["admin", "analyst"])
-def test_draw_create_allows_admin_and_analyst(role, monkeypatch):
-    user = seed_user(f"{role}@example.com", role)
+def test_draw_create_allows_admin(monkeypatch):
+    user = seed_user("admin@example.com", "admin")
     called = False
 
     def fake_create(**kwargs):
@@ -165,8 +164,8 @@ def test_draw_create_allows_admin_and_analyst(role, monkeypatch):
     assert called is True
 
 
-@pytest.mark.parametrize("role", ["viewer", "service"])
-def test_draw_update_denies_non_editing_roles(role, monkeypatch):
+@pytest.mark.parametrize("role", ["viewer", "service", "analyst"])
+def test_draw_update_denies_non_admin_roles(role, monkeypatch):
     user = seed_user(f"{role}@example.com", role)
     called = False
 
@@ -185,9 +184,8 @@ def test_draw_update_denies_non_editing_roles(role, monkeypatch):
     assert called is False
 
 
-@pytest.mark.parametrize("role", ["admin", "analyst"])
-def test_draw_update_allows_admin_and_analyst(role, monkeypatch):
-    user = seed_user(f"{role}@example.com", role)
+def test_draw_update_allows_admin(monkeypatch):
+    user = seed_user("admin-update@example.com", "admin")
     called = False
 
     def fake_update(**kwargs):
@@ -205,9 +203,9 @@ def test_draw_update_allows_admin_and_analyst(role, monkeypatch):
     assert called is True
 
 
-@pytest.mark.parametrize("role", ["viewer", "service"])
-def test_draw_delete_denies_non_editing_roles(role, monkeypatch):
-    user = seed_user(f"{role}@example.com", role)
+@pytest.mark.parametrize("role", ["viewer", "service", "analyst"])
+def test_draw_delete_denies_non_admin_roles(role, monkeypatch):
+    user = seed_user(f"{role}-delete@example.com", role)
     called = False
 
     def fake_delete(**kwargs):
@@ -223,9 +221,8 @@ def test_draw_delete_denies_non_editing_roles(role, monkeypatch):
     assert called is False
 
 
-@pytest.mark.parametrize("role", ["admin", "analyst"])
-def test_draw_delete_allows_admin_and_analyst(role, monkeypatch):
-    user = seed_user(f"{role}@example.com", role)
+def test_draw_delete_allows_admin(monkeypatch):
+    user = seed_user("admin-delete@example.com", "admin")
     called = False
 
     def fake_delete(**kwargs):
