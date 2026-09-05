@@ -1,4 +1,5 @@
 import logging
+import re
 import time
 import uuid
 
@@ -23,6 +24,14 @@ from app.db.session import get_db
 logger = logging.getLogger(__name__)
 MAX_REQUEST_BODY_BYTES = 1_048_576
 REQUEST_ID_HEADER = "X-Request-ID"
+_REQUEST_ID_PATTERN = re.compile(r"^[A-Za-z0-9._-]{1,64}$")
+
+
+def _get_request_id(request: Request) -> str:
+    supplied_request_id = request.headers.get(REQUEST_ID_HEADER, "")
+    if _REQUEST_ID_PATTERN.fullmatch(supplied_request_id):
+        return supplied_request_id
+    return str(uuid.uuid4())
 
 
 class RequestBodyLimitMiddleware(BaseHTTPMiddleware):
@@ -46,7 +55,7 @@ class RequestBodyLimitMiddleware(BaseHTTPMiddleware):
 
 class RequestObservabilityMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
-        request_id = request.headers.get(REQUEST_ID_HEADER) or str(uuid.uuid4())
+        request_id = _get_request_id(request)
         request.state.request_id = request_id
         started = time.perf_counter()
         try:
