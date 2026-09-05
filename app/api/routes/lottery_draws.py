@@ -29,6 +29,7 @@ def list_draws(
         le=MAX_DRAW_LIST_LIMIT,
     ),
     db: Session = Depends(get_db),
+    current_user=Depends(require_admin_or_analyst),
 ):
     return LotteryDrawService.list_draws(
         db=db,
@@ -38,7 +39,11 @@ def list_draws(
 
 
 @router.get("/{draw_id}", response_model=LotteryDrawResponse)
-def get_draw(draw_id: int, db: Session = Depends(get_db)):
+def get_draw(
+    draw_id: int,
+    db: Session = Depends(get_db),
+    current_user=Depends(require_admin_or_analyst),
+):
     return LotteryDrawService.get_draw(db=db, draw_id=draw_id)
 
 
