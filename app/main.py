@@ -19,6 +19,26 @@ from app.core.rate_limit import login_rate_limiter
 from app.db.session import get_db
 
 logger = logging.getLogger(__name__)
+MAX_REQUEST_BODY_BYTES = 1_048_576
+
+
+class RequestBodyLimitMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request, call_next):
+        content_length = request.headers.get("content-length")
+        if content_length is not None:
+            try:
+                declared_length = int(content_length)
+            except ValueError:
+                return JSONResponse(
+                    status_code=400,
+                    content={"detail": "Invalid Content-Length header"},
+                )
+            if declared_length > MAX_REQUEST_BODY_BYTES:
+                return JSONResponse(
+                    status_code=413,
+                    content={"detail": "Request body too large"},
+                )
+        return await call_next(request)
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
@@ -50,6 +70,7 @@ app = FastAPI(
 )
 
 app.add_middleware(TrustedHostMiddleware, allowed_hosts=settings.trusted_hosts)
+app.add_middleware(RequestBodyLimitMiddleware)
 app.add_middleware(SecurityHeadersMiddleware)
 
 if settings.cors_allowed_origins:
