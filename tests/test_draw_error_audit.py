@@ -149,3 +149,81 @@ def test_admin_conflict_mutations_do_not_emit_audit(
     assert response.status_code == 409
     assert response.json()["detail"] == "Draw conflict"
     assert audit_events == []
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {**DRAW_CREATE, "main_numbers": [1, 1, 2]},
+        {**DRAW_CREATE, "main_numbers": [0, 2, 3]},
+        {**DRAW_CREATE, "main_numbers": [1, 2, 3, 4, 5] * 5},
+        {**DRAW_CREATE, "bonus_numbers": [1, 1]},
+        {**DRAW_CREATE, "bonus_numbers": [1] * 11},
+        {**DRAW_CREATE, "metadata_json": {"blob": "x" * 17000}},
+    ],
+)
+def test_create_validation_rejects_abusive_input_without_service_or_audit(
+    payload, monkeypatch
+):
+    user = seed_admin()
+    service_calls = []
+    audit_events = []
+
+    monkeypatch.setattr(
+        LotteryDrawService,
+        "create_draw",
+        lambda **kwargs: service_calls.append(kwargs),
+    )
+    monkeypatch.setattr(
+        "app.api.routes.lottery_draws.log_mutation",
+        lambda **kwargs: audit_events.append(kwargs),
+    )
+
+    response = client.post(
+        "/api/v1/draws",
+        headers=auth_header(user),
+        json=payload,
+    )
+
+    assert response.status_code == 422
+    assert service_calls == []
+    assert audit_events == []
+
+
+@pytest.mark.parametrize(
+    "payload",
+    [
+        {"main_numbers": [1, 1, 2]},
+        {"main_numbers": [0, 2, 3]},
+        {"main_numbers": [1, 2, 3, 4, 5] * 5},
+        {"bonus_numbers": [1, 1]},
+        {"bonus_numbers": [1] * 11},
+        {"metadata_json": {"blob": "x" * 17000}},
+    ],
+)
+def test_update_validation_rejects_abusive_input_without_service_or_audit(
+    payload, monkeypatch
+):
+    user = seed_admin()
+    service_calls = []
+    audit_events = []
+
+    monkeypatch.setattr(
+        LotteryDrawService,
+        "update_draw",
+        lambda **kwargs: service_calls.append(kwargs),
+    )
+    monkeypatch.setattr(
+        "app.api.routes.lottery_draws.log_mutation",
+        lambda **kwargs: audit_events.append(kwargs),
+    )
+
+    response = client.put(
+        "/api/v1/draws/1",
+        headers=auth_header(user),
+        json=payload,
+    )
+
+    assert response.status_code == 422
+    assert service_calls == []
+    assert audit_events == []
