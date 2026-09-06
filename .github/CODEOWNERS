@@ -1,0 +1,5 @@
+# Owners for security-sensitive repository configuration
+# Keep workflow and dependency automation changes under explicit review.
+/.github/workflows/ @Anonimoushelp
+/.github/dependabot.yml @Anonimoushelp
+/.github/CODEOWNERS @Anonimoushelp
