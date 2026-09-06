@@ -1,5 +1,5 @@
-from fastapi import HTTPException
 import pytest
+from fastapi import HTTPException
 from sqlalchemy import create_engine, delete
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
