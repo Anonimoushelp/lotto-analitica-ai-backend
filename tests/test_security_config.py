@@ -3,7 +3,6 @@ from pydantic import ValidationError
 
 from app.core.config import Settings
 
-
 BASE_PRODUCTION_SETTINGS = {
     "environment": "production",
     "database_url": "postgresql+psycopg://user:password@db.example.com/app?sslmode=require",
