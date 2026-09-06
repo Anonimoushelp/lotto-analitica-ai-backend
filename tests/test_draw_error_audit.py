@@ -4,6 +4,7 @@ import pytest
 from fastapi import HTTPException, status
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, delete
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -11,6 +12,7 @@ from app.core.security import create_access_token, hash_password
 from app.db.session import get_db
 from app.main import app
 from app.models.lottery import Lottery
+from app.models.lottery_draw import LotteryDraw
 from app.models.user import User
 from app.services.lottery_draw_service import LotteryDrawService
 
@@ -22,6 +24,7 @@ engine = create_engine(
 TestingSessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 User.__table__.create(bind=engine)
 Lottery.__table__.create(bind=engine)
+LotteryDraw.__table__.create(bind=engine)
 
 
 def override_get_db():
@@ -49,6 +52,7 @@ def app_db_override():
 def clean_test_data():
     yield
     db = TestingSessionLocal()
+    db.execute(delete(LotteryDraw))
     db.execute(delete(Lottery))
     db.execute(delete(User))
     db.commit()
@@ -71,6 +75,35 @@ def seed_admin() -> User:
     db.refresh(user)
     db.close()
     return user
+
+
+def seed_lottery() -> Lottery:
+    db = TestingSessionLocal()
+    lottery = Lottery(
+        name="Draw Error Test Lottery",
+        code="DET",
+        is_active=True,
+    )
+    db.add(lottery)
+    db.commit()
+    db.refresh(lottery)
+    db.close()
+    return lottery
+
+
+def seed_draw(lottery_id: int, draw_number: str = "D-001") -> LotteryDraw:
+    db = TestingSessionLocal()
+    draw = LotteryDraw(
+        lottery_id=lottery_id,
+        draw_number=draw_number,
+        draw_date=date(2026, 9, 2),
+        main_numbers=[1, 2, 3, 4, 5],
+    )
+    db.add(draw)
+    db.commit()
+    db.refresh(draw)
+    db.close()
+    return draw
 
 
 def auth_header(user: User) -> dict[str, str]:
@@ -226,4 +259,69 @@ def test_update_validation_rejects_abusive_input_without_service_or_audit(
 
     assert response.status_code == 422
     assert service_calls == []
+    assert audit_events == []
+
+
+def test_create_integrity_conflict_is_409_and_not_audited(monkeypatch):
+    user = seed_admin()
+    lottery = seed_lottery()
+    audit_events = []
+    integrity_error = IntegrityError(
+        "INSERT INTO lottery_draws",
+        {},
+        Exception("unique constraint"),
+    )
+
+    monkeypatch.setattr(
+        "app.repositories.lottery_draw_repository.LotteryDrawRepository.create",
+        lambda **kwargs: (_ for _ in ()).throw(integrity_error),
+    )
+    monkeypatch.setattr(
+        "app.api.routes.lottery_draws.log_mutation",
+        lambda **kwargs: audit_events.append(kwargs),
+    )
+
+    payload = {**DRAW_CREATE, "lottery_id": lottery.id}
+    response = client.post(
+        "/api/v1/draws",
+        headers=auth_header(user),
+        json=payload,
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "Lottery draw conflicts with an existing record"
+    assert audit_events == []
+
+
+def test_update_integrity_conflict_is_409_and_not_audited(monkeypatch):
+    user = seed_admin()
+    lottery = seed_lottery()
+    draw = seed_draw(lottery.id)
+    audit_events = []
+    integrity_error = IntegrityError(
+        "UPDATE lottery_draws",
+        {},
+        Exception("unique constraint"),
+    )
+
+    def raise_integrity(**kwargs):
+        raise integrity_error
+
+    monkeypatch.setattr(
+        "sqlalchemy.orm.Session.commit",
+        raise_integrity,
+    )
+    monkeypatch.setattr(
+        "app.api.routes.lottery_draws.log_mutation",
+        lambda **kwargs: audit_events.append(kwargs),
+    )
+
+    response = client.put(
+        f"/api/v1/draws/{draw.id}",
+        headers=auth_header(user),
+        json={"draw_number": "D-002"},
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "Lottery draw conflicts with an existing record"
     assert audit_events == []
