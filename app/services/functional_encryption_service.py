@@ -23,3 +23,10 @@ def get_functional_encryption_status() -> dict[str, object]:
         "provider": provider_status.provider,
         "message": provider_status.message,
     }
+
+
+def execute_functional_encryption(
+    operation: str, payload: dict[str, object]
+) -> dict[str, object]:
+    provider = get_functional_encryption_provider()
+    return provider.execute(operation, payload)
