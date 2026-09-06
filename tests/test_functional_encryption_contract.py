@@ -11,7 +11,7 @@ def test_functional_encryption_status_requires_authentication():
     assert response.status_code == 401
 
 
-def test_functional_encryption_status_contract():
+def test_functional_encryption_status_is_fail_closed_without_provider():
     app.dependency_overrides[require_admin_or_analyst] = lambda: object()
     try:
         response = client.get("/api/v1/functional-encryption/status")
@@ -22,7 +22,8 @@ def test_functional_encryption_status_contract():
             "status": "integration_pending",
             "production_ready": False,
             "cryptographic_backend_connected": False,
-            "message": "Functional Encryption backend integration is pending",
+            "provider": "none",
+            "message": "No verified Functional Encryption provider is installed",
         }
     finally:
         app.dependency_overrides.clear()
