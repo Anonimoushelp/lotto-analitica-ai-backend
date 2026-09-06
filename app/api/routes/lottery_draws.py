@@ -22,7 +22,7 @@ router = APIRouter(
 
 @router.get("", response_model=list[LotteryDrawResponse])
 def list_draws(
-    lottery_id: int | None = None,
+    lottery_id: int | None = Query(default=None, gt=0),
     limit: int = Query(
         default=DEFAULT_DRAW_LIST_LIMIT,
         ge=1,
