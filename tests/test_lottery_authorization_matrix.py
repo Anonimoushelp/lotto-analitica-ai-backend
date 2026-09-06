@@ -3,7 +3,7 @@ from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, delete
+from sqlalchemy import create_engine, delete, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -64,7 +64,7 @@ def clean_test_data():
     db.close()
 
 
-def seed_user(email: str, role: str) -> tuple[int, str]:
+def seed_user(email: str, role: str) -> tuple[int, str, int]:
     db = TestingSessionLocal()
     user = User(
         email=email,
@@ -90,12 +90,33 @@ def seed_user(email: str, role: str) -> tuple[int, str]:
         )
     )
     db.commit()
+    tenant_id = tenant.id
     db.close()
-    return user_id, user_role
+    return user_id, user_role, tenant_id
 
 
-def auth_header(user: tuple[int, str]) -> dict[str, str]:
-    user_id, user_role = user
+def seed_lottery(tenant_id: int, code: str = "TEST") -> int:
+    db = TestingSessionLocal()
+    now = datetime.now(UTC)
+    lottery = Lottery(
+        tenant_id=tenant_id,
+        name=f"Lottery {code}",
+        code=code,
+        country="CO",
+        active=True,
+        created_at=now,
+        updated_at=now,
+    )
+    db.add(lottery)
+    db.commit()
+    db.refresh(lottery)
+    lottery_id = lottery.id
+    db.close()
+    return lottery_id
+
+
+def auth_header(user: tuple[int, str, int]) -> dict[str, str]:
+    user_id, user_role, _tenant_id = user
     return {"Authorization": f"Bearer {create_access_token(str(user_id), user_role)}"}
 
 
@@ -208,3 +229,99 @@ def test_admin_can_delete_lottery(monkeypatch):
 
     assert response.status_code == 204
     assert called is True
+
+
+def test_cross_tenant_get_isolated():
+    tenant_a_user = seed_user("tenant-a@example.com", "analyst")
+    _tenant_b_user = seed_user("tenant-b@example.com", "analyst")
+    db = TestingSessionLocal()
+    tenant_ids = [row[0] for row in db.execute(select(Tenant.id).order_by(Tenant.id)).all()]
+    db.close()
+    lottery_b_id = seed_lottery(tenant_ids[1], "TENANT-B")
+
+    response = client.get(
+        f"/api/v1/lotteries/{lottery_b_id}",
+        headers=auth_header(tenant_a_user),
+    )
+
+    assert response.status_code == 404
+
+
+def test_cross_tenant_list_returns_only_current_tenant():
+    tenant_a_user = seed_user("list-a@example.com", "analyst")
+    tenant_b_user = seed_user("list-b@example.com", "analyst")
+    _, _, tenant_a_id = tenant_a_user
+    _, _, tenant_b_id = tenant_b_user
+    lottery_a_id = seed_lottery(tenant_a_id, "TENANT-A")
+    seed_lottery(tenant_b_id, "TENANT-B")
+
+    response = client.get(
+        "/api/v1/lotteries",
+        headers=auth_header(tenant_a_user),
+    )
+
+    assert response.status_code == 200
+    assert [item["id"] for item in response.json()] == [lottery_a_id]
+
+
+def test_cross_tenant_update_isolated():
+    tenant_a_user = seed_user("update-a@example.com", "admin")
+    tenant_b_user = seed_user("update-b@example.com", "admin")
+    _, _, tenant_b_id = tenant_b_user
+    lottery_b_id = seed_lottery(tenant_b_id, "TENANT-B")
+
+    response = client.put(
+        f"/api/v1/lotteries/{lottery_b_id}",
+        headers=auth_header(tenant_a_user),
+        json={"name": "ATTACKED"},
+    )
+
+    assert response.status_code == 404
+    db = TestingSessionLocal()
+    lottery = db.get(Lottery, lottery_b_id)
+    assert lottery is not None
+    assert lottery.name == "Lottery TENANT-B"
+    db.close()
+
+
+def test_cross_tenant_delete_isolated():
+    tenant_a_user = seed_user("delete-a@example.com", "admin")
+    tenant_b_user = seed_user("delete-b@example.com", "admin")
+    _, _, tenant_b_id = tenant_b_user
+    lottery_b_id = seed_lottery(tenant_b_id, "TENANT-B")
+
+    response = client.delete(
+        f"/api/v1/lotteries/{lottery_b_id}",
+        headers=auth_header(tenant_a_user),
+    )
+
+    assert response.status_code == 404
+    db = TestingSessionLocal()
+    assert db.get(Lottery, lottery_b_id) is not None
+    db.close()
+
+
+def test_create_ignores_client_tenant_id_and_uses_context():
+    tenant_a_user = seed_user("create-a@example.com", "admin")
+    tenant_b_user = seed_user("create-b@example.com", "admin")
+    _, _, tenant_b_id = tenant_b_user
+
+    response = client.post(
+        "/api/v1/lotteries",
+        headers=auth_header(tenant_a_user),
+        json={
+            "name": "Tenant A Lottery",
+            "code": "SERVER-SCOPED",
+            "country": "CO",
+            "tenant_id": tenant_b_id,
+        },
+    )
+
+    assert response.status_code == 201
+    lottery_id = response.json()["id"]
+    db = TestingSessionLocal()
+    lottery = db.get(Lottery, lottery_id)
+    assert lottery is not None
+    assert lottery.tenant_id == tenant_a_user[2]
+    assert lottery.tenant_id != tenant_b_id
+    db.close()
