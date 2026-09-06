@@ -27,3 +27,38 @@ def test_functional_encryption_status_is_fail_closed_without_provider():
         }
     finally:
         app.dependency_overrides.clear()
+
+
+def test_functional_encryption_operation_requires_authentication():
+    response = client.post(
+        "/api/v1/functional-encryption/operations",
+        json={"operation": "encrypt", "payload": {"value": "test"}},
+    )
+    assert response.status_code == 401
+
+
+def test_functional_encryption_operation_rejects_unknown_fields():
+    app.dependency_overrides[require_admin_or_analyst] = lambda: object()
+    try:
+        response = client.post(
+            "/api/v1/functional-encryption/operations",
+            json={"operation": "encrypt", "payload": {}, "unexpected": True},
+        )
+        assert response.status_code == 422
+    finally:
+        app.dependency_overrides.clear()
+
+
+def test_functional_encryption_operation_fails_closed_without_provider():
+    app.dependency_overrides[require_admin_or_analyst] = lambda: object()
+    try:
+        response = client.post(
+            "/api/v1/functional-encryption/operations",
+            json={"operation": "evaluate", "payload": {"ciphertext": "opaque"}},
+        )
+        assert response.status_code == 503
+        assert response.json() == {
+            "detail": "Functional Encryption provider is unavailable"
+        }
+    finally:
+        app.dependency_overrides.clear()
