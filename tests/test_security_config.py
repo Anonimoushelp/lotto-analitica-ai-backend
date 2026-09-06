@@ -42,3 +42,33 @@ def test_production_settings_reject_wildcards(field, value, expected_message):
         Settings(**config)
 
     assert expected_message in str(exc_info.value)
+
+
+@pytest.mark.parametrize(
+    "origin",
+    [
+        "http://app.example.com",
+        "https://app.example.com/path",
+        "https://user:password@app.example.com",
+        "https://app.example.com?tenant=1",
+        "https://app.example.com#fragment",
+    ],
+)
+def test_production_settings_reject_insecure_or_malformed_cors_origins(origin):
+    config = {**BASE_PRODUCTION_SETTINGS, "cors_allowed_origins": [origin]}
+
+    with pytest.raises(ValidationError) as exc_info:
+        Settings(**config)
+
+    assert (
+        "CORS_ALLOWED_ORIGINS must contain HTTPS origins without paths or credentials in production"
+        in str(exc_info.value)
+    )
+
+
+def test_production_settings_accept_https_cors_origin_with_port():
+    config = {**BASE_PRODUCTION_SETTINGS, "cors_allowed_origins": ["https://app.example.com:8443"]}
+
+    settings = Settings(**config)
+
+    assert settings.cors_allowed_origins == ["https://app.example.com:8443"]
