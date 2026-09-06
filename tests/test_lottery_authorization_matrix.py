@@ -11,6 +11,8 @@ from app.core.security import create_access_token, hash_password
 from app.db.session import get_db
 from app.main import app
 from app.models.lottery import Lottery
+from app.models.membership import Membership
+from app.models.tenant import Tenant
 from app.models.user import User
 from app.services.lottery_service import LotteryService
 
@@ -21,6 +23,8 @@ engine = create_engine(
 )
 TestingSessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 User.__table__.create(bind=engine)
+Tenant.__table__.create(bind=engine)
+Membership.__table__.create(bind=engine)
 Lottery.__table__.create(bind=engine)
 
 
@@ -53,6 +57,8 @@ def clean_test_data():
     yield
     db = TestingSessionLocal()
     db.execute(delete(Lottery))
+    db.execute(delete(Membership))
+    db.execute(delete(Tenant))
     db.execute(delete(User))
     db.commit()
     db.close()
@@ -69,6 +75,19 @@ def seed_user(email: str, role: str) -> User:
     db.add(user)
     db.commit()
     db.refresh(user)
+    tenant = Tenant(name="Test Tenant", slug=f"tenant-{user.id}", is_active=True)
+    db.add(tenant)
+    db.commit()
+    db.refresh(tenant)
+    db.add(
+        Membership(
+            tenant_id=tenant.id,
+            user_id=user.id,
+            role=role,
+            is_active=True,
+        )
+    )
+    db.commit()
     db.close()
     return user
 
@@ -84,7 +103,7 @@ def fake_lottery() -> SimpleNamespace:
         name="Test Lottery",
         code="TEST",
         country="CO",
-        is_active=True,
+        active=True,
         created_at=now,
         updated_at=now,
     )
