@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, Query, status
+from fastapi import APIRouter, Depends, Path, Query, status
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import require_admin, require_admin_or_analyst
@@ -40,7 +40,7 @@ def list_draws(
 
 @router.get("/{draw_id}", response_model=LotteryDrawResponse)
 def get_draw(
-    draw_id: int = Query(gt=0),
+    draw_id: int = Path(gt=0),
     db: Session = Depends(get_db),
     current_user=Depends(require_admin_or_analyst),
 ):
