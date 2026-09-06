@@ -64,7 +64,7 @@ def clean_test_data():
     db.close()
 
 
-def seed_user(email: str, role: str) -> User:
+def seed_user(email: str, role: str) -> tuple[int, str]:
     db = TestingSessionLocal()
     user = User(
         email=email,
@@ -75,25 +75,28 @@ def seed_user(email: str, role: str) -> User:
     db.add(user)
     db.commit()
     db.refresh(user)
-    tenant = Tenant(name="Test Tenant", slug=f"tenant-{user.id}", is_active=True)
+    user_id = user.id
+    user_role = user.role
+    tenant = Tenant(name="Test Tenant", slug=f"tenant-{user_id}", is_active=True)
     db.add(tenant)
     db.commit()
     db.refresh(tenant)
     db.add(
         Membership(
             tenant_id=tenant.id,
-            user_id=user.id,
+            user_id=user_id,
             role=role,
             is_active=True,
         )
     )
     db.commit()
     db.close()
-    return user
+    return user_id, user_role
 
 
-def auth_header(user: User) -> dict[str, str]:
-    return {"Authorization": f"Bearer {create_access_token(str(user.id), user.role)}"}
+def auth_header(user: tuple[int, str]) -> dict[str, str]:
+    user_id, user_role = user
+    return {"Authorization": f"Bearer {create_access_token(str(user_id), user_role)}"}
 
 
 def fake_lottery() -> SimpleNamespace:
