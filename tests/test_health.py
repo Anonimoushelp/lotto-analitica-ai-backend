@@ -78,6 +78,30 @@ def test_security_headers():
     assert "Set-Cookie" not in response.headers
 
 
+def test_security_headers_are_present_on_not_found_responses():
+    response = client.get("/route-that-does-not-exist")
+
+    assert response.status_code == 404
+    assert response.headers["X-Content-Type-Options"] == "nosniff"
+    assert response.headers["X-Frame-Options"] == "DENY"
+    assert response.headers["Referrer-Policy"] == "no-referrer"
+    assert response.headers["Permissions-Policy"] == (
+        "geolocation=(), microphone=(), camera=()"
+    )
+
+
+def test_security_headers_are_present_on_method_not_allowed_responses():
+    response = client.patch("/health")
+
+    assert response.status_code == 405
+    assert response.headers["X-Content-Type-Options"] == "nosniff"
+    assert response.headers["X-Frame-Options"] == "DENY"
+    assert response.headers["Referrer-Policy"] == "no-referrer"
+    assert response.headers["Permissions-Policy"] == (
+        "geolocation=(), microphone=(), camera=()"
+    )
+
+
 def test_auth_responses_are_not_cacheable():
     response = client.get("/api/v1/auth/me")
 
