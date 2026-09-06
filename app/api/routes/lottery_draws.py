@@ -74,8 +74,8 @@ def create_draw(
 
 @router.put("/{draw_id}", response_model=LotteryDrawResponse)
 def update_draw(
+    payload: LotteryDrawUpdate,
     draw_id: int = Path(gt=0),
-    payload: LotteryDrawUpdate = None,
     db: Session = Depends(get_db),
     current_user=Depends(require_admin),
 ):
