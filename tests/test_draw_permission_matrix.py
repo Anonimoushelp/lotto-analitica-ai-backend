@@ -347,3 +347,45 @@ def test_draw_list_lottery_id_accepts_positive_values(lottery_id, monkeypatch):
     assert len(calls) == 1
     assert calls[0]["lottery_id"] == lottery_id
     assert calls[0]["limit"] == 100
+
+
+@pytest.mark.parametrize("draw_id", [0, -1])
+def test_draw_get_rejects_non_positive_id_before_service(draw_id, monkeypatch):
+    user = seed_user(f"draw-id-{draw_id}@example.com", "admin")
+    called = False
+
+    def forbidden_service(**kwargs):
+        nonlocal called
+        called = True
+        return fake_draw()
+
+    monkeypatch.setattr(LotteryDrawService, "get_draw", forbidden_service)
+
+    response = client.get(
+        f"/api/v1/draws/{draw_id}",
+        headers=auth_header(user),
+    )
+
+    assert response.status_code == 422
+    assert called is False
+
+
+@pytest.mark.parametrize("draw_id", [1, 42, 999999])
+def test_draw_get_accepts_positive_id(draw_id, monkeypatch):
+    user = seed_user(f"draw-id-ok-{draw_id}@example.com", "admin")
+    calls = []
+
+    def capture_service(**kwargs):
+        calls.append(kwargs)
+        return fake_draw()
+
+    monkeypatch.setattr(LotteryDrawService, "get_draw", capture_service)
+
+    response = client.get(
+        f"/api/v1/draws/{draw_id}",
+        headers=auth_header(user),
+    )
+
+    assert response.status_code == 200
+    assert len(calls) == 1
+    assert calls[0]["draw_id"] == draw_id
