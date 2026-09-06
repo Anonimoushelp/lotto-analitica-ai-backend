@@ -47,6 +47,11 @@ class RequestBodyLimitMiddleware(BaseHTTPMiddleware):
                     status_code=400,
                     content={"detail": "Invalid Content-Length header"},
                 )
+            if declared_length < 0:
+                return JSONResponse(
+                    status_code=400,
+                    content={"detail": "Invalid Content-Length header"},
+                )
             if declared_length > MAX_REQUEST_BODY_BYTES:
                 return JSONResponse(
                     status_code=413,
