@@ -22,6 +22,7 @@ class Settings(BaseSettings):
 
     secret_key: str = Field(min_length=32)
     gemini_api_key: str = ""
+    functional_encryption_provider: str = "none"
     allow_initial_registration: bool = False
     cors_allowed_origins: list[str] = Field(default_factory=list)
     trusted_hosts: list[str] = Field(default_factory=list)
@@ -29,11 +30,17 @@ class Settings(BaseSettings):
     @model_validator(mode="after")
     def validate_security_settings(self) -> "Settings":
         self.environment = self.environment.strip().lower()
+        self.functional_encryption_provider = self.functional_encryption_provider.strip().lower()
 
         allowed_environments = {"development", "test", "production"}
         if self.environment not in allowed_environments:
             raise ValueError(
                 "ENVIRONMENT must be one of: development, test, production"
+            )
+
+        if self.functional_encryption_provider not in {"none"}:
+            raise ValueError(
+                "FUNCTIONAL_ENCRYPTION_PROVIDER is not supported by the installed backend"
             )
 
         if self.environment != "production":
