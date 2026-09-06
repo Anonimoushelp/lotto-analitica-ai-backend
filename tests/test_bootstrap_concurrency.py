@@ -80,7 +80,7 @@ def test_initial_registration_allows_only_one_concurrent_bootstrap(
             results.append(("success", response.email))
         except HTTPException as exc:
             results.append(("http_error", exc.status_code))
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001
             errors.append(exc)
         finally:
             db.close()
