@@ -2,6 +2,7 @@ from fastapi import APIRouter, Depends, Path, Query, status
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import require_admin, require_admin_or_analyst
+from app.api.dependencies.tenant import TenantContext, get_tenant_context
 from app.core.audit import log_mutation
 from app.db.session import get_db
 from app.schemas.lottery_draw import (
@@ -29,10 +30,11 @@ def list_draws(
         le=MAX_DRAW_LIST_LIMIT,
     ),
     db: Session = Depends(get_db),
-    current_user=Depends(require_admin_or_analyst),
+    tenant: TenantContext = Depends(get_tenant_context),
 ):
     return LotteryDrawService.list_draws(
         db=db,
+        tenant_id=tenant.tenant_id,
         lottery_id=lottery_id,
         limit=limit,
     )
@@ -42,19 +44,26 @@ def list_draws(
 def get_draw(
     draw_id: int = Path(gt=0),
     db: Session = Depends(get_db),
-    current_user=Depends(require_admin_or_analyst),
+    tenant: TenantContext = Depends(get_tenant_context),
 ):
-    return LotteryDrawService.get_draw(db=db, draw_id=draw_id)
+    return LotteryDrawService.get_draw(
+        db=db,
+        draw_id=draw_id,
+        tenant_id=tenant.tenant_id,
+    )
 
 
 @router.post("", response_model=LotteryDrawResponse, status_code=status.HTTP_201_CREATED)
 def create_draw(
     payload: LotteryDrawCreate,
     db: Session = Depends(get_db),
-    current_user=Depends(require_admin),
+    tenant: TenantContext = Depends(get_tenant_context),
 ):
+    if tenant.role != "admin":
+        raise status.HTTP_403_FORBIDDEN
     draw = LotteryDrawService.create_draw(
         db=db,
+        tenant_id=tenant.tenant_id,
         lottery_id=payload.lottery_id,
         draw_number=payload.draw_number,
         draw_date=payload.draw_date,
@@ -67,7 +76,7 @@ def create_draw(
         action="create",
         resource="draw",
         resource_id=draw.id,
-        actor=current_user,
+        actor=tenant,
     )
     return draw
 
@@ -77,19 +86,22 @@ def update_draw(
     payload: LotteryDrawUpdate,
     draw_id: int = Path(gt=0),
     db: Session = Depends(get_db),
-    current_user=Depends(require_admin),
+    tenant: TenantContext = Depends(get_tenant_context),
 ):
+    if tenant.role != "admin":
+        raise status.HTTP_403_FORBIDDEN
     update_data = payload.model_dump(exclude_unset=True)
     draw = LotteryDrawService.update_draw(
         db=db,
         draw_id=draw_id,
+        tenant_id=tenant.tenant_id,
         update_data=update_data,
     )
     log_mutation(
         action="update",
         resource="draw",
         resource_id=draw.id,
-        actor=current_user,
+        actor=tenant,
     )
     return draw
 
@@ -98,12 +110,18 @@ def update_draw(
 def delete_draw(
     draw_id: int = Path(gt=0),
     db: Session = Depends(get_db),
-    current_user=Depends(require_admin),
+    tenant: TenantContext = Depends(get_tenant_context),
 ):
-    LotteryDrawService.delete_draw(db=db, draw_id=draw_id)
+    if tenant.role != "admin":
+        raise status.HTTP_403_FORBIDDEN
+    LotteryDrawService.delete_draw(
+        db=db,
+        draw_id=draw_id,
+        tenant_id=tenant.tenant_id,
+    )
     log_mutation(
         action="delete",
         resource="draw",
         resource_id=draw_id,
-        actor=current_user,
+        actor=tenant,
     )
