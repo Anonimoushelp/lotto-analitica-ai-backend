@@ -118,6 +118,27 @@ class Settings(BaseSettings):
                 raise ValueError(
                     "TRUSTED_HOSTS cannot contain '*' in production"
                 )
+            for host in self.trusted_hosts:
+                parsed_host = urlparse(f"//{host}")
+                wildcard_count = host.count("*")
+                if (
+                    not host
+                    or host != host.strip()
+                    or parsed_host.hostname is None
+                    or parsed_host.username is not None
+                    or parsed_host.password is not None
+                    or parsed_host.path
+                    or parsed_host.params
+                    or parsed_host.query
+                    or parsed_host.fragment
+                    or parsed_host.port is not None
+                    or wildcard_count > 1
+                    or (wildcard_count == 1 and not host.startswith("*."))
+                    or (wildcard_count == 1 and host.count(".") < 2)
+                ):
+                    raise ValueError(
+                        "TRUSTED_HOSTS must contain valid hostnames or *.subdomain patterns without ports or URL components in production"
+                    )
 
         return self
 
