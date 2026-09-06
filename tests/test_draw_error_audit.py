@@ -13,6 +13,8 @@ from app.db.session import get_db
 from app.main import app
 from app.models.lottery import Lottery
 from app.models.lottery_draw import LotteryDraw
+from app.models.membership import Membership
+from app.models.tenant import Tenant
 from app.models.user import User
 from app.services.lottery_draw_service import LotteryDrawService
 
@@ -22,6 +24,8 @@ engine = create_engine(
     poolclass=StaticPool,
 )
 TestingSessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+Tenant.__table__.create(bind=engine)
+Membership.__table__.create(bind=engine)
 User.__table__.create(bind=engine)
 Lottery.__table__.create(bind=engine)
 LotteryDraw.__table__.create(bind=engine)
@@ -54,7 +58,9 @@ def clean_test_data():
     db = TestingSessionLocal()
     db.execute(delete(LotteryDraw))
     db.execute(delete(Lottery))
+    db.execute(delete(Membership))
     db.execute(delete(User))
+    db.execute(delete(Tenant))
     db.commit()
     db.close()
 
@@ -64,13 +70,23 @@ client = TestClient(app)
 
 def seed_admin() -> User:
     db = TestingSessionLocal()
+    tenant = Tenant(name="Draw Test Tenant", slug="draw-test-tenant")
     user = User(
         email="draw-errors-admin@example.com",
         password_hash=hash_password("StrongTestPassword123!"),
         role="admin",
         is_active=True,
     )
-    db.add(user)
+    db.add_all([tenant, user])
+    db.flush()
+    db.add(
+        Membership(
+            tenant_id=tenant.id,
+            user_id=user.id,
+            role="admin",
+            is_active=True,
+        )
+    )
     db.commit()
     db.refresh(user)
     db.close()
@@ -79,11 +95,17 @@ def seed_admin() -> User:
 
 def seed_lottery() -> Lottery:
     db = TestingSessionLocal()
+    tenant = db.query(Tenant).first()
+    if tenant is None:
+        tenant = Tenant(name="Draw Test Tenant", slug="draw-test-tenant")
+        db.add(tenant)
+        db.flush()
     lottery = Lottery(
         name="Draw Error Test Lottery",
         code="DET",
         country="CO",
         active=True,
+        tenant_id=tenant.id,
     )
     db.add(lottery)
     db.commit()
