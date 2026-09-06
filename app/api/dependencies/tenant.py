@@ -1,9 +1,11 @@
 from dataclasses import dataclass
 
-from fastapi import Header, HTTPException, status
+from fastapi import Depends, Header, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.api.dependencies.auth import get_current_user
+from app.db.session import get_db
 from app.models.membership import Membership
 from app.models.tenant import Tenant
 from app.models.user import User
@@ -18,8 +20,8 @@ class TenantContext:
 
 
 def get_tenant_context(
-    current_user: User,
-    db: Session,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
     x_tenant_id: int | None = Header(default=None, alias="X-Tenant-ID"),
 ) -> TenantContext:
     query = (
