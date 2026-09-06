@@ -27,3 +27,42 @@ def test_tee_status_is_fail_closed_without_provider():
         "attestation_available": False,
         "message": "No verified TEE provider is connected",
     }
+
+
+def test_tee_operation_requires_authentication():
+    response = TestClient(app).post(
+        "/api/v1/tee/operations",
+        json={"operation": "attest", "nonce": "0123456789abcdef"},
+    )
+    assert response.status_code == 401
+
+
+def test_tee_operation_fails_closed_without_provider():
+    app.dependency_overrides[require_admin_or_analyst] = lambda: object()
+    try:
+        response = TestClient(app).post(
+            "/api/v1/tee/operations",
+            json={"operation": "attest", "nonce": "0123456789abcdef"},
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 503
+    assert response.json() == {"detail": "TEE attestation provider unavailable"}
+
+
+def test_tee_operation_rejects_unknown_fields():
+    app.dependency_overrides[require_admin_or_analyst] = lambda: object()
+    try:
+        response = TestClient(app).post(
+            "/api/v1/tee/operations",
+            json={
+                "operation": "attest",
+                "nonce": "0123456789abcdef",
+                "attestation": "synthetic",
+            },
+        )
+    finally:
+        app.dependency_overrides.clear()
+
+    assert response.status_code == 422
