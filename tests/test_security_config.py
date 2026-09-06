@@ -72,3 +72,38 @@ def test_production_settings_accept_https_cors_origin_with_port():
     settings = Settings(**config)
 
     assert settings.cors_allowed_origins == ["https://app.example.com:8443"]
+
+
+@pytest.mark.parametrize(
+    "host",
+    [
+        "https://api.example.com",
+        "api.example.com:8443",
+        "api.example.com/path",
+        "user:password@api.example.com",
+        "api.example.com?tenant=1",
+        "api.example.com#fragment",
+        "api.*.example.com",
+        "*api.example.com",
+        "*.",
+    ],
+)
+def test_production_settings_reject_malformed_trusted_hosts(host):
+    config = {**BASE_PRODUCTION_SETTINGS, "trusted_hosts": [host]}
+
+    with pytest.raises(ValidationError) as exc_info:
+        Settings(**config)
+
+    assert (
+        "TRUSTED_HOSTS must contain valid hostnames or *.subdomain patterns without ports or URL components in production"
+        in str(exc_info.value)
+    )
+
+
+@pytest.mark.parametrize("host", ["api.example.com", "*.example.com", "192.0.2.10"])
+def test_production_settings_accept_valid_trusted_hosts(host):
+    config = {**BASE_PRODUCTION_SETTINGS, "trusted_hosts": [host]}
+
+    settings = Settings(**config)
+
+    assert settings.trusted_hosts == [host]
