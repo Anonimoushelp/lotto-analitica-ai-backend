@@ -326,3 +326,9 @@ def test_update_integrity_conflict_is_409_and_not_audited(monkeypatch):
     assert response.status_code == 409
     assert response.json()["detail"] == "Lottery draw conflicts with an existing record"
     assert audit_events == []
+
+    db = TestingSessionLocal()
+    persisted_draw = db.get(LotteryDraw, draw.id)
+    assert persisted_draw is not None
+    assert persisted_draw.draw_number == "D-001"
+    db.close()
