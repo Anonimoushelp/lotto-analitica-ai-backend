@@ -15,6 +15,9 @@ class TeeProvider(Protocol):
     def status(self) -> TeeProviderStatus:
         """Return verified confidential-computing capability status."""
 
+    def attest(self, nonce: str) -> TeeProviderStatus:
+        """Perform a verified attestation operation."""
+
 
 class UnavailableTeeProvider:
     """Fail-closed provider until verified TEE infrastructure is connected."""
@@ -26,4 +29,13 @@ class UnavailableTeeProvider:
             production_ready=False,
             attestation_available=False,
             message="No verified TEE provider is connected",
+        )
+
+    def attest(self, nonce: str) -> TeeProviderStatus:
+        return TeeProviderStatus(
+            provider="none",
+            available=False,
+            production_ready=False,
+            attestation_available=False,
+            message="TEE attestation unavailable: no verified provider is connected",
         )
