@@ -8,15 +8,16 @@ from app.repositories.lottery_draw_repository import LotteryDrawRepository
 
 
 class LotteryDrawService:
-
     @staticmethod
     def list_draws(
         db: Session,
+        tenant_id: int,
         lottery_id: int | None = None,
         limit: int = 100,
     ) -> list[LotteryDraw]:
         return LotteryDrawRepository.list(
             db=db,
+            tenant_id=tenant_id,
             lottery_id=lottery_id,
             limit=limit,
         )
@@ -25,10 +26,12 @@ class LotteryDrawService:
     def get_draw(
         db: Session,
         draw_id: int,
+        tenant_id: int,
     ) -> LotteryDraw:
         draw = LotteryDrawRepository.get_by_id(
             db=db,
             draw_id=draw_id,
+            tenant_id=tenant_id,
         )
 
         if draw is None:
@@ -42,6 +45,7 @@ class LotteryDrawService:
     @staticmethod
     def create_draw(
         db: Session,
+        tenant_id: int,
         lottery_id: int,
         draw_number: str,
         draw_date,
@@ -50,8 +54,12 @@ class LotteryDrawService:
         source: str | None = None,
         metadata_json: dict | None = None,
     ) -> LotteryDraw:
-
-        lottery = db.get(Lottery, lottery_id)
+        lottery = db.scalar(
+            __import__("sqlalchemy").select(Lottery).where(
+                Lottery.id == lottery_id,
+                Lottery.tenant_id == tenant_id,
+            )
+        )
 
         if lottery is None:
             raise HTTPException(
@@ -63,6 +71,7 @@ class LotteryDrawService:
             db=db,
             lottery_id=lottery_id,
             draw_number=draw_number,
+            tenant_id=tenant_id,
         )
 
         if existing_number is not None:
@@ -75,6 +84,7 @@ class LotteryDrawService:
             db=db,
             lottery_id=lottery_id,
             draw_date=draw_date,
+            tenant_id=tenant_id,
         )
 
         if existing_date is not None:
@@ -108,30 +118,34 @@ class LotteryDrawService:
     def update_draw(
         db: Session,
         draw_id: int,
+        tenant_id: int,
         update_data: dict,
     ) -> LotteryDraw:
-
         draw = LotteryDrawService.get_draw(
             db=db,
             draw_id=draw_id,
+            tenant_id=tenant_id,
         )
 
         new_lottery_id = update_data.get(
             "lottery_id",
             draw.lottery_id,
         )
-
         new_draw_number = update_data.get(
             "draw_number",
             draw.draw_number,
         )
-
         new_draw_date = update_data.get(
             "draw_date",
             draw.draw_date,
         )
 
-        lottery = db.get(Lottery, new_lottery_id)
+        lottery = db.scalar(
+            __import__("sqlalchemy").select(Lottery).where(
+                Lottery.id == new_lottery_id,
+                Lottery.tenant_id == tenant_id,
+            )
+        )
 
         if lottery is None:
             raise HTTPException(
@@ -143,12 +157,9 @@ class LotteryDrawService:
             db=db,
             lottery_id=new_lottery_id,
             draw_number=new_draw_number,
+            tenant_id=tenant_id,
         )
-
-        if (
-            existing_number is not None
-            and existing_number.id != draw_id
-        ):
+        if existing_number is not None and existing_number.id != draw_id:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Draw number already exists for this lottery",
@@ -158,12 +169,9 @@ class LotteryDrawService:
             db=db,
             lottery_id=new_lottery_id,
             draw_date=new_draw_date,
+            tenant_id=tenant_id,
         )
-
-        if (
-            existing_date is not None
-            and existing_date.id != draw_id
-        ):
+        if existing_date is not None and existing_date.id != draw_id:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Draw date already exists for this lottery",
@@ -188,11 +196,12 @@ class LotteryDrawService:
     def delete_draw(
         db: Session,
         draw_id: int,
+        tenant_id: int,
     ) -> None:
-
         draw = LotteryDrawService.get_draw(
             db=db,
             draw_id=draw_id,
+            tenant_id=tenant_id,
         )
 
         try:
