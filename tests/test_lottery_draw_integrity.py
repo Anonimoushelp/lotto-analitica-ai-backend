@@ -8,6 +8,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.models.lottery import Lottery
 from app.models.lottery_draw import LotteryDraw
+from app.models.tenant import Tenant
 from app.services.lottery_draw_service import LotteryDrawService
 
 engine = create_engine(
@@ -16,6 +17,7 @@ engine = create_engine(
     poolclass=StaticPool,
 )
 TestingSessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+Tenant.__table__.create(bind=engine)
 Lottery.__table__.create(bind=engine)
 LotteryDraw.__table__.create(bind=engine)
 
@@ -24,11 +26,21 @@ def db_session():
     return TestingSessionLocal()
 
 
+def seed_tenant(db) -> Tenant:
+    tenant = Tenant(name="Test Tenant", slug="test-tenant")
+    db.add(tenant)
+    db.commit()
+    db.refresh(tenant)
+    return tenant
+
+
 def seed_lottery(db, name: str) -> Lottery:
+    tenant = db.query(Tenant).first() or seed_tenant(db)
     lottery = Lottery(
         name=name,
         code=name.lower().replace(" ", "-"),
         country="Colombia",
+        tenant_id=tenant.id,
     )
     db.add(lottery)
     db.commit()
@@ -59,6 +71,7 @@ def db():
         cleanup = db_session()
         cleanup.execute(delete(LotteryDraw))
         cleanup.execute(delete(Lottery))
+        cleanup.execute(delete(Tenant))
         cleanup.commit()
         cleanup.close()
 
