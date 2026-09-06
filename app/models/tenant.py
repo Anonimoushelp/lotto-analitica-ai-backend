@@ -7,6 +7,7 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 
 if TYPE_CHECKING:
+    from app.models.lottery import Lottery
     from app.models.membership import Membership
 
 
@@ -29,4 +30,7 @@ class Tenant(Base):
 
     memberships: Mapped[list["Membership"]] = relationship(
         "Membership", back_populates="tenant", cascade="all, delete-orphan"
+    )
+    lotteries: Mapped[list["Lottery"]] = relationship(
+        "Lottery", back_populates="tenant", cascade="all, delete-orphan"
     )
