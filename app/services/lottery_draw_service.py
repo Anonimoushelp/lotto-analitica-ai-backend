@@ -195,7 +195,13 @@ class LotteryDrawService:
             draw_id=draw_id,
         )
 
-        LotteryDrawRepository.delete(
-            db=db,
-            draw=draw,
-        )
+        try:
+            LotteryDrawRepository.delete(
+                db=db,
+                draw=draw,
+            )
+        except IntegrityError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Lottery draw conflicts with an existing record",
+            ) from exc
