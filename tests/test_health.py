@@ -1,4 +1,5 @@
 import asyncio
+import re
 
 from fastapi import Request
 from fastapi.testclient import TestClient
@@ -253,3 +254,49 @@ def test_protected_read_endpoints_require_authentication(monkeypatch):
 
     assert lotteries_response.status_code == 401
     assert draws_response.status_code == 401
+
+
+def test_request_id_is_generated_and_returned():
+    response = client.get("/health")
+
+    request_id = response.headers["X-Request-ID"]
+    assert re.fullmatch(r"[A-Za-z0-9._-]{1,64}", request_id)
+
+
+def test_request_id_is_preserved_when_valid():
+    request_id = "client.request-123"
+    response = client.get("/health", headers={"X-Request-ID": request_id})
+
+    assert response.status_code == 200
+    assert response.headers["X-Request-ID"] == request_id
+
+
+def test_invalid_request_id_is_replaced():
+    response = client.get("/health", headers={"X-Request-ID": "invalid request id"})
+
+    assert response.status_code == 200
+    request_id = response.headers["X-Request-ID"]
+    assert request_id != "invalid request id"
+    assert re.fullmatch(r"[A-Za-z0-9._-]{1,64}", request_id)
+
+
+def test_request_body_limit_rejects_oversized_content_length():
+    response = client.post(
+        "/health",
+        headers={"Content-Length": "1048577"},
+    )
+
+    assert response.status_code == 413
+    assert response.json() == {"detail": "Request body too large"}
+    assert "X-Request-ID" in response.headers
+
+
+def test_request_body_limit_rejects_invalid_content_length():
+    response = client.post(
+        "/health",
+        headers={"Content-Length": "not-a-number"},
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Invalid Content-Length header"}
+    assert "X-Request-ID" in response.headers
