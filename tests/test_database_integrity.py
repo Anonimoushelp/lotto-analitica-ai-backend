@@ -33,11 +33,17 @@ class FailingSession:
         self.refresh_calls += 1
 
 
-def test_lottery_code_is_unique_and_required():
-    column = Lottery.__table__.c.code
+def test_lottery_requires_tenant_and_enforces_tenant_scoped_code_uniqueness():
+    table = Lottery.__table__
+    unique_constraints = {
+        tuple(constraint.columns.keys())
+        for constraint in table.constraints
+        if isinstance(constraint, UniqueConstraint)
+    }
 
-    assert column.unique is True
-    assert column.nullable is False
+    assert table.c.tenant_id.nullable is False
+    assert table.c.code.nullable is False
+    assert ("tenant_id", "code") in unique_constraints
 
 
 def test_lottery_draw_requires_lottery_and_enforces_unique_number_and_date():
