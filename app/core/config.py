@@ -95,6 +95,21 @@ class Settings(BaseSettings):
                 raise ValueError(
                     "CORS_ALLOWED_ORIGINS cannot contain '*' in production"
                 )
+            for origin in self.cors_allowed_origins:
+                parsed_origin = urlparse(origin)
+                if (
+                    parsed_origin.scheme != "https"
+                    or not parsed_origin.netloc
+                    or parsed_origin.username is not None
+                    or parsed_origin.password is not None
+                    or parsed_origin.path
+                    or parsed_origin.params
+                    or parsed_origin.query
+                    or parsed_origin.fragment
+                ):
+                    raise ValueError(
+                        "CORS_ALLOWED_ORIGINS must contain HTTPS origins without paths or credentials in production"
+                    )
             if not self.trusted_hosts:
                 raise ValueError(
                     "TRUSTED_HOSTS must be configured in production"
