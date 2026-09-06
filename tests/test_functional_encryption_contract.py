@@ -1,5 +1,6 @@
 from fastapi.testclient import TestClient
 
+from app.api.dependencies.auth import require_admin_or_analyst
 from app.main import app
 
 client = TestClient(app)
@@ -10,12 +11,8 @@ def test_functional_encryption_status_requires_authentication():
     assert response.status_code == 401
 
 
-def test_functional_encryption_status_contract(monkeypatch):
-    from app.api.dependencies.auth import get_current_user
-    from app.models.user import User
-
-    user = User(id=1, email="analyst@example.com", role="analyst", is_active=True)
-    app.dependency_overrides[get_current_user] = lambda: user
+def test_functional_encryption_status_contract():
+    app.dependency_overrides[require_admin_or_analyst] = lambda: object()
     try:
         response = client.get("/api/v1/functional-encryption/status")
         assert response.status_code == 200
