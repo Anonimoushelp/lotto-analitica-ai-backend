@@ -25,3 +25,14 @@ def test_request_body_size_limit_accepts_payload_within_declared_limit():
     )
 
     assert response.status_code == 401
+
+
+def test_request_body_size_limit_rejects_negative_content_length():
+    response = client.post(
+        "/api/v1/predictions",
+        headers={"Content-Length": "-1"},
+        content=b"{}",
+    )
+
+    assert response.status_code == 400
+    assert response.json() == {"detail": "Invalid Content-Length header"}
