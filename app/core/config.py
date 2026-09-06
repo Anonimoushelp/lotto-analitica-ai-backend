@@ -91,9 +91,17 @@ class Settings(BaseSettings):
                 raise ValueError(
                     "CORS_ALLOWED_ORIGINS must be configured in production"
                 )
+            if "*" in self.cors_allowed_origins:
+                raise ValueError(
+                    "CORS_ALLOWED_ORIGINS cannot contain '*' in production"
+                )
             if not self.trusted_hosts:
                 raise ValueError(
                     "TRUSTED_HOSTS must be configured in production"
+                )
+            if "*" in self.trusted_hosts:
+                raise ValueError(
+                    "TRUSTED_HOSTS cannot contain '*' in production"
                 )
 
         return self
