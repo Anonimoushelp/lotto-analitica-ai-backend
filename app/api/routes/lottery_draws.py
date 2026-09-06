@@ -57,10 +57,9 @@ def get_draw(
 def create_draw(
     payload: LotteryDrawCreate,
     db: Session = Depends(get_db),
+    current_user=Depends(require_admin),
     tenant: TenantContext = Depends(get_tenant_context),
 ):
-    if tenant.role != "admin":
-        raise status.HTTP_403_FORBIDDEN
     draw = LotteryDrawService.create_draw(
         db=db,
         tenant_id=tenant.tenant_id,
@@ -76,7 +75,7 @@ def create_draw(
         action="create",
         resource="draw",
         resource_id=draw.id,
-        actor=tenant,
+        actor=current_user,
     )
     return draw
 
@@ -86,10 +85,9 @@ def update_draw(
     payload: LotteryDrawUpdate,
     draw_id: int = Path(gt=0),
     db: Session = Depends(get_db),
+    current_user=Depends(require_admin),
     tenant: TenantContext = Depends(get_tenant_context),
 ):
-    if tenant.role != "admin":
-        raise status.HTTP_403_FORBIDDEN
     update_data = payload.model_dump(exclude_unset=True)
     draw = LotteryDrawService.update_draw(
         db=db,
@@ -101,7 +99,7 @@ def update_draw(
         action="update",
         resource="draw",
         resource_id=draw.id,
-        actor=tenant,
+        actor=current_user,
     )
     return draw
 
@@ -110,10 +108,9 @@ def update_draw(
 def delete_draw(
     draw_id: int = Path(gt=0),
     db: Session = Depends(get_db),
+    current_user=Depends(require_admin),
     tenant: TenantContext = Depends(get_tenant_context),
 ):
-    if tenant.role != "admin":
-        raise status.HTTP_403_FORBIDDEN
     LotteryDrawService.delete_draw(
         db=db,
         draw_id=draw_id,
@@ -123,5 +120,5 @@ def delete_draw(
         action="delete",
         resource="draw",
         resource_id=draw_id,
-        actor=tenant,
+        actor=current_user,
     )
