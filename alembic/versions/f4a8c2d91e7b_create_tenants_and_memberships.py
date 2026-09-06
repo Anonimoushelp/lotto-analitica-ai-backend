@@ -26,7 +26,6 @@ def upgrade() -> None:
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("slug", name="uq_tenants_slug"),
     )
     op.create_index(op.f("ix_tenants_id"), "tenants", ["id"], unique=False)
     op.create_index(op.f("ix_tenants_slug"), "tenants", ["slug"], unique=True)
@@ -51,7 +50,6 @@ def upgrade() -> None:
         "ix_memberships_user_active", "memberships", ["user_id", "is_active"], unique=False
     )
 
-    now = sa.text("CURRENT_TIMESTAMP")
     op.execute(
         sa.text(
             """
