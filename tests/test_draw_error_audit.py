@@ -332,3 +332,36 @@ def test_update_integrity_conflict_is_409_and_not_audited(monkeypatch):
     assert persisted_draw is not None
     assert persisted_draw.draw_number == "D-001"
     db.close()
+
+
+def test_delete_integrity_conflict_is_409_and_not_audited(monkeypatch):
+    user = seed_admin()
+    lottery = seed_lottery()
+    draw = seed_draw(lottery.id)
+    audit_events = []
+    integrity_error = IntegrityError(
+        "DELETE FROM lottery_draws",
+        {},
+        Exception("foreign key constraint"),
+    )
+
+    def raise_integrity(**kwargs):
+        raise integrity_error
+
+    monkeypatch.setattr(
+        "app.repositories.lottery_draw_repository.LotteryDrawRepository.delete",
+        raise_integrity,
+    )
+    monkeypatch.setattr(
+        "app.api.routes.lottery_draws.log_mutation",
+        lambda **kwargs: audit_events.append(kwargs),
+    )
+
+    response = client.delete(
+        f"/api/v1/draws/{draw.id}",
+        headers=auth_header(user),
+    )
+
+    assert response.status_code == 409
+    assert response.json()["detail"] == "Lottery draw conflicts with an existing record"
+    assert audit_events == []
