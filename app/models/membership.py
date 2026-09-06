@@ -39,4 +39,4 @@ class Membership(Base):
     )
 
     tenant: Mapped["Tenant"] = relationship("Tenant", back_populates="memberships")
-    user: Mapped["User"] = relationship("User")
+    user: Mapped["User"] = relationship("User", back_populates="memberships")
