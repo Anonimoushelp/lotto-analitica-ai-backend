@@ -301,6 +301,6 @@ def test_draw_list_limit_accepts_configured_boundaries(limit, monkeypatch):
     )
 
     assert response.status_code == 200
-    assert calls == [{"db": pytest.approx(calls[0]["db"]), "lottery_id": None, "limit": limit}] if False else len(calls) == 1
+    assert len(calls) == 1
     assert calls[0]["lottery_id"] is None
     assert calls[0]["limit"] == limit
