@@ -82,7 +82,8 @@ def seed_lottery() -> Lottery:
     lottery = Lottery(
         name="Draw Error Test Lottery",
         code="DET",
-        is_active=True,
+        country="CO",
+        active=True,
     )
     db.add(lottery)
     db.commit()
