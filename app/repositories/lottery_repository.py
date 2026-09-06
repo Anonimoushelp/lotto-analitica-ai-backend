@@ -7,17 +7,28 @@ from app.models.lottery import Lottery
 
 class LotteryRepository:
     @staticmethod
-    def list(db: Session) -> list[Lottery]:
-        statement = select(Lottery).order_by(Lottery.name)
+    def list(db: Session, tenant_id: int) -> list[Lottery]:
+        statement = (
+            select(Lottery)
+            .where(Lottery.tenant_id == tenant_id)
+            .order_by(Lottery.name)
+        )
         return list(db.scalars(statement).all())
 
     @staticmethod
-    def get_by_id(db: Session, lottery_id: int) -> Lottery | None:
-        return db.get(Lottery, lottery_id)
+    def get_by_id(db: Session, lottery_id: int, tenant_id: int) -> Lottery | None:
+        statement = select(Lottery).where(
+            Lottery.id == lottery_id,
+            Lottery.tenant_id == tenant_id,
+        )
+        return db.scalar(statement)
 
     @staticmethod
-    def get_by_code(db: Session, code: str) -> Lottery | None:
-        statement = select(Lottery).where(Lottery.code == code)
+    def get_by_code(db: Session, code: str, tenant_id: int) -> Lottery | None:
+        statement = select(Lottery).where(
+            Lottery.code == code,
+            Lottery.tenant_id == tenant_id,
+        )
         return db.scalar(statement)
 
     @staticmethod
