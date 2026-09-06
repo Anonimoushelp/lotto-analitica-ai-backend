@@ -177,9 +177,10 @@ def test_admin_can_mutate_draws(method, path, json_body, expected_status, monkey
     assert called is True
 
 
+@pytest.mark.parametrize("role", ["admin", "analyst", "viewer", "service"])
 @pytest.mark.parametrize("path", ["/api/v1/draws", "/api/v1/draws/1"])
-def test_authenticated_read_roles_can_access_draws(path, monkeypatch):
-    user = seed_user("analyst@example.com", "analyst")
+def test_authenticated_read_matrix(role, path, monkeypatch):
+    user = seed_user(f"read-{role}@example.com", role)
     if path.endswith("/1"):
         monkeypatch.setattr(LotteryDrawService, "get_draw", lambda **kwargs: fake_draw())
     else:
@@ -187,7 +188,10 @@ def test_authenticated_read_roles_can_access_draws(path, monkeypatch):
 
     response = client.get(path, headers=auth_header(user))
 
-    assert response.status_code == 200
+    if role in {"admin", "analyst"}:
+        assert response.status_code == 200
+    else:
+        assert response.status_code == 403
 
 
 @pytest.mark.parametrize("path", ["/api/v1/draws", "/api/v1/draws/1"])
@@ -200,3 +204,60 @@ def test_anonymous_draw_reads_require_authentication(path, monkeypatch):
     response = client.get(path)
 
     assert response.status_code == 401
+
+
+@pytest.mark.parametrize(
+    "method,path,json_body,expected_action,expected_status",
+    [
+        ("post", "/api/v1/draws", {"lottery_id": 1, "draw_number": "D-001", "draw_date": "2026-09-02", "main_numbers": [1, 2, 3, 4, 5]}, "create", 201),
+        ("put", "/api/v1/draws/1", {"draw_number": "D-002"}, "update", 200),
+        ("delete", "/api/v1/draws/1", None, "delete", 204),
+    ],
+)
+def test_admin_mutations_emit_audit_event(method, path, json_body, expected_action, expected_status, monkeypatch):
+    user = seed_user(f"audit-admin-{method}@example.com", "admin")
+    audit_events = []
+
+    def capture_audit(**kwargs):
+        audit_events.append(kwargs)
+
+    monkeypatch.setattr("app.api.routes.lottery_draws.log_mutation", capture_audit)
+    service_method = {"post": "create_draw", "put": "update_draw", "delete": "delete_draw"}[method]
+    monkeypatch.setattr(LotteryDrawService, service_method, lambda **kwargs: fake_draw())
+
+    kwargs = {"json": json_body} if json_body is not None else {}
+    response = getattr(client, method)(path, headers=auth_header(user), **kwargs)
+
+    assert response.status_code == expected_status
+    assert len(audit_events) == 1
+    assert audit_events[0]["action"] == expected_action
+    assert audit_events[0]["resource"] == "draw"
+    assert audit_events[0]["resource_id"] == 1
+    assert audit_events[0]["actor"].id == user.id
+    assert audit_events[0]["actor"].role == "admin"
+
+
+@pytest.mark.parametrize("role", ["viewer", "service", "analyst"])
+def test_rejected_mutation_does_not_emit_audit_event(role, monkeypatch):
+    user = seed_user(f"audit-denied-{role}@example.com", role)
+    audit_events = []
+
+    def capture_audit(**kwargs):
+        audit_events.append(kwargs)
+
+    monkeypatch.setattr("app.api.routes.lottery_draws.log_mutation", capture_audit)
+    monkeypatch.setattr(LotteryDrawService, "create_draw", lambda **kwargs: fake_draw())
+
+    response = client.post(
+        "/api/v1/draws",
+        headers=auth_header(user),
+        json={
+            "lottery_id": 1,
+            "draw_number": "D-001",
+            "draw_date": "2026-09-02",
+            "main_numbers": [1, 2, 3, 4, 5],
+        },
+    )
+
+    assert response.status_code == 403
+    assert audit_events == []
