@@ -304,3 +304,46 @@ def test_draw_list_limit_accepts_configured_boundaries(limit, monkeypatch):
     assert len(calls) == 1
     assert calls[0]["lottery_id"] is None
     assert calls[0]["limit"] == limit
+
+
+@pytest.mark.parametrize("lottery_id", [0, -1])
+def test_draw_list_lottery_id_rejects_non_positive_before_service(lottery_id, monkeypatch):
+    user = seed_user(f"lottery-id-{lottery_id}@example.com", "admin")
+    called = False
+
+    def forbidden_service(**kwargs):
+        nonlocal called
+        called = True
+        return []
+
+    monkeypatch.setattr(LotteryDrawService, "list_draws", forbidden_service)
+
+    response = client.get(
+        f"/api/v1/draws?lottery_id={lottery_id}",
+        headers=auth_header(user),
+    )
+
+    assert response.status_code == 422
+    assert called is False
+
+
+@pytest.mark.parametrize("lottery_id", [1, 42, 999999])
+def test_draw_list_lottery_id_accepts_positive_values(lottery_id, monkeypatch):
+    user = seed_user(f"lottery-id-ok-{lottery_id}@example.com", "admin")
+    calls = []
+
+    def capture_service(**kwargs):
+        calls.append(kwargs)
+        return []
+
+    monkeypatch.setattr(LotteryDrawService, "list_draws", capture_service)
+
+    response = client.get(
+        f"/api/v1/draws?lottery_id={lottery_id}",
+        headers=auth_header(user),
+    )
+
+    assert response.status_code == 200
+    assert len(calls) == 1
+    assert calls[0]["lottery_id"] == lottery_id
+    assert calls[0]["limit"] == 100
