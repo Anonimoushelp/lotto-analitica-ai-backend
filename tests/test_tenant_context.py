@@ -62,7 +62,6 @@ def seed_membership(
 
 
 @pytest.fixture
-
 def db():
     session = Session(engine)
     try:
@@ -80,7 +79,7 @@ def test_single_active_membership_is_selected_automatically(db):
     tenant = seed_tenant(db, "acme")
     membership = seed_membership(db, user, tenant, role="analyst")
 
-    context = get_tenant_context(current_user=user, db=db)
+    context = get_tenant_context(current_user=user, db=db, x_tenant_id=None)
 
     assert context == TenantContext(
         user_id=user.id,
@@ -98,7 +97,7 @@ def test_multiple_active_memberships_require_explicit_selection(db):
     seed_membership(db, user, second)
 
     with pytest.raises(HTTPException) as exc_info:
-        get_tenant_context(current_user=user, db=db)
+        get_tenant_context(current_user=user, db=db, x_tenant_id=None)
 
     assert exc_info.value.status_code == 400
     assert exc_info.value.detail == "Tenant selection required"
@@ -139,7 +138,7 @@ def test_inactive_membership_is_forbidden(db):
     seed_membership(db, user, tenant, active=False)
 
     with pytest.raises(HTTPException) as exc_info:
-        get_tenant_context(current_user=user, db=db)
+        get_tenant_context(current_user=user, db=db, x_tenant_id=None)
 
     assert exc_info.value.status_code == 403
 
@@ -150,7 +149,7 @@ def test_inactive_tenant_is_forbidden(db):
     seed_membership(db, user, tenant)
 
     with pytest.raises(HTTPException) as exc_info:
-        get_tenant_context(current_user=user, db=db)
+        get_tenant_context(current_user=user, db=db, x_tenant_id=None)
 
     assert exc_info.value.status_code == 403
 
@@ -161,7 +160,7 @@ def test_membership_role_is_authoritative_over_user_role(db):
     tenant = seed_tenant(db, "role-source")
     membership = seed_membership(db, user, tenant, role="viewer")
 
-    context = get_tenant_context(current_user=user, db=db)
+    context = get_tenant_context(current_user=user, db=db, x_tenant_id=None)
 
     assert context.role == membership.role
     assert context.role == "viewer"
