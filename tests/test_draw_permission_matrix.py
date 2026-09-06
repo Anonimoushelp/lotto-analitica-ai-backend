@@ -389,3 +389,53 @@ def test_draw_get_accepts_positive_id(draw_id, monkeypatch):
     assert response.status_code == 200
     assert len(calls) == 1
     assert calls[0]["draw_id"] == draw_id
+
+
+@pytest.mark.parametrize("method", ["put", "delete"])
+@pytest.mark.parametrize("draw_id", [0, -1])
+def test_draw_mutations_reject_non_positive_id_before_service(method, draw_id, monkeypatch):
+    user = seed_user(f"draw-mutation-{method}-{draw_id}@example.com", "admin")
+    called = False
+
+    def forbidden_service(**kwargs):
+        nonlocal called
+        called = True
+        return fake_draw()
+
+    service_method = {"put": "update_draw", "delete": "delete_draw"}[method]
+    monkeypatch.setattr(LotteryDrawService, service_method, forbidden_service)
+
+    kwargs = {"json": {"draw_number": "D-002"}} if method == "put" else {}
+    response = getattr(client, method)(
+        f"/api/v1/draws/{draw_id}",
+        headers=auth_header(user),
+        **kwargs,
+    )
+
+    assert response.status_code == 422
+    assert called is False
+
+
+@pytest.mark.parametrize("method", ["put", "delete"])
+@pytest.mark.parametrize("draw_id", [1, 42, 999999])
+def test_draw_mutations_accept_positive_id(method, draw_id, monkeypatch):
+    user = seed_user(f"draw-mutation-ok-{method}-{draw_id}@example.com", "admin")
+    calls = []
+
+    def capture_service(**kwargs):
+        calls.append(kwargs)
+        return fake_draw()
+
+    service_method = {"put": "update_draw", "delete": "delete_draw"}[method]
+    monkeypatch.setattr(LotteryDrawService, service_method, capture_service)
+
+    kwargs = {"json": {"draw_number": "D-002"}} if method == "put" else {}
+    response = getattr(client, method)(
+        f"/api/v1/draws/{draw_id}",
+        headers=auth_header(user),
+        **kwargs,
+    )
+
+    assert response.status_code == (200 if method == "put" else 204)
+    assert len(calls) == 1
+    assert calls[0]["draw_id"] == draw_id
