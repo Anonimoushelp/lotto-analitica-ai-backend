@@ -13,6 +13,7 @@ from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
 from app.api.routes.auth import router as auth_router
+from app.api.routes.functional_encryption import router as functional_encryption_router
 from app.api.routes.lotteries import router as lotteries_router
 from app.api.routes.lottery_draws import router as lottery_draws_router
 from app.api.routes.predictions import router as predictions_router
@@ -163,6 +164,7 @@ def health(db: Session = Depends(get_db)):
 
 
 app.include_router(auth_router)
+app.include_router(functional_encryption_router)
 app.include_router(lotteries_router)
 app.include_router(lottery_draws_router)
 app.include_router(statistics_router)
