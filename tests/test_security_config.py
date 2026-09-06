@@ -38,5 +38,7 @@ def test_production_settings_accept_explicit_cors_and_trusted_hosts():
 def test_production_settings_reject_wildcards(field, value, expected_message):
     config = {**BASE_PRODUCTION_SETTINGS, field: value}
 
-    with pytest.raises(ValidationError, match=expected_message):
+    with pytest.raises(ValidationError) as exc_info:
         Settings(**config)
+
+    assert expected_message in str(exc_info.value)
