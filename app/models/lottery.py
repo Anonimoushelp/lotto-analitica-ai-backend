@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, DateTime, ForeignKey, String
+from sqlalchemy import Boolean, DateTime, ForeignKey, String, UniqueConstraint
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
@@ -13,6 +13,9 @@ if TYPE_CHECKING:
 
 class Lottery(Base):
     __tablename__ = "lotteries"
+    __table_args__ = (
+        UniqueConstraint("tenant_id", "code", name="uq_lotteries_tenant_code"),
+    )
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
 
