@@ -305,7 +305,7 @@ def test_update_integrity_conflict_is_409_and_not_audited(monkeypatch):
         Exception("unique constraint"),
     )
 
-    def raise_integrity(**kwargs):
+    def raise_integrity(_self):
         raise integrity_error
 
     monkeypatch.setattr(
