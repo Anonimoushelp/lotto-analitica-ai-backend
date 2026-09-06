@@ -1,8 +1,10 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, status
 
 from app.api.dependencies.auth import require_admin_or_analyst
 from app.models.user import User
 from app.schemas.tee import TeeStatusResponse
+from app.schemas.tee_operation import TeeOperationRequest, TeeOperationResponse
+from app.services.tee_operation_service import execute_tee_attestation
 from app.services.tee_service import get_tee_status
 
 router = APIRouter(
@@ -16,3 +18,15 @@ def get_status(
     user: User = Depends(require_admin_or_analyst),
 ):
     return get_tee_status()
+
+
+@router.post(
+    "/operations",
+    response_model=TeeOperationResponse,
+    status_code=status.HTTP_200_OK,
+)
+def execute_operation(
+    request: TeeOperationRequest,
+    user: User = Depends(require_admin_or_analyst),
+):
+    return execute_tee_attestation(request.nonce)
