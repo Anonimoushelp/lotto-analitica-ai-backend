@@ -1,13 +1,14 @@
 from datetime import UTC, datetime
 from typing import TYPE_CHECKING
 
-from sqlalchemy import Boolean, DateTime, String
+from sqlalchemy import Boolean, DateTime, ForeignKey, String
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 
 if TYPE_CHECKING:
     from app.models.lottery_draw import LotteryDraw
+    from app.models.tenant import Tenant
 
 
 class Lottery(Base):
@@ -15,9 +16,14 @@ class Lottery(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True, index=True)
 
+    tenant_id: Mapped[int] = mapped_column(
+        ForeignKey("tenants.id", ondelete="CASCADE"),
+        nullable=False,
+        index=True,
+    )
+
     code: Mapped[str] = mapped_column(
         String(50),
-        unique=True,
         nullable=False,
         index=True,
     )
@@ -50,6 +56,8 @@ class Lottery(Base):
         default=lambda: datetime.now(UTC),
         onupdate=lambda: datetime.now(UTC),
     )
+
+    tenant: Mapped["Tenant"] = relationship("Tenant", back_populates="lotteries")
 
     draws: Mapped[list["LotteryDraw"]] = relationship(
         back_populates="lottery",
