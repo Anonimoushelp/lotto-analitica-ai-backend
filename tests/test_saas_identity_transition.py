@@ -11,7 +11,6 @@ from app.models.membership import Membership
 from app.models.tenant import Tenant
 from app.models.user import User
 
-
 engine = create_engine(
     "sqlite://",
     connect_args={"check_same_thread": False},
