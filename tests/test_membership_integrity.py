@@ -67,20 +67,22 @@ def test_duplicate_membership_same_user_and_tenant_is_rejected():
     db = SessionLocal()
     user = seed_user(db, "duplicate")
     tenant = seed_tenant(db, "duplicate")
+    user_id = user.id
+    tenant_id = tenant.id
     try:
         seed_membership(db, user, tenant)
-        db.add(Membership(user_id=user.id, tenant_id=tenant.id, role="analyst", is_active=True))
+        db.add(Membership(user_id=user_id, tenant_id=tenant_id, role="analyst", is_active=True))
         with pytest.raises(IntegrityError):
             db.commit()
         db.rollback()
         assert db.scalar(
             select(Membership).where(
-                Membership.user_id == user.id,
-                Membership.tenant_id == tenant.id,
+                Membership.user_id == user_id,
+                Membership.tenant_id == tenant_id,
             )
         ) is not None
     finally:
-        cleanup(db, [user.id], [tenant.id])
+        cleanup(db, [user_id], [tenant_id])
         db.close()
 
 
@@ -88,6 +90,8 @@ def test_concurrent_duplicate_membership_insert_has_single_winner():
     setup_db = SessionLocal()
     user = seed_user(setup_db, "concurrent")
     tenant = seed_tenant(setup_db, "concurrent")
+    user_id = user.id
+    tenant_id = tenant.id
     setup_db.close()
 
     barrier = threading.Barrier(2)
@@ -100,8 +104,8 @@ def test_concurrent_duplicate_membership_insert_has_single_winner():
             barrier.wait(timeout=10)
             db.add(
                 Membership(
-                    user_id=user.id,
-                    tenant_id=tenant.id,
+                    user_id=user_id,
+                    tenant_id=tenant_id,
                     role=role,
                     is_active=True,
                 )
@@ -137,8 +141,8 @@ def test_concurrent_duplicate_membership_insert_has_single_winner():
         verification = SessionLocal()
         memberships = verification.scalars(
             select(Membership).where(
-                Membership.user_id == user.id,
-                Membership.tenant_id == tenant.id,
+                Membership.user_id == user_id,
+                Membership.tenant_id == tenant_id,
             )
         ).all()
         verification.close()
@@ -147,7 +151,7 @@ def test_concurrent_duplicate_membership_insert_has_single_winner():
         assert memberships[0].role in {"admin", "analyst"}
     finally:
         cleanup_db = SessionLocal()
-        cleanup(cleanup_db, [user.id], [tenant.id])
+        cleanup(cleanup_db, [user_id], [tenant_id])
         cleanup_db.close()
 
 
@@ -155,15 +159,18 @@ def test_deleting_tenant_cascades_memberships():
     db = SessionLocal()
     user = seed_user(db, "tenant-cascade")
     tenant = seed_tenant(db, "tenant-cascade")
+    user_id = user.id
+    tenant_id = tenant.id
     try:
         membership = seed_membership(db, user, tenant)
+        membership_id = membership.id
         db.delete(tenant)
         db.commit()
-        assert db.get(Membership, membership.id) is None
-        assert db.get(Tenant, tenant.id) is None
-        assert db.get(User, user.id) is not None
+        assert db.get(Membership, membership_id) is None
+        assert db.get(Tenant, tenant_id) is None
+        assert db.get(User, user_id) is not None
     finally:
-        cleanup(db, [user.id], [tenant.id])
+        cleanup(db, [user_id], [tenant_id])
         db.close()
 
 
@@ -171,15 +178,18 @@ def test_deleting_user_cascades_memberships():
     db = SessionLocal()
     user = seed_user(db, "user-cascade")
     tenant = seed_tenant(db, "user-cascade")
+    user_id = user.id
+    tenant_id = tenant.id
     try:
         membership = seed_membership(db, user, tenant)
+        membership_id = membership.id
         db.delete(user)
         db.commit()
-        assert db.get(Membership, membership.id) is None
-        assert db.get(User, user.id) is None
-        assert db.get(Tenant, tenant.id) is not None
+        assert db.get(Membership, membership_id) is None
+        assert db.get(User, user_id) is None
+        assert db.get(Tenant, tenant_id) is not None
     finally:
-        cleanup(db, [user.id], [tenant.id])
+        cleanup(db, [user_id], [tenant_id])
         db.close()
 
 
@@ -189,20 +199,27 @@ def test_multiple_tenants_and_users_remain_independent():
     second_user = seed_user(db, "independent-b")
     first_tenant = seed_tenant(db, "independent-a")
     second_tenant = seed_tenant(db, "independent-b")
+    first_user_id = first_user.id
+    second_user_id = second_user.id
+    first_tenant_id = first_tenant.id
+    second_tenant_id = second_tenant.id
     try:
         first_membership = seed_membership(db, first_user, first_tenant, role="admin")
         second_membership = seed_membership(db, first_user, second_tenant, role="viewer")
         third_membership = seed_membership(db, second_user, first_tenant, role="analyst")
+        first_membership_id = first_membership.id
+        second_membership_id = second_membership.id
+        third_membership_id = third_membership.id
 
         db.delete(first_tenant)
         db.commit()
 
-        assert db.get(Membership, first_membership.id) is None
-        assert db.get(Membership, third_membership.id) is None
-        assert db.get(Membership, second_membership.id) is not None
-        assert db.get(Tenant, second_tenant.id) is not None
-        assert db.get(User, first_user.id) is not None
-        assert db.get(User, second_user.id) is not None
+        assert db.get(Membership, first_membership_id) is None
+        assert db.get(Membership, third_membership_id) is None
+        assert db.get(Membership, second_membership_id) is not None
+        assert db.get(Tenant, second_tenant_id) is not None
+        assert db.get(User, first_user_id) is not None
+        assert db.get(User, second_user_id) is not None
     finally:
-        cleanup(db, [first_user.id, second_user.id], [first_tenant.id, second_tenant.id])
+        cleanup(db, [first_user_id, second_user_id], [first_tenant_id, second_tenant_id])
         db.close()
