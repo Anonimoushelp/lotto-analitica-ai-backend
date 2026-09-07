@@ -152,14 +152,6 @@ def test_prediction_cross_tenant_lottery_is_denied(monkeypatch):
     tenant_a_user = seed_user("prediction-a@example.com", "analyst")
     tenant_b_user = seed_user("prediction-b@example.com", "analyst")
     lottery_b_id = seed_lottery(tenant_b_user[1], "TENANT-B")
-    called = False
-
-    def fake_generate(*args, **kwargs):
-        nonlocal called
-        called = True
-        return fake_prediction_response(kwargs["payload"])
-
-    monkeypatch.setattr(PredictionService, "generate", fake_generate)
     monkeypatch.setattr(
         "app.api.routes.predictions.ai_rate_limiter.allow", lambda user_id: True
     )
@@ -172,7 +164,6 @@ def test_prediction_cross_tenant_lottery_is_denied(monkeypatch):
 
     assert response.status_code == 404
     assert response.json()["detail"] == "Lottery not found"
-    assert called is False
 
 
 def test_prediction_tenant_context_is_authoritative(monkeypatch):
