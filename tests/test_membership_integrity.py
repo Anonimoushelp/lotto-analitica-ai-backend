@@ -1,3 +1,4 @@
+import threading
 from uuid import uuid4
 
 import pytest
@@ -81,6 +82,73 @@ def test_duplicate_membership_same_user_and_tenant_is_rejected():
     finally:
         cleanup(db, [user.id], [tenant.id])
         db.close()
+
+
+def test_concurrent_duplicate_membership_insert_has_single_winner():
+    setup_db = SessionLocal()
+    user = seed_user(setup_db, "concurrent")
+    tenant = seed_tenant(setup_db, "concurrent")
+    setup_db.close()
+
+    barrier = threading.Barrier(2)
+    results = []
+    errors = []
+
+    def attempt(role: str) -> None:
+        db = SessionLocal()
+        try:
+            barrier.wait(timeout=10)
+            db.add(
+                Membership(
+                    user_id=user.id,
+                    tenant_id=tenant.id,
+                    role=role,
+                    is_active=True,
+                )
+            )
+            db.commit()
+            results.append(("success", role))
+        except IntegrityError:
+            db.rollback()
+            results.append(("integrity_error", role))
+        except Exception as exc:  # noqa: BLE001
+            db.rollback()
+            errors.append(exc)
+        finally:
+            db.close()
+
+    first = threading.Thread(target=attempt, args=("admin",))
+    second = threading.Thread(target=attempt, args=("analyst",))
+
+    try:
+        first.start()
+        second.start()
+        first.join(timeout=15)
+        second.join(timeout=15)
+
+        assert not first.is_alive()
+        assert not second.is_alive()
+        assert not errors
+        assert sorted(result[0] for result in results) == [
+            "integrity_error",
+            "success",
+        ]
+
+        verification = SessionLocal()
+        memberships = verification.scalars(
+            select(Membership).where(
+                Membership.user_id == user.id,
+                Membership.tenant_id == tenant.id,
+            )
+        ).all()
+        verification.close()
+
+        assert len(memberships) == 1
+        assert memberships[0].role in {"admin", "analyst"}
+    finally:
+        cleanup_db = SessionLocal()
+        cleanup(cleanup_db, [user.id], [tenant.id])
+        cleanup_db.close()
 
 
 def test_deleting_tenant_cascades_memberships():
