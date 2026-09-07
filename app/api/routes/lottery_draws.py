@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, Path, Query, status
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_user
-from app.api.dependencies.tenant import TenantContext, get_tenant_context
+from app.api.dependencies.tenant import TenantContext
 from app.api.dependencies.tenant_auth import (
     require_tenant_admin,
     require_tenant_admin_or_analyst,
