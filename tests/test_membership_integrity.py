@@ -11,7 +11,6 @@ from app.models.membership import Membership
 from app.models.tenant import Tenant
 from app.models.user import User
 
-
 pytestmark = pytest.mark.skipif(
     settings.environment != "test" or not settings.database_url.startswith("postgresql"),
     reason="Membership integrity integration tests require the PostgreSQL test database",
