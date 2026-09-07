@@ -2,6 +2,7 @@ from collections import Counter
 from datetime import UTC, datetime
 
 from fastapi import HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -25,7 +26,7 @@ class PredictionService:
     @staticmethod
     def generate(db: Session, payload, tenant_id: int) -> dict:
         lottery = db.scalar(
-            __import__("sqlalchemy").select(Lottery).where(
+            select(Lottery).where(
                 Lottery.id == payload.lottery_id,
                 Lottery.tenant_id == tenant_id,
             )
