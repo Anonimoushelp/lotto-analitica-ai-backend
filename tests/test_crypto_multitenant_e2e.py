@@ -1,5 +1,5 @@
-from sqlalchemy import delete
 from fastapi.testclient import TestClient
+from sqlalchemy import delete
 
 from app.core.security import create_access_token, hash_password
 from app.db.session import SessionLocal
