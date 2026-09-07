@@ -5,7 +5,7 @@ from types import SimpleNamespace
 import pytest
 from fastapi.testclient import TestClient
 
-from app.api.dependencies.auth import get_current_user
+from app.api.dependencies.tenant import TenantContext, get_tenant_context
 from app.main import app
 from app.schemas.lottery_draw import LotteryDrawUpdate
 from app.services.lottery_draw_service import LotteryDrawService
@@ -16,19 +16,20 @@ client = TestClient(app)
 
 @pytest.fixture(autouse=True)
 def authenticated_read_context():
-    previous = app.dependency_overrides.get(get_current_user)
-    app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(
-        id=1,
+    previous = app.dependency_overrides.get(get_tenant_context)
+    app.dependency_overrides[get_tenant_context] = lambda: TenantContext(
+        user_id=1,
+        tenant_id=1,
+        membership_id=1,
         role="admin",
-        is_active=True,
     )
     try:
         yield
     finally:
         if previous is None:
-            app.dependency_overrides.pop(get_current_user, None)
+            app.dependency_overrides.pop(get_tenant_context, None)
         else:
-            app.dependency_overrides[get_current_user] = previous
+            app.dependency_overrides[get_tenant_context] = previous
 
 
 def test_draw_list_uses_bounded_default_limit(monkeypatch):
