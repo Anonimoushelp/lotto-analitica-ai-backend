@@ -1,6 +1,5 @@
 from types import SimpleNamespace
 
-import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import delete
 
@@ -104,7 +103,6 @@ def test_analytics_overview_isolated_between_tenants():
     tenant_a_id, tenant_b_id = tenant_a.id, tenant_b.id
     db.commit()
     db.close()
-
     try:
         response_a = client.get(
             "/api/v1/statistics/overview",
@@ -114,7 +112,6 @@ def test_analytics_overview_isolated_between_tenants():
             "/api/v1/statistics/overview",
             headers={"Authorization": f"Bearer {auth_token(user_b_id)}"},
         )
-
         assert response_a.status_code == 200
         assert response_b.status_code == 200
         assert response_a.json()["draws_analyzed"] == 2
@@ -138,7 +135,6 @@ def test_analytics_cannot_select_other_tenant_with_header():
     user_id, tenant_a_id, tenant_b_id = user.id, tenant_a.id, tenant_b.id
     db.commit()
     db.close()
-
     try:
         response = client.get(
             "/api/v1/statistics/overview",
@@ -162,11 +158,10 @@ def test_analytics_requires_authorized_membership():
     user_id, tenant_id = user.id, tenant.id
     db.commit()
     db.close()
-
     try:
         response = client.get(
             "/api/v1/statistics/overview",
-            headers={"Authorization": f"Bearer {auth_token(user_id, "viewer")}"},
+            headers={"Authorization": f"Bearer {auth_token(user_id, 'viewer')}"},
         )
         assert response.status_code == 403
     finally:
@@ -179,15 +174,10 @@ def test_analytics_route_uses_authenticated_tenant_context(monkeypatch):
     previous_user = app.dependency_overrides.get(get_current_user)
     previous_tenant = app.dependency_overrides.get(get_tenant_context)
     app.dependency_overrides[get_current_user] = lambda: SimpleNamespace(
-        id=901,
-        role="admin",
-        is_active=True,
+        id=901, role="admin", is_active=True
     )
     app.dependency_overrides[get_tenant_context] = lambda: TenantContext(
-        user_id=901,
-        tenant_id=902,
-        membership_id=903,
-        role="admin",
+        user_id=901, tenant_id=902, membership_id=903, role="admin"
     )
     captured = {}
 
