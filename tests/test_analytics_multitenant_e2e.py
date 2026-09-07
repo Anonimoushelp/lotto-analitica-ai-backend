@@ -1,3 +1,4 @@
+from datetime import date
 from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
@@ -53,20 +54,20 @@ def seed_lottery(db, tenant_id, code):
         tenant_id=tenant_id,
         code=code,
         name=f"Lottery {code}",
-        is_active=True,
+        country="CO",
+        active=True,
     )
     db.add(lottery)
     db.flush()
     return lottery
 
 
-def seed_draw(db, tenant_id, lottery_id, draw_number):
+def seed_draw(db, lottery_id, draw_number):
     draw = LotteryDraw(
-        tenant_id=tenant_id,
         lottery_id=lottery_id,
-        draw_number=draw_number,
-        draw_date=draw_number,
-        winning_numbers=[1, 2, 3, 4, 5],
+        draw_number=str(draw_number),
+        draw_date=date(2026, 1, draw_number),
+        main_numbers=[1, 2, 3, 4, 5],
     )
     db.add(draw)
     db.flush()
@@ -78,11 +79,12 @@ def auth_token(user_id, role="admin"):
 
 
 def cleanup(db, user_ids, tenant_ids):
-    db.execute(delete(LotteryDraw).where(LotteryDraw.tenant_id.in_(tenant_ids)))
-    db.execute(delete(Lottery).where(Lottery.tenant_id.in_(tenant_ids)))
-    db.execute(delete(Membership).where(Membership.tenant_id.in_(tenant_ids)))
-    db.execute(delete(User).where(User.id.in_(user_ids)))
-    db.execute(delete(Tenant).where(Tenant.id.in_(tenant_ids)))
+    if tenant_ids:
+        db.execute(delete(Lottery).where(Lottery.tenant_id.in_(tenant_ids)))
+        db.execute(delete(Membership).where(Membership.tenant_id.in_(tenant_ids)))
+        db.execute(delete(Tenant).where(Tenant.id.in_(tenant_ids)))
+    if user_ids:
+        db.execute(delete(User).where(User.id.in_(user_ids)))
     db.commit()
 
 
@@ -96,9 +98,9 @@ def test_analytics_overview_isolated_between_tenants():
     seed_membership(db, tenant_b.id, user_b.id)
     lottery_a = seed_lottery(db, tenant_a.id, "ANA")
     lottery_b = seed_lottery(db, tenant_b.id, "ANB")
-    seed_draw(db, tenant_a.id, lottery_a.id, 1)
-    seed_draw(db, tenant_a.id, lottery_a.id, 2)
-    seed_draw(db, tenant_b.id, lottery_b.id, 3)
+    seed_draw(db, lottery_a.id, 1)
+    seed_draw(db, lottery_a.id, 2)
+    seed_draw(db, lottery_b.id, 3)
     user_a_id, user_b_id = user_a.id, user_b.id
     tenant_a_id, tenant_b_id = tenant_a.id, tenant_b.id
     db.commit()
@@ -130,8 +132,8 @@ def test_analytics_cannot_select_other_tenant_with_header():
     seed_membership(db, tenant_a.id, user.id)
     lottery_a = seed_lottery(db, tenant_a.id, "AH-A")
     lottery_b = seed_lottery(db, tenant_b.id, "AH-B")
-    seed_draw(db, tenant_a.id, lottery_a.id, 11)
-    seed_draw(db, tenant_b.id, lottery_b.id, 12)
+    seed_draw(db, lottery_a.id, 11)
+    seed_draw(db, lottery_b.id, 12)
     user_id, tenant_a_id, tenant_b_id = user.id, tenant_a.id, tenant_b.id
     db.commit()
     db.close()
