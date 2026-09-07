@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, Path, Query, status
 from sqlalchemy.orm import Session
 
-from app.api.dependencies.auth import require_admin, require_admin_or_analyst
+from app.api.dependencies.auth import require_admin
 from app.api.dependencies.tenant import TenantContext, get_tenant_context
 from app.core.audit import log_mutation
 from app.db.session import get_db
