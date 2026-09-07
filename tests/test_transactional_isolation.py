@@ -2,6 +2,7 @@ from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest
+from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 
@@ -106,13 +107,14 @@ def test_draw_service_failure_rolls_back_and_same_session_can_create_next_draw()
         main_numbers=[6, 7, 8, 9, 10],
     )
 
-    with pytest.raises(IntegrityError):
+    with pytest.raises(HTTPException) as exc_info:
         LotteryDrawService.update_draw(
             db=db,
             draw_id=first.id,
             tenant_id=tenant_id,
             update_data={"draw_date": second_date},
         )
+    assert exc_info.value.status_code == 409
 
     db.rollback()
     persisted_first = db.scalar(
