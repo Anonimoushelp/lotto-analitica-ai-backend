@@ -129,7 +129,7 @@ if settings.cors_allowed_origins:
         allow_origins=settings.cors_allowed_origins,
         allow_credentials=False,
         allow_methods=["GET", "POST", "PUT", "DELETE"],
-        allow_headers=["Authorization", "Content-Type"],
+        allow_headers=["Authorization", "Content-Type", "X-Tenant-ID"],
         max_age=600,
     )
 
