@@ -19,7 +19,9 @@ engine = create_engine(
     connect_args={"check_same_thread": False},
     poolclass=StaticPool,
 )
-TestingSessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+TestingSessionLocal = sessionmaker(
+    bind=engine, autoflush=False, autocommit=False, expire_on_commit=False
+)
 User.__table__.create(bind=engine)
 Tenant.__table__.create(bind=engine)
 Membership.__table__.create(bind=engine)
@@ -104,14 +106,15 @@ def cleanup():
 
 def test_cross_tenant_get_draw_returns_404():
     db = TestingSessionLocal()
-    user_a, tenant_a = seed_user(db, "draw-get-a@example.com")
+    user_a, _tenant_a = seed_user(db, "draw-get-a@example.com")
     _user_b, tenant_b = seed_user(db, "draw-get-b@example.com")
     draw_b = seed_draw(db, tenant_b.id)
+    headers = auth_header(user_a)
     db.close()
 
     response = client.get(
         f"/api/v1/draws/{draw_b.id}",
-        headers=auth_header(user_a),
+        headers=headers,
     )
 
     assert response.status_code == 404
@@ -124,12 +127,14 @@ def test_cross_tenant_list_returns_only_current_tenant_draws():
     _user_b, tenant_b = seed_user(db, "draw-list-b@example.com")
     draw_a = seed_draw(db, tenant_a.id, "DRAW-A")
     seed_draw(db, tenant_b.id, "DRAW-B")
+    headers = auth_header(user_a)
+    draw_a_id = draw_a.id
     db.close()
 
-    response = client.get("/api/v1/draws", headers=auth_header(user_a))
+    response = client.get("/api/v1/draws", headers=headers)
 
     assert response.status_code == 200
-    assert [item["id"] for item in response.json()] == [draw_a.id]
+    assert [item["id"] for item in response.json()] == [draw_a_id]
     cleanup()
 
 
@@ -139,11 +144,12 @@ def test_cross_tenant_update_returns_404_and_preserves_draw():
     _user_b, tenant_b = seed_user(db, "draw-update-b@example.com")
     draw_b = seed_draw(db, tenant_b.id)
     draw_id = draw_b.id
+    headers = auth_header(user_a)
     db.close()
 
     response = client.put(
         f"/api/v1/draws/{draw_id}",
-        headers=auth_header(user_a),
+        headers=headers,
         json={"draw_number": "ATTACKED"},
     )
 
@@ -162,11 +168,12 @@ def test_cross_tenant_delete_returns_404_and_preserves_draw():
     _user_b, tenant_b = seed_user(db, "draw-delete-b@example.com")
     draw_b = seed_draw(db, tenant_b.id)
     draw_id = draw_b.id
+    headers = auth_header(user_a)
     db.close()
 
     response = client.delete(
         f"/api/v1/draws/{draw_id}",
-        headers=auth_header(user_a),
+        headers=headers,
     )
 
     assert response.status_code == 404
@@ -194,11 +201,12 @@ def test_create_draw_rejects_lottery_from_another_tenant():
     db.commit()
     db.refresh(lottery_b)
     lottery_id = lottery_b.id
+    headers = auth_header(user_a)
     db.close()
 
     response = client.post(
         "/api/v1/draws",
-        headers=auth_header(user_a),
+        headers=headers,
         json={
             "lottery_id": lottery_id,
             "draw_number": "D-001",
@@ -234,11 +242,12 @@ def test_update_draw_rejects_moving_to_lottery_from_another_tenant():
     db.refresh(lottery_b)
     lottery_b_id = lottery_b.id
     draw_id = draw_a.id
+    headers = auth_header(user_a)
     db.close()
 
     response = client.put(
         f"/api/v1/draws/{draw_id}",
-        headers=auth_header(user_a),
+        headers=headers,
         json={"lottery_id": lottery_b_id},
     )
 
