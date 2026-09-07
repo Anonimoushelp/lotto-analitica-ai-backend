@@ -1,8 +1,12 @@
 from fastapi import APIRouter, Depends, status
 from sqlalchemy.orm import Session
 
-from app.api.dependencies.auth import require_admin, require_admin_or_analyst
-from app.api.dependencies.tenant import TenantContext, get_tenant_context
+from app.api.dependencies.auth import get_current_user
+from app.api.dependencies.tenant import TenantContext
+from app.api.dependencies.tenant_auth import (
+    require_tenant_admin,
+    require_tenant_admin_or_analyst,
+)
 from app.core.audit import log_mutation
 from app.db.session import get_db
 from app.schemas.lottery import LotteryCreate, LotteryResponse, LotteryUpdate
@@ -17,8 +21,7 @@ router = APIRouter(
 @router.get("", response_model=list[LotteryResponse])
 def list_lotteries(
     db: Session = Depends(get_db),
-    current_user=Depends(require_admin_or_analyst),
-    tenant: TenantContext = Depends(get_tenant_context),
+    tenant: TenantContext = Depends(require_tenant_admin_or_analyst),
 ):
     return LotteryService.list_lotteries(db=db, tenant_id=tenant.tenant_id)
 
@@ -27,8 +30,7 @@ def list_lotteries(
 def get_lottery(
     lottery_id: int,
     db: Session = Depends(get_db),
-    current_user=Depends(require_admin_or_analyst),
-    tenant: TenantContext = Depends(get_tenant_context),
+    tenant: TenantContext = Depends(require_tenant_admin_or_analyst),
 ):
     return LotteryService.get_lottery(
         db=db,
@@ -41,8 +43,8 @@ def get_lottery(
 def create_lottery(
     payload: LotteryCreate,
     db: Session = Depends(get_db),
-    current_user=Depends(require_admin),
-    tenant: TenantContext = Depends(get_tenant_context),
+    current_user=Depends(get_current_user),
+    tenant: TenantContext = Depends(require_tenant_admin),
 ):
     lottery = LotteryService.create_lottery(
         db=db,
@@ -63,8 +65,8 @@ def update_lottery(
     lottery_id: int,
     payload: LotteryUpdate,
     db: Session = Depends(get_db),
-    current_user=Depends(require_admin),
-    tenant: TenantContext = Depends(get_tenant_context),
+    current_user=Depends(get_current_user),
+    tenant: TenantContext = Depends(require_tenant_admin),
 ):
     lottery = LotteryService.update_lottery(
         db=db,
@@ -85,8 +87,8 @@ def update_lottery(
 def delete_lottery(
     lottery_id: int,
     db: Session = Depends(get_db),
-    current_user=Depends(require_admin),
-    tenant: TenantContext = Depends(get_tenant_context),
+    current_user=Depends(get_current_user),
+    tenant: TenantContext = Depends(require_tenant_admin),
 ):
     LotteryService.delete_lottery(
         db=db,
