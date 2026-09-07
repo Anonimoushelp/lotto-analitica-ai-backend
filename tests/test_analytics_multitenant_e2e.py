@@ -5,6 +5,7 @@ from sqlalchemy import delete
 
 from app.api.dependencies.auth import get_current_user
 from app.api.dependencies.tenant import TenantContext, get_tenant_context
+from app.core.security import create_access_token, hash_password
 from app.db.session import SessionLocal
 from app.main import app
 from app.models.lottery import Lottery
@@ -12,7 +13,6 @@ from app.models.lottery_draw import LotteryDraw
 from app.models.membership import Membership
 from app.models.tenant import Tenant
 from app.models.user import User
-from app.security import create_access_token, hash_password
 
 client = TestClient(app)
 
@@ -74,7 +74,7 @@ def seed_draw(db, tenant_id, lottery_id, draw_number):
 
 
 def auth_token(user_id, role="admin"):
-    return create_access_token({"sub": str(user_id), "role": role})
+    return create_access_token(str(user_id), role)
 
 
 def cleanup(db, user_ids, tenant_ids):
