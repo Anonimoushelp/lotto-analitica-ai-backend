@@ -10,6 +10,8 @@ from app.core.security import create_access_token, hash_password
 from app.db.session import get_db
 from app.main import app
 from app.models.lottery import Lottery
+from app.models.membership import Membership
+from app.models.tenant import Tenant
 from app.models.user import User
 from app.services.lottery_draw_service import LotteryDrawService
 
@@ -19,8 +21,10 @@ engine = create_engine(
     poolclass=StaticPool,
 )
 TestingSessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+Tenant.__table__.create(bind=engine)
 User.__table__.create(bind=engine)
 Lottery.__table__.create(bind=engine)
+Membership.__table__.create(bind=engine)
 
 
 def override_get_db():
@@ -48,7 +52,9 @@ def app_db_override():
 def clean_test_data():
     yield
     db = TestingSessionLocal()
+    db.execute(delete(Membership))
     db.execute(delete(Lottery))
+    db.execute(delete(Tenant))
     db.execute(delete(User))
     db.commit()
     db.close()
@@ -59,6 +65,9 @@ client = TestClient(app)
 
 def seed_user(email: str, role: str) -> User:
     db = TestingSessionLocal()
+    tenant = Tenant(name="Test Tenant", slug="test")
+    db.add(tenant)
+    db.flush()
     user = User(
         email=email,
         password_hash=hash_password("StrongTestPassword123!"),
@@ -66,6 +75,15 @@ def seed_user(email: str, role: str) -> User:
         is_active=True,
     )
     db.add(user)
+    db.flush()
+    db.add(
+        Membership(
+            tenant_id=tenant.id,
+            user_id=user.id,
+            role=role,
+            is_active=True,
+        )
+    )
     db.commit()
     db.refresh(user)
     db.close()
