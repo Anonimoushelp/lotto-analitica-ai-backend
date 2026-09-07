@@ -1,5 +1,4 @@
 from datetime import UTC, datetime
-from types import SimpleNamespace
 
 import pytest
 from fastapi.testclient import TestClient
@@ -122,7 +121,8 @@ def seed_lottery(tenant_id: int, code: str) -> int:
 
 def auth_header(user: tuple[int, int]) -> dict[str, str]:
     user_id, _tenant_id = user
-    return {"Authorization": f"Bearer {create_access_token(str(user_id), "analyst")}"}
+    token = create_access_token(str(user_id), "analyst")
+    return {"Authorization": f"Bearer {token}"}
 
 
 def fake_prediction_response(payload):
@@ -160,7 +160,9 @@ def test_prediction_cross_tenant_lottery_is_denied(monkeypatch):
         return fake_prediction_response(kwargs["payload"])
 
     monkeypatch.setattr(PredictionService, "generate", fake_generate)
-    monkeypatch.setattr("app.api.routes.predictions.ai_rate_limiter.allow", lambda user_id: True)
+    monkeypatch.setattr(
+        "app.api.routes.predictions.ai_rate_limiter.allow", lambda user_id: True
+    )
 
     response = client.post(
         "/api/v1/predictions",
@@ -184,7 +186,9 @@ def test_prediction_tenant_context_is_authoritative(monkeypatch):
         return fake_prediction_response(payload)
 
     monkeypatch.setattr(PredictionService, "generate", fake_generate)
-    monkeypatch.setattr("app.api.routes.predictions.ai_rate_limiter.allow", lambda user_id: True)
+    monkeypatch.setattr(
+        "app.api.routes.predictions.ai_rate_limiter.allow", lambda user_id: True
+    )
 
     response = client.post(
         "/api/v1/predictions",
@@ -210,7 +214,9 @@ def test_prediction_generation_uses_authenticated_tenant(monkeypatch):
         return fake_prediction_response(payload)
 
     monkeypatch.setattr(PredictionService, "generate", fake_generate)
-    monkeypatch.setattr("app.api.routes.predictions.ai_rate_limiter.allow", lambda user_id: True)
+    monkeypatch.setattr(
+        "app.api.routes.predictions.ai_rate_limiter.allow", lambda user_id: True
+    )
 
     response = client.post(
         "/api/v1/predictions",
@@ -233,7 +239,9 @@ def test_prediction_requires_analyst_or_admin(role, monkeypatch):
         return fake_prediction_response(kwargs["payload"])
 
     monkeypatch.setattr(PredictionService, "generate", fake_generate)
-    monkeypatch.setattr("app.api.routes.predictions.ai_rate_limiter.allow", lambda user_id: True)
+    monkeypatch.setattr(
+        "app.api.routes.predictions.ai_rate_limiter.allow", lambda user_id: True
+    )
 
     response = client.post(
         "/api/v1/predictions",
