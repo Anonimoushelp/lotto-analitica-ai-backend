@@ -1,5 +1,6 @@
 from datetime import UTC, date, datetime
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, delete
 from sqlalchemy.orm import sessionmaker
@@ -37,7 +38,32 @@ def override_get_db():
         db.close()
 
 
-app.dependency_overrides[get_db] = override_get_db
+@pytest.fixture(autouse=True)
+def app_db_override():
+    previous = app.dependency_overrides.get(get_db)
+    app.dependency_overrides[get_db] = override_get_db
+    try:
+        yield
+    finally:
+        if previous is None:
+            app.dependency_overrides.pop(get_db, None)
+        else:
+            app.dependency_overrides[get_db] = previous
+
+
+@pytest.fixture(autouse=True)
+def clean_test_data():
+    yield
+    db = TestingSessionLocal()
+    db.execute(delete(LotteryDraw))
+    db.execute(delete(Lottery))
+    db.execute(delete(Membership))
+    db.execute(delete(Tenant))
+    db.execute(delete(User))
+    db.commit()
+    db.close()
+
+
 client = TestClient(app)
 
 
@@ -93,32 +119,18 @@ def auth_header(user: User) -> dict[str, str]:
     return {"Authorization": f"Bearer {create_access_token(str(user.id), user.role)}"}
 
 
-def cleanup():
-    db = TestingSessionLocal()
-    db.execute(delete(LotteryDraw))
-    db.execute(delete(Lottery))
-    db.execute(delete(Membership))
-    db.execute(delete(Tenant))
-    db.execute(delete(User))
-    db.commit()
-    db.close()
-
-
 def test_cross_tenant_get_draw_returns_404():
     db = TestingSessionLocal()
     user_a, _tenant_a = seed_user(db, "draw-get-a@example.com")
     _user_b, tenant_b = seed_user(db, "draw-get-b@example.com")
     draw_b = seed_draw(db, tenant_b.id)
     headers = auth_header(user_a)
+    draw_id = draw_b.id
     db.close()
 
-    response = client.get(
-        f"/api/v1/draws/{draw_b.id}",
-        headers=headers,
-    )
+    response = client.get(f"/api/v1/draws/{draw_id}", headers=headers)
 
     assert response.status_code == 404
-    cleanup()
 
 
 def test_cross_tenant_list_returns_only_current_tenant_draws():
@@ -135,7 +147,6 @@ def test_cross_tenant_list_returns_only_current_tenant_draws():
 
     assert response.status_code == 200
     assert [item["id"] for item in response.json()] == [draw_a_id]
-    cleanup()
 
 
 def test_cross_tenant_update_returns_404_and_preserves_draw():
@@ -159,7 +170,6 @@ def test_cross_tenant_update_returns_404_and_preserves_draw():
     assert persisted is not None
     assert persisted.draw_number == "D-001"
     db.close()
-    cleanup()
 
 
 def test_cross_tenant_delete_returns_404_and_preserves_draw():
@@ -171,16 +181,12 @@ def test_cross_tenant_delete_returns_404_and_preserves_draw():
     headers = auth_header(user_a)
     db.close()
 
-    response = client.delete(
-        f"/api/v1/draws/{draw_id}",
-        headers=headers,
-    )
+    response = client.delete(f"/api/v1/draws/{draw_id}", headers=headers)
 
     assert response.status_code == 404
     db = TestingSessionLocal()
     assert db.get(LotteryDraw, draw_id) is not None
     db.close()
-    cleanup()
 
 
 def test_create_draw_rejects_lottery_from_another_tenant():
@@ -219,7 +225,6 @@ def test_create_draw_rejects_lottery_from_another_tenant():
     )
 
     assert response.status_code == 404
-    cleanup()
 
 
 def test_update_draw_rejects_moving_to_lottery_from_another_tenant():
@@ -257,4 +262,3 @@ def test_update_draw_rejects_moving_to_lottery_from_another_tenant():
     assert persisted is not None
     assert persisted.lottery_id != lottery_b_id
     db.close()
-    cleanup()
