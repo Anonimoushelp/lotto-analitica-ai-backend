@@ -23,8 +23,13 @@ class PredictionService:
         }
 
     @staticmethod
-    def generate(db: Session, payload) -> dict:
-        lottery = db.get(Lottery, payload.lottery_id)
+    def generate(db: Session, payload, tenant_id: int) -> dict:
+        lottery = db.scalar(
+            __import__("sqlalchemy").select(Lottery).where(
+                Lottery.id == payload.lottery_id,
+                Lottery.tenant_id == tenant_id,
+            )
+        )
         if lottery is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -34,6 +39,7 @@ class PredictionService:
         draws = LotteryDrawRepository.list(
             db=db,
             lottery_id=payload.lottery_id,
+            tenant_id=tenant_id,
             limit=100,
         )
         if not draws:
