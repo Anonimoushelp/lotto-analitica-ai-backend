@@ -106,7 +106,7 @@ def test_draw_service_failure_rolls_back_and_same_session_can_create_next_draw()
         main_numbers=[6, 7, 8, 9, 10],
     )
 
-    with pytest.raises(Exception):
+    with pytest.raises(IntegrityError):
         LotteryDrawService.update_draw(
             db=db,
             draw_id=first.id,
