@@ -121,7 +121,7 @@ def test_draw_service_failure_rolls_back_and_same_session_can_create_next_draw()
         select(LotteryDraw).where(LotteryDraw.id == first.id)
     )
     assert persisted_first is not None
-    assert persisted_first.draw_date == first_date
+    assert persisted_first.draw_date == first_date.date()
 
     third = LotteryDrawService.create_draw(
         db=db,
