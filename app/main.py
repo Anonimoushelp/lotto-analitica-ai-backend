@@ -136,8 +136,18 @@ if settings.cors_allowed_origins:
 
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
-    logger.exception("Unhandled application exception on %s %s", request.method, request.url.path)
-    return JSONResponse(status_code=500, content={"detail": "Internal server error"})
+    request_id = getattr(request.state, "request_id", None) or _get_request_id(request)
+    logger.exception(
+        "Unhandled application exception request_id=%s on %s %s",
+        request_id,
+        request.method,
+        request.url.path,
+    )
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal server error"},
+        headers={REQUEST_ID_HEADER: request_id},
+    )
 
 
 @app.get("/")
