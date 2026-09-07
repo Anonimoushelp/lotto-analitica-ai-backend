@@ -245,8 +245,33 @@ def test_unhandled_exception_handler_hides_internal_error_details():
     )
 
     assert response.status_code == 500
+    assert response.headers["X-Request-ID"]
+    assert re.fullmatch(r"[A-Za-z0-9._-]{1,64}", response.headers["X-Request-ID"])
     assert response.body == b'{"detail":"Internal server error"}'
     assert b"secret internal detail" not in response.body
+
+
+def test_unhandled_exception_handler_preserves_request_id():
+    scope = {
+        "type": "http",
+        "method": "GET",
+        "path": "/internal-test",
+        "headers": [],
+        "query_string": b"",
+        "server": ("testserver", 80),
+        "client": ("testclient", 50000),
+        "scheme": "http",
+    }
+    request = Request(scope)
+    request.state.request_id = "server.request-456"
+
+    response = asyncio.run(
+        unhandled_exception_handler(request, RuntimeError("secret internal detail"))
+    )
+
+    assert response.status_code == 500
+    assert response.headers["X-Request-ID"] == "server.request-456"
+    assert response.body == b'{"detail":"Internal server error"}'
 
 
 def test_openapi_documentation_matches_environment():
