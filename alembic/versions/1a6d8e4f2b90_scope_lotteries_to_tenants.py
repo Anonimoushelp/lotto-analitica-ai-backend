@@ -52,6 +52,25 @@ def upgrade() -> None:
 
 
 def downgrade() -> None:
+    duplicate_codes = op.get_bind().execute(
+        sa.text(
+            """
+            SELECT code
+            FROM lotteries
+            GROUP BY code
+            HAVING COUNT(*) > 1
+            LIMIT 1
+            """
+        )
+    ).first()
+
+    if duplicate_codes is not None:
+        raise RuntimeError(
+            "Cannot downgrade lotteries to a globally unique code index: "
+            "duplicate lottery codes exist across tenants. Resolve duplicates "
+            "before retrying the downgrade."
+        )
+
     op.drop_constraint("uq_lotteries_tenant_code", "lotteries", type_="unique")
     op.drop_index("ix_lotteries_tenant_id", table_name="lotteries")
     op.drop_index("ix_lotteries_code", table_name="lotteries")
