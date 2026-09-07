@@ -1,7 +1,7 @@
+from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, delete
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
-from fastapi.testclient import TestClient
 
 from app.core.security import create_access_token, hash_password
 from app.db.session import get_db
