@@ -1,11 +1,15 @@
+from datetime import UTC, datetime
+
+import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, delete
+from sqlalchemy import create_engine, delete, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.core.security import create_access_token, hash_password
 from app.db.session import get_db
 from app.main import app
+from app.models.lottery import Lottery
 from app.models.membership import Membership
 from app.models.tenant import Tenant
 from app.models.user import User
@@ -20,6 +24,7 @@ TestingSessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=Fals
 Tenant.__table__.create(bind=engine)
 User.__table__.create(bind=engine)
 Membership.__table__.create(bind=engine)
+Lottery.__table__.create(bind=engine)
 
 
 def override_get_db():
@@ -63,7 +68,11 @@ def seed_user(email: str, memberships: list[tuple[str, str, bool]]) -> User:
 
 def tenant_ids(user_id: int) -> dict[str, int]:
     db = TestingSessionLocal()
-    rows = db.query(Tenant).join(Membership, Membership.tenant_id == Tenant.id).filter(Membership.user_id == user_id).all()
+    rows = db.scalars(
+        select(Tenant)
+        .join(Membership, Membership.tenant_id == Tenant.id)
+        .where(Membership.user_id == user_id)
+    ).all()
     result = {tenant.slug: tenant.id for tenant in rows}
     db.close()
     return result
@@ -71,9 +80,6 @@ def tenant_ids(user_id: int) -> dict[str, int]:
 
 def auth_header(user: User) -> dict[str, str]:
     return {"Authorization": f"Bearer {create_access_token(str(user.id), user.role)}"}
-
-
-import pytest
 
 
 @pytest.fixture(autouse=True)
@@ -94,6 +100,7 @@ def clean_test_data():
     yield
     db = TestingSessionLocal()
     db.execute(delete(Membership))
+    db.execute(delete(Lottery))
     db.execute(delete(Tenant))
     db.execute(delete(User))
     db.commit()
@@ -201,7 +208,7 @@ def test_inactive_tenant_is_not_selectable(monkeypatch):
 def test_inactive_membership_is_not_selectable(monkeypatch):
     user = seed_user("inactive-membership@example.com", [("tenant-a", "analyst", True)])
     db = TestingSessionLocal()
-    membership = db.query(Membership).filter(Membership.user_id == user.id).one()
+    membership = db.scalar(select(Membership).where(Membership.user_id == user.id))
     membership.is_active = False
     db.commit()
     tenant_a_id = membership.tenant_id
@@ -227,10 +234,19 @@ def test_inactive_membership_is_not_selectable(monkeypatch):
 def test_client_tenant_id_cannot_override_authoritative_tenant(monkeypatch):
     user = seed_user("authoritative@example.com", [("tenant-a", "admin", True)])
     calls = []
+    now = datetime.now(UTC)
 
     def capture(**kwargs):
         calls.append(kwargs)
-        return type("FakeLottery", (), {"id": 1})()
+        return Lottery(
+            id=1,
+            code="LOT-001",
+            name="Test Lottery",
+            country="CO",
+            active=True,
+            created_at=now,
+            updated_at=now,
+        )
 
     monkeypatch.setattr(LotteryService, "create_lottery", capture)
     response = client.post(
@@ -245,6 +261,6 @@ def test_client_tenant_id_cannot_override_authoritative_tenant(monkeypatch):
         },
     )
 
-    assert response.status_code == 200 or response.status_code == 201
+    assert response.status_code == 201
     assert calls[0]["tenant_id"] == tenant_ids(user.id)["tenant-a"]
     assert "tenant_id" not in calls[0]["payload"]
