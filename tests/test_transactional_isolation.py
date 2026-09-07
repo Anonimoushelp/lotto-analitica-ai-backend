@@ -2,8 +2,8 @@ from datetime import UTC, datetime, timedelta
 from uuid import uuid4
 
 import pytest
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 
 from app.core.config import settings
 from app.db.session import SessionLocal
@@ -86,15 +86,24 @@ def test_draw_service_failure_rolls_back_and_same_session_can_create_next_draw()
     tenant_id = tenant.id
     lottery = _seed_lottery(db, tenant_id, f"DR-{uuid4().hex[:8]}")
     lottery_id = lottery.id
-    draw_date = datetime.now(UTC).replace(microsecond=0)
+    first_date = datetime.now(UTC).replace(microsecond=0)
+    second_date = first_date + timedelta(days=1)
 
     first = LotteryDrawService.create_draw(
         db=db,
         tenant_id=tenant_id,
         lottery_id=lottery_id,
         draw_number=f"1-{uuid4().hex[:6]}",
-        draw_date=draw_date,
+        draw_date=first_date,
         main_numbers=[1, 2, 3, 4, 5],
+    )
+    second = LotteryDrawService.create_draw(
+        db=db,
+        tenant_id=tenant_id,
+        lottery_id=lottery_id,
+        draw_number=f"2-{uuid4().hex[:6]}",
+        draw_date=second_date,
+        main_numbers=[6, 7, 8, 9, 10],
     )
 
     with pytest.raises(Exception):
@@ -102,19 +111,25 @@ def test_draw_service_failure_rolls_back_and_same_session_can_create_next_draw()
             db=db,
             draw_id=first.id,
             tenant_id=tenant_id,
-            update_data={"draw_date": draw_date + timedelta(days=1)},
+            update_data={"draw_date": second_date},
         )
 
     db.rollback()
-    second = LotteryDrawService.create_draw(
+    persisted_first = db.scalar(
+        select(LotteryDraw).where(LotteryDraw.id == first.id)
+    )
+    assert persisted_first is not None
+    assert persisted_first.draw_date == first_date
+
+    third = LotteryDrawService.create_draw(
         db=db,
         tenant_id=tenant_id,
         lottery_id=lottery_id,
-        draw_number=f"2-{uuid4().hex[:6]}",
-        draw_date=draw_date + timedelta(days=2),
-        main_numbers=[6, 7, 8, 9, 10],
+        draw_number=f"3-{uuid4().hex[:6]}",
+        draw_date=first_date + timedelta(days=2),
+        main_numbers=[11, 12, 13, 14, 15],
     )
-    assert second.id != first.id
+    assert third.id not in {first.id, second.id}
 
     _cleanup(db, [tenant_id])
     db.close()
