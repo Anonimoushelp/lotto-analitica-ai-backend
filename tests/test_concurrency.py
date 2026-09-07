@@ -21,6 +21,9 @@ class FakeSession:
             return self.draw
         return None
 
+    def scalar(self, statement):
+        return self.lottery
+
     def commit(self):
         self.commit_calls += 1
         raise IntegrityError("statement", {}, Exception("unique violation"))
@@ -54,6 +57,7 @@ def test_create_draw_maps_concurrent_unique_conflict(monkeypatch):
     with pytest.raises(HTTPException) as exc_info:
         LotteryDrawService.create_draw(
             db=db,
+            tenant_id=1,
             lottery_id=1,
             draw_number="100",
             draw_date="2026-09-04",
@@ -74,6 +78,10 @@ def test_update_draw_rolls_back_on_concurrent_unique_conflict(monkeypatch):
     db = FakeSession(lottery=object(), draw=draw)
 
     monkeypatch.setattr(
+        "app.services.lottery_draw_service.LotteryDrawRepository.get_by_id",
+        lambda **kwargs: draw,
+    )
+    monkeypatch.setattr(
         "app.services.lottery_draw_service.LotteryDrawRepository.get_by_number",
         lambda **kwargs: None,
     )
@@ -86,6 +94,7 @@ def test_update_draw_rolls_back_on_concurrent_unique_conflict(monkeypatch):
         LotteryDrawService.update_draw(
             db=db,
             draw_id=7,
+            tenant_id=1,
             update_data={"draw_number": "101"},
         )
 
