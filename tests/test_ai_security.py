@@ -1,6 +1,7 @@
 from fastapi.testclient import TestClient
 
 from app.api.dependencies.auth import get_current_user
+from app.api.dependencies.tenant import TenantContext, get_tenant_context
 from app.core.rate_limit import ai_rate_limiter
 from app.db.session import get_db
 from app.main import app
@@ -32,7 +33,11 @@ def test_predictions_rejects_unauthorized_role():
     def override_current_user():
         return viewer
 
+    def override_tenant_context():
+        return TenantContext(user_id=viewer.id, tenant_id=1, membership_id=1, role="viewer")
+
     app.dependency_overrides[get_current_user] = override_current_user
+    app.dependency_overrides[get_tenant_context] = override_tenant_context
     try:
         response = client.post(
             "/api/v1/predictions",
@@ -57,10 +62,15 @@ def test_predictions_allows_authorized_analyst_without_external_ai_call(monkeypa
     def override_current_user():
         return analyst
 
+    def override_tenant_context():
+        return TenantContext(user_id=analyst.id, tenant_id=1, membership_id=1, role="analyst")
+
     def override_db():
         yield None
 
-    def fake_generate(db, payload):
+    def fake_generate(db, payload, tenant_id):
+        assert db is None
+        assert tenant_id == 1
         return {
             "summary": {
                 "lottery_id": str(payload.lottery_id),
@@ -106,6 +116,7 @@ def test_predictions_allows_authorized_analyst_without_external_ai_call(monkeypa
 
     monkeypatch.setattr(PredictionService, "generate", staticmethod(fake_generate))
     app.dependency_overrides[get_current_user] = override_current_user
+    app.dependency_overrides[get_tenant_context] = override_tenant_context
     app.dependency_overrides[get_db] = override_db
     try:
         response = client.post(
