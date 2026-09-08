@@ -5,14 +5,6 @@ from app.api.dependencies.tenant import TenantContext
 from app.api.dependencies.tenant_auth import require_tenant_scopes
 
 
-def get_scope_dependency(dependency):
-    return next(
-        cell.cell_contents
-        for cell in dependency.__closure__ or ()
-        if callable(cell.cell_contents)
-    )
-
-
 def make_dependency(role: str):
     dependency = require_tenant_scopes("lotteries:read")
     tenant = TenantContext(
@@ -21,7 +13,7 @@ def make_dependency(role: str):
         membership_id=1,
         role=role,
     )
-    return get_scope_dependency(dependency), tenant
+    return dependency, tenant
 
 
 def test_admin_can_use_read_scope():
@@ -35,33 +27,28 @@ def test_analyst_can_use_read_scope():
 
 
 def test_viewer_is_denied_read_scope():
-    dependency = get_scope_dependency(require_tenant_scopes("lotteries:read"))
-    tenant = TenantContext(user_id=1, tenant_id=1, membership_id=1, role="viewer")
+    dependency, tenant = make_dependency("viewer")
     with pytest.raises(HTTPException) as exc_info:
         dependency(tenant)
     assert exc_info.value.status_code == 403
 
 
 def test_service_is_denied_read_scope():
-    dependency = get_scope_dependency(require_tenant_scopes("lotteries:read"))
-    tenant = TenantContext(user_id=1, tenant_id=1, membership_id=1, role="service")
+    dependency, tenant = make_dependency("service")
     with pytest.raises(HTTPException) as exc_info:
         dependency(tenant)
     assert exc_info.value.status_code == 403
 
 
 def test_unknown_role_is_denied():
-    dependency = get_scope_dependency(require_tenant_scopes("lotteries:read"))
-    tenant = TenantContext(user_id=1, tenant_id=1, membership_id=1, role="unknown")
+    dependency, tenant = make_dependency("unknown")
     with pytest.raises(HTTPException) as exc_info:
         dependency(tenant)
     assert exc_info.value.status_code == 403
 
 
 def test_multiple_scopes_use_and_semantics():
-    dependency = get_scope_dependency(
-        require_tenant_scopes("lotteries:read", "lotteries:write")
-    )
+    dependency = require_tenant_scopes("lotteries:read", "lotteries:write")
     tenant = TenantContext(user_id=1, tenant_id=1, membership_id=1, role="analyst")
     with pytest.raises(HTTPException) as exc_info:
         dependency(tenant)
