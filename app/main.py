@@ -16,6 +16,7 @@ from app.api.routes.auth import router as auth_router
 from app.api.routes.functional_encryption import router as functional_encryption_router
 from app.api.routes.lotteries import router as lotteries_router
 from app.api.routes.lottery_draws import router as lottery_draws_router
+from app.api.routes.memberships import router as memberships_router
 from app.api.routes.predictions import router as predictions_router
 from app.api.routes.statistics import router as statistics_router
 from app.api.routes.tee import router as tee_router
@@ -174,5 +175,6 @@ app.include_router(functional_encryption_router)
 app.include_router(tee_router)
 app.include_router(lotteries_router)
 app.include_router(lottery_draws_router)
+app.include_router(memberships_router)
 app.include_router(statistics_router)
 app.include_router(predictions_router)
