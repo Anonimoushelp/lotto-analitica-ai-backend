@@ -137,6 +137,14 @@ def update_membership(
             detail="Membership not found",
         )
 
+    if payload.is_active is True:
+        user = db.get(User, membership.user_id)
+        if user is None or not user.is_active:
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Cannot activate membership for inactive user",
+            )
+
     becomes_active_admin = (
         membership.role == "admin"
         and membership.is_active
