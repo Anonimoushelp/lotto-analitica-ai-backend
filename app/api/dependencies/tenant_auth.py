@@ -36,3 +36,5 @@ def require_tenant_scopes(*required_scopes: Scope) -> Callable:
 
 require_tenant_admin = require_tenant_roles("admin")
 require_tenant_admin_or_analyst = require_tenant_roles("admin", "analyst")
+require_lotteries_read = require_tenant_scopes("lotteries:read")
+require_lotteries_write = require_tenant_scopes("lotteries:write")
