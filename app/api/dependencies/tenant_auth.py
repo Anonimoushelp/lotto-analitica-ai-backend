@@ -3,6 +3,7 @@ from collections.abc import Callable
 from fastapi import Depends, HTTPException, status
 
 from app.api.dependencies.tenant import TenantContext, get_tenant_context
+from app.core.permissions import Scope, has_scope
 
 
 def require_tenant_roles(*allowed_roles: str) -> Callable:
@@ -10,6 +11,20 @@ def require_tenant_roles(*allowed_roles: str) -> Callable:
         tenant: TenantContext = Depends(get_tenant_context),
     ) -> TenantContext:
         if tenant.role not in allowed_roles:
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="Insufficient permissions",
+            )
+        return tenant
+
+    return dependency
+
+
+def require_tenant_scopes(*required_scopes: Scope) -> Callable:
+    def dependency(
+        tenant: TenantContext = Depends(get_tenant_context),
+    ) -> TenantContext:
+        if not all(has_scope(tenant.role, scope) for scope in required_scopes):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="Insufficient permissions",
