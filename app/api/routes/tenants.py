@@ -7,6 +7,7 @@ from app.api.dependencies.tenant_auth import require_tenant_manage
 from app.db.session import get_db
 from app.models.tenant import Tenant
 from app.schemas.tenant import TenantResponse, TenantUpdate
+from app.services.audit_service import record_audit_event
 
 router = APIRouter(
     prefix="/api/v1/tenant",
@@ -47,13 +48,15 @@ def update_current_tenant(
             detail="Tenant not found",
         )
 
+    previous_name = current_tenant.name
+    previous_slug = current_tenant.slug
     if payload.name is not None:
         current_tenant.name = payload.name
     if payload.slug is not None:
         current_tenant.slug = payload.slug
 
     try:
-        db.commit()
+        db.flush()
     except IntegrityError:
         db.rollback()
         raise HTTPException(
@@ -61,5 +64,18 @@ def update_current_tenant(
             detail="Tenant slug already exists",
         ) from None
 
+    record_audit_event(
+        db,
+        tenant_id=tenant.tenant_id,
+        actor_user_id=tenant.user_id,
+        action="tenant.update",
+        resource_type="tenant",
+        resource_id=current_tenant.id,
+        details=(
+            f"name={previous_name}->{current_tenant.name};"
+            f"slug={previous_slug}->{current_tenant.slug}"
+        ),
+    )
+    db.commit()
     db.refresh(current_tenant)
     return current_tenant
