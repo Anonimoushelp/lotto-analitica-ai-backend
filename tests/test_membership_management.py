@@ -6,6 +6,7 @@ from sqlalchemy.pool import StaticPool
 from app.api.dependencies.tenant import TenantContext
 from app.api.routes.memberships import (
     create_membership,
+    delete_membership,
     update_membership,
 )
 from app.core.security import hash_password
@@ -295,3 +296,78 @@ def test_empty_membership_update_is_rejected():
             raise AssertionError("Expected empty membership update to be rejected")
         finally:
             clean_db(db)
+
+
+def test_admin_can_deactivate_membership_in_selected_tenant():
+    with Session(engine) as db:
+        actor = seed_user(db, "actor11@example.com")
+        target = seed_user(db, "target11@example.com")
+        tenant = seed_tenant(db, "deactivate")
+        membership = seed_membership(db, target, tenant, role="viewer")
+        seed_membership(db, actor, tenant, role="admin")
+
+        result = delete_membership(
+            membership.id,
+            db,
+            context(actor, tenant),
+        )
+
+        assert result is None
+        assert db.get(Membership, membership.id).is_active is False
+        clean_db(db)
+
+
+def test_deactivation_cannot_access_membership_from_another_tenant():
+    with Session(engine) as db:
+        actor = seed_user(db, "actor12@example.com")
+        target = seed_user(db, "target12@example.com")
+        selected = seed_tenant(db, "selected-delete")
+        other = seed_tenant(db, "other-delete")
+        membership = seed_membership(db, target, other, role="viewer")
+
+        try:
+            delete_membership(membership.id, db, context(actor, selected))
+        except HTTPException as exc:
+            assert exc.status_code == 404
+        else:
+            raise AssertionError(
+                "Expected cross-tenant membership deactivation to be rejected"
+            )
+        finally:
+            clean_db(db)
+
+
+def test_last_active_admin_cannot_be_deactivated_by_delete():
+    with Session(engine) as db:
+        actor = seed_user(db, "actor13@example.com")
+        tenant = seed_tenant(db, "last-admin-delete")
+        membership = seed_membership(db, actor, tenant, role="admin")
+
+        try:
+            delete_membership(membership.id, db, context(actor, tenant))
+        except HTTPException as exc:
+            assert exc.status_code == 409
+        else:
+            raise AssertionError("Expected last active admin delete protection")
+        finally:
+            clean_db(db)
+
+
+def test_deactivation_is_idempotent_for_inactive_membership():
+    with Session(engine) as db:
+        actor = seed_user(db, "actor14@example.com")
+        target = seed_user(db, "target14@example.com")
+        tenant = seed_tenant(db, "inactive-delete")
+        membership = seed_membership(db, target, tenant, role="viewer")
+        membership.is_active = False
+        db.commit()
+
+        result = delete_membership(
+            membership.id,
+            db,
+            context(actor, tenant),
+        )
+
+        assert result is None
+        assert db.get(Membership, membership.id).is_active is False
+        clean_db(db)
