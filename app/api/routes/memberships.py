@@ -147,3 +147,43 @@ def update_membership(
     db.commit()
     db.refresh(membership)
     return membership
+
+
+@router.delete(
+    "/{membership_id}",
+    status_code=status.HTTP_204_NO_CONTENT,
+)
+def delete_membership(
+    membership_id: int,
+    db: Session = Depends(get_db),
+    tenant: TenantContext = Depends(require_memberships_manage),
+):
+    membership = db.scalar(
+        select(Membership).where(
+            Membership.id == membership_id,
+            Membership.tenant_id == tenant.tenant_id,
+        )
+    )
+    if membership is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Membership not found",
+        )
+
+    if membership.role == "admin" and membership.is_active:
+        active_admins = db.scalar(
+            select(func.count(Membership.id)).where(
+                Membership.tenant_id == tenant.tenant_id,
+                Membership.role == "admin",
+                Membership.is_active.is_(True),
+            )
+        )
+        if active_admins == 1:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Cannot remove the last active tenant admin",
+            )
+
+    membership.is_active = False
+    db.commit()
+    return None
