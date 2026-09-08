@@ -1,7 +1,7 @@
 from app.core.permissions import (
     ALL_SCOPES,
-    ROLE_SCOPES,
     has_scope,
+    ROLE_SCOPES,
 )
 
 
