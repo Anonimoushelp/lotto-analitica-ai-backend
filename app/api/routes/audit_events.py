@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -26,3 +26,22 @@ def list_audit_events(
         .limit(100)
     )
     return db.scalars(statement).all()
+
+
+@router.get("/{event_id}", response_model=AuditEventResponse)
+def get_audit_event(
+    event_id: int,
+    db: Session = Depends(get_db),
+    tenant: TenantContext = Depends(require_tenant_manage),
+):
+    statement = select(AuditEvent).where(
+        AuditEvent.id == event_id,
+        AuditEvent.tenant_id == tenant.tenant_id,
+    )
+    event = db.scalar(statement)
+    if event is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="Audit event not found",
+        )
+    return event
