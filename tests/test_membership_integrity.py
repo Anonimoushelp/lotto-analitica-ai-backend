@@ -2,7 +2,7 @@ import threading
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import delete, select, update
+from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 
 from app.api.routes.memberships import _lock_tenant_for_admin_change
@@ -170,6 +170,7 @@ def test_concurrent_admin_change_lock_prevents_zero_active_admins():
     second_membership_id = second_membership.id
     setup_db.close()
 
+    first_locked = threading.Event()
     second_started = threading.Event()
     release_first = threading.Event()
     results = []
@@ -179,6 +180,7 @@ def test_concurrent_admin_change_lock_prevents_zero_active_admins():
         db = SessionLocal()
         try:
             _lock_tenant_for_admin_change(db, tenant_id)
+            first_locked.set()
             active_admins = db.scalar(
                 select(Membership.id).where(
                     Membership.tenant_id == tenant_id,
@@ -187,9 +189,12 @@ def test_concurrent_admin_change_lock_prevents_zero_active_admins():
                 ).limit(2)
             )
             assert active_admins is not None
-            second_started.wait(timeout=15)
+            assert second_started.wait(timeout=15)
             db.execute(
-                update(Membership)
+                select(Membership.id).where(Membership.id == first_membership_id)
+            )
+            db.execute(
+                Membership.__table__.update()
                 .where(Membership.id == first_membership_id)
                 .values(role="viewer")
             )
@@ -208,19 +213,6 @@ def test_concurrent_admin_change_lock_prevents_zero_active_admins():
         try:
             second_started.set()
             _lock_tenant_for_admin_change(db, tenant_id)
-            active_admin_count = db.scalar(
-                select(Membership.id)
-                .where(
-                    Membership.tenant_id == tenant_id,
-                    Membership.role == "admin",
-                    Membership.is_active.is_(True),
-                )
-                .limit(2)
-            )
-            if active_admin_count is None:
-                results.append("blocked")
-                db.rollback()
-                return
             admin_ids = db.scalars(
                 select(Membership.id).where(
                     Membership.tenant_id == tenant_id,
@@ -233,7 +225,7 @@ def test_concurrent_admin_change_lock_prevents_zero_active_admins():
                 db.rollback()
                 return
             db.execute(
-                update(Membership)
+                Membership.__table__.update()
                 .where(Membership.id == second_membership_id)
                 .values(role="viewer")
             )
@@ -250,10 +242,9 @@ def test_concurrent_admin_change_lock_prevents_zero_active_admins():
 
     try:
         first.start()
-        assert second_started.wait(timeout=15) is False
+        assert first_locked.wait(timeout=15)
         second.start()
         assert second_started.wait(timeout=15)
-        release_first.wait(timeout=15)
         first.join(timeout=20)
         second.join(timeout=20)
 
@@ -274,6 +265,7 @@ def test_concurrent_admin_change_lock_prevents_zero_active_admins():
 
         assert len(active_admins) == 1
     finally:
+        release_first.set()
         cleanup_db = SessionLocal()
         cleanup(cleanup_db, [first_admin_id, second_admin_id], [tenant_id])
         cleanup_db.close()
