@@ -1,7 +1,7 @@
 from fastapi import APIRouter, Depends, HTTPException, status
 
 from app.api.dependencies.tenant import TenantContext
-from app.api.dependencies.tenant_auth import require_tenant_admin_or_analyst
+from app.api.dependencies.tenant_auth import require_crypto_use
 from app.schemas.functional_encryption import (
     FunctionalEncryptionOperationResponse,
     FunctionalEncryptionRequest,
@@ -19,7 +19,7 @@ router = APIRouter(
 
 @router.get("/status")
 def get_status(
-    tenant: TenantContext = Depends(require_tenant_admin_or_analyst),
+    tenant: TenantContext = Depends(require_crypto_use),
 ):
     return get_functional_encryption_status()
 
@@ -30,7 +30,7 @@ def get_status(
 )
 def execute_operation(
     payload: FunctionalEncryptionRequest,
-    tenant: TenantContext = Depends(require_tenant_admin_or_analyst),
+    tenant: TenantContext = Depends(require_crypto_use),
 ):
     try:
         result = execute_functional_encryption(
