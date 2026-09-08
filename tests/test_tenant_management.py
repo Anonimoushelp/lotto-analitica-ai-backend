@@ -6,6 +6,7 @@ from sqlalchemy.pool import StaticPool
 from app.api.dependencies.tenant import TenantContext
 from app.api.routes.tenants import get_current_tenant, update_current_tenant
 from app.core.security import hash_password
+from app.models.audit_event import AuditEvent
 from app.models.membership import Membership
 from app.models.tenant import Tenant
 from app.models.user import User
@@ -19,6 +20,7 @@ engine = create_engine(
 User.__table__.create(bind=engine)
 Tenant.__table__.create(bind=engine)
 Membership.__table__.create(bind=engine)
+AuditEvent.__table__.create(bind=engine)
 
 
 def seed_user(db: Session, email: str) -> User:
@@ -56,6 +58,7 @@ def seed_membership(db: Session, user: User, tenant: Tenant) -> Membership:
 
 
 def clean_db(db: Session) -> None:
+    db.execute(delete(AuditEvent))
     db.execute(delete(Membership))
     db.execute(delete(Tenant))
     db.execute(delete(User))
