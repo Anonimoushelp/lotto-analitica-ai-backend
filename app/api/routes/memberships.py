@@ -186,4 +186,3 @@ def delete_membership(
 
     membership.is_active = False
     db.commit()
-    return None
