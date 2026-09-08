@@ -4,8 +4,8 @@ from sqlalchemy.orm import Session
 from app.api.dependencies.auth import get_current_user
 from app.api.dependencies.tenant import TenantContext
 from app.api.dependencies.tenant_auth import (
-    require_tenant_admin,
-    require_tenant_admin_or_analyst,
+    require_lotteries_read,
+    require_lotteries_write,
 )
 from app.core.audit import log_mutation
 from app.db.session import get_db
@@ -21,7 +21,7 @@ router = APIRouter(
 @router.get("", response_model=list[LotteryResponse])
 def list_lotteries(
     db: Session = Depends(get_db),
-    tenant: TenantContext = Depends(require_tenant_admin_or_analyst),
+    tenant: TenantContext = Depends(require_lotteries_read),
 ):
     return LotteryService.list_lotteries(db=db, tenant_id=tenant.tenant_id)
 
@@ -30,7 +30,7 @@ def list_lotteries(
 def get_lottery(
     lottery_id: int,
     db: Session = Depends(get_db),
-    tenant: TenantContext = Depends(require_tenant_admin_or_analyst),
+    tenant: TenantContext = Depends(require_lotteries_read),
 ):
     return LotteryService.get_lottery(
         db=db,
@@ -44,7 +44,7 @@ def create_lottery(
     payload: LotteryCreate,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
-    tenant: TenantContext = Depends(require_tenant_admin),
+    tenant: TenantContext = Depends(require_lotteries_write),
 ):
     lottery = LotteryService.create_lottery(
         db=db,
@@ -66,7 +66,7 @@ def update_lottery(
     payload: LotteryUpdate,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
-    tenant: TenantContext = Depends(require_tenant_admin),
+    tenant: TenantContext = Depends(require_lotteries_write),
 ):
     lottery = LotteryService.update_lottery(
         db=db,
@@ -88,7 +88,7 @@ def delete_lottery(
     lottery_id: int,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
-    tenant: TenantContext = Depends(require_tenant_admin),
+    tenant: TenantContext = Depends(require_lotteries_write),
 ):
     LotteryService.delete_lottery(
         db=db,
