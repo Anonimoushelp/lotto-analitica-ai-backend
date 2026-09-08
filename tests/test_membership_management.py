@@ -4,7 +4,10 @@ from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
 from app.api.dependencies.tenant import TenantContext
-from app.api.routes.memberships import create_membership, update_membership
+from app.api.routes.memberships import (
+    create_membership,
+    update_membership,
+)
 from app.core.security import hash_password
 from app.models.membership import Membership
 from app.models.tenant import Tenant
