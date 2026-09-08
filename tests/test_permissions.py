@@ -38,3 +38,7 @@ def test_viewer_and_service_have_no_scopes():
 def test_scope_matrix_is_not_mutable_through_role_values():
     assert isinstance(ALL_SCOPES, frozenset)
     assert all(isinstance(scopes, frozenset) for scopes in ROLE_SCOPES.values())
+
+
+def test_unknown_role_fails_closed():
+    assert not has_scope("unknown", "lotteries:read")
