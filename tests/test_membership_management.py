@@ -309,11 +309,7 @@ def test_admin_can_deactivate_membership_in_selected_tenant():
         membership = seed_membership(db, target, tenant, role="viewer")
         seed_membership(db, actor, tenant, role="admin")
 
-        result = delete_membership(
-            membership.id,
-            db,
-            context(actor, tenant),
-        )
+        result = delete_membership(membership.id, db, context(actor, tenant))
 
         assert result is None
         assert db.get(Membership, membership.id).is_active is False
@@ -333,9 +329,7 @@ def test_deactivation_cannot_access_membership_from_another_tenant():
         except HTTPException as exc:
             assert exc.status_code == 404
         else:
-            raise AssertionError(
-                "Expected cross-tenant membership deactivation to be rejected"
-            )
+            raise AssertionError("Expected cross-tenant membership deactivation to be rejected")
         finally:
             clean_db(db)
 
@@ -365,12 +359,74 @@ def test_deactivation_is_idempotent_for_inactive_membership():
         membership.is_active = False
         db.commit()
 
-        result = delete_membership(
-            membership.id,
-            db,
-            context(actor, tenant),
-        )
+        result = delete_membership(membership.id, db, context(actor, tenant))
 
         assert result is None
         assert db.get(Membership, membership.id).is_active is False
         clean_db(db)
+
+
+def test_membership_management_requires_privileged_membership_role():
+    with Session(engine) as db:
+        actor = seed_user(db, "role-guard@example.com")
+        target = seed_user(db, "role-target@example.com")
+        tenant = seed_tenant(db, "role-guard")
+        membership = seed_membership(db, target, tenant, role="viewer")
+
+        for role in ("viewer", "analyst"):
+            for operation in (
+                lambda: create_membership(
+                    MembershipCreate(user_id=actor.id, role="viewer"),
+                    db,
+                    context(actor, tenant, role),
+                ),
+                lambda: update_membership(
+                    membership.id,
+                    MembershipUpdate(role="analyst"),
+                    db,
+                    context(actor, tenant, role),
+                ),
+                lambda: delete_membership(
+                    membership.id,
+                    db,
+                    context(actor, tenant, role),
+                ),
+            ):
+                try:
+                    operation()
+                except HTTPException as exc:
+                    assert exc.status_code == 403
+                else:
+                    raise AssertionError("Expected privileged membership role to be required")
+        clean_db(db)
+
+
+def test_membership_role_cannot_be_escalated_by_legacy_jwt_role_claim():
+    with Session(engine) as db:
+        actor = seed_user(db, "jwt-role@example.com")
+        target = seed_user(db, "jwt-target@example.com")
+        tenant = seed_tenant(db, "jwt-role")
+        seed_membership(db, actor, tenant, role="viewer")
+        target_membership = seed_membership(db, target, tenant, role="viewer")
+
+        forged_admin_context = context(actor, tenant, role="viewer")
+        forged_admin_context = TenantContext(
+            user_id=forged_admin_context.user_id,
+            tenant_id=forged_admin_context.tenant_id,
+            membership_id=forged_admin_context.membership_id,
+            role="viewer",
+        )
+
+        try:
+            update_membership(
+                target_membership.id,
+                MembershipUpdate(role="admin"),
+                db,
+                forged_admin_context,
+            )
+        except HTTPException as exc:
+            assert exc.status_code == 403
+        else:
+            raise AssertionError("Expected membership role to remain authoritative")
+        finally:
+            clean_db(db)
