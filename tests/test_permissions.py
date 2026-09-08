@@ -1,14 +1,22 @@
-from app.core.permissions import ALL_SCOPES, ROLE_SCOPES, has_scope
+from app.core.permissions import (
+    ALL_SCOPES,
+    ROLE_SCOPES,
+    has_scope,
+)
 
 
 EXPECTED_ANALYST_SCOPES = frozenset(
     {
-        "lotteries:read",
-        "draws:read",
-        "predictions:read",
-        "predictions:generate",
         "analytics:read",
         "crypto:use",
+        "draws:read",
+        "draws:write",
+        "lotteries:read",
+        "lotteries:write",
+        "memberships:manage",
+        "predictions:generate",
+        "predictions:read",
+        "tenant:manage",
     }
 )
 
