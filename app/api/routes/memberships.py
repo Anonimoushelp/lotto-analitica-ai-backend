@@ -8,7 +8,11 @@ from app.api.dependencies.tenant_auth import require_memberships_manage
 from app.db.session import get_db
 from app.models.membership import Membership
 from app.models.user import User
-from app.schemas.membership import MembershipCreate, MembershipResponse, MembershipUpdate
+from app.schemas.membership import (
+    MembershipCreate,
+    MembershipResponse,
+    MembershipUpdate,
+)
 
 router = APIRouter(
     prefix="/api/v1/memberships",
@@ -116,7 +120,10 @@ def update_membership(
     becomes_active_admin = (
         membership.role == "admin"
         and membership.is_active
-        and (payload.role is not None and payload.role != "admin" or payload.is_active is False)
+        and (
+            (payload.role is not None and payload.role != "admin")
+            or payload.is_active is False
+        )
     )
     if becomes_active_admin:
         active_admins = db.scalar(
