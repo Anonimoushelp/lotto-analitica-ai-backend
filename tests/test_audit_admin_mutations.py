@@ -3,7 +3,11 @@ from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
 from app.api.dependencies.tenant import TenantContext
-from app.api.routes.memberships import create_membership, delete_membership, update_membership
+from app.api.routes.memberships import (
+    create_membership,
+    delete_membership,
+    update_membership,
+)
 from app.api.routes.tenants import update_current_tenant
 from app.core.security import hash_password
 from app.models.audit_event import AuditEvent
