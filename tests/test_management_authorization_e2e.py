@@ -23,15 +23,15 @@ Membership.__table__.create(bind=engine)
 User.__table__.create(bind=engine)
 
 
+client = TestClient(app)
+
+
 def override_get_db():
     db = TestingSessionLocal()
     try:
         yield db
     finally:
         db.close()
-
-
-client = TestClient(app)
 
 
 def cleanup():
