@@ -20,6 +20,7 @@ from app.api.routes.memberships import router as memberships_router
 from app.api.routes.predictions import router as predictions_router
 from app.api.routes.statistics import router as statistics_router
 from app.api.routes.tee import router as tee_router
+from app.api.routes.tenants import router as tenants_router
 from app.core.config import settings
 from app.core.rate_limit import login_rate_limiter
 from app.db.session import get_db
@@ -129,7 +130,7 @@ if settings.cors_allowed_origins:
         CORSMiddleware,
         allow_origins=settings.cors_allowed_origins,
         allow_credentials=False,
-        allow_methods=["GET", "POST", "PUT", "DELETE"],
+        allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE"],
         allow_headers=["Authorization", "Content-Type", "X-Tenant-ID"],
         max_age=600,
     )
@@ -176,5 +177,6 @@ app.include_router(tee_router)
 app.include_router(lotteries_router)
 app.include_router(lottery_draws_router)
 app.include_router(memberships_router)
+app.include_router(tenants_router)
 app.include_router(statistics_router)
 app.include_router(predictions_router)
