@@ -16,6 +16,8 @@ class MembershipResponse(BaseModel):
 
 
 class MembershipCreate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     user_id: int = Field(gt=0)
     role: MembershipRole = "viewer"
 
