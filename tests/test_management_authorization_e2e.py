@@ -1,4 +1,5 @@
-from fastapi.testclient import TestClient  # noqa: I001
+import pytest
+from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, delete
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -30,7 +31,6 @@ def override_get_db():
         db.close()
 
 
-app.dependency_overrides[get_db] = override_get_db
 client = TestClient(app)
 
 
@@ -111,12 +111,19 @@ def auth_header(user_id: int, role_claim: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {token}"}
 
 
-def setup_function():
+@pytest.fixture(autouse=True)
+def isolate_test_database():
+    previous_override = app.dependency_overrides.get(get_db)
+    app.dependency_overrides[get_db] = override_get_db
     cleanup()
-
-
-def teardown_function():
-    cleanup()
+    try:
+        yield
+    finally:
+        cleanup()
+        if previous_override is None:
+            app.dependency_overrides.pop(get_db, None)
+        else:
+            app.dependency_overrides[get_db] = previous_override
 
 
 def test_membership_management_rejects_viewer_and_analyst():
