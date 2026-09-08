@@ -11,7 +11,6 @@ from app.models.tenant import Tenant
 from app.models.user import User
 from app.schemas.tenant import TenantUpdate
 
-
 engine = create_engine(
     "sqlite://",
     connect_args={"check_same_thread": False},
