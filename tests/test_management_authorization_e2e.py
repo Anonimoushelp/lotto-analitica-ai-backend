@@ -1,6 +1,6 @@
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, delete
+from sqlalchemy import create_engine, delete, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -106,6 +106,43 @@ def seed_two_tenants():
     return result
 
 
+def seed_multi_tenant_user():
+    db = TestingSessionLocal()
+    tenant_a = Tenant(name="Tenant A", slug="tenant-a")
+    tenant_b = Tenant(name="Tenant B", slug="tenant-b")
+    admin = User(
+        email="admin@example.com",
+        password_hash=hash_password("StrongTestPassword123!"),
+        role="admin",
+        is_active=True,
+    )
+    target = User(
+        email="target@example.com",
+        password_hash=hash_password("StrongTestPassword123!"),
+        role="viewer",
+        is_active=True,
+    )
+    db.add_all([tenant_a, tenant_b, admin, target])
+    db.flush()
+    membership_a = Membership(
+        tenant_id=tenant_a.id,
+        user_id=admin.id,
+        role="admin",
+        is_active=True,
+    )
+    target_membership = Membership(
+        tenant_id=tenant_b.id,
+        user_id=target.id,
+        role="viewer",
+        is_active=True,
+    )
+    db.add_all([membership_a, target_membership])
+    db.commit()
+    result = (admin.id, tenant_a.id, tenant_b.id, target.id, target_membership.id)
+    db.close()
+    return result
+
+
 def auth_header(user_id: int, role_claim: str) -> dict[str, str]:
     token = create_access_token(str(user_id), role_claim)
     return {"Authorization": f"Bearer {token}"}
@@ -202,3 +239,36 @@ def test_membership_id_cannot_cross_tenant_boundary():
         json={"role": "admin"},
     )
     assert response.status_code == 404
+
+
+def test_adding_multi_tenant_membership_preserves_existing_membership():
+    admin_id, tenant_a_id, tenant_b_id, target_id, existing_membership_id = seed_multi_tenant_user()
+    response = client.post(
+        "/api/v1/memberships",
+        headers={
+            **auth_header(admin_id, "admin"),
+            "X-Tenant-ID": str(tenant_a_id),
+        },
+        json={"user_id": target_id, "role": "analyst"},
+    )
+    assert response.status_code == 201
+    created = response.json()
+    assert created["tenant_id"] == tenant_a_id
+    assert created["user_id"] == target_id
+    assert created["role"] == "analyst"
+
+    db = TestingSessionLocal()
+    memberships = list(
+        db.scalars(
+            select(Membership)
+            .where(Membership.user_id == target_id)
+            .order_by(Membership.tenant_id)
+        ).all()
+    )
+    existing = db.get(Membership, existing_membership_id)
+    assert len(memberships) == 2
+    assert existing is not None
+    assert existing.tenant_id == tenant_b_id
+    assert existing.role == "viewer"
+    assert existing.is_active is True
+    db.close()
