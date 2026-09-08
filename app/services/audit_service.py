@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from sqlalchemy.orm import Session
 
@@ -24,7 +24,7 @@ def record_audit_event(
         resource_id=None if resource_id is None else str(resource_id),
         outcome=outcome,
         details=details,
-        created_at=datetime.now(timezone.utc),
+        created_at=datetime.now(UTC),
     )
     db.add(event)
     return event
