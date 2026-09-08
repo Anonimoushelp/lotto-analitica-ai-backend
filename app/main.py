@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.middleware.trustedhost import TrustedHostMiddleware
 
+from app.api.routes.audit_events import router as audit_events_router
 from app.api.routes.auth import router as auth_router
 from app.api.routes.functional_encryption import router as functional_encryption_router
 from app.api.routes.lotteries import router as lotteries_router
@@ -45,20 +46,11 @@ class RequestBodyLimitMiddleware(BaseHTTPMiddleware):
             try:
                 declared_length = int(content_length)
             except ValueError:
-                return JSONResponse(
-                    status_code=400,
-                    content={"detail": "Invalid Content-Length header"},
-                )
+                return JSONResponse(status_code=400, content={"detail": "Invalid Content-Length header"})
             if declared_length < 0:
-                return JSONResponse(
-                    status_code=400,
-                    content={"detail": "Invalid Content-Length header"},
-                )
+                return JSONResponse(status_code=400, content={"detail": "Invalid Content-Length header"})
             if declared_length > MAX_REQUEST_BODY_BYTES:
-                return JSONResponse(
-                    status_code=413,
-                    content={"detail": "Request body too large"},
-                )
+                return JSONResponse(status_code=413, content={"detail": "Request body too large"})
         return await call_next(request)
 
 
@@ -103,9 +95,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
             response.headers["Pragma"] = "no-cache"
         if settings.environment.lower() == "production":
-            response.headers["Strict-Transport-Security"] = (
-                "max-age=31536000; includeSubDomains"
-            )
+            response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
         return response
 
 
@@ -153,20 +143,14 @@ def health(db: Session = Depends(get_db)):
         db.execute(text("SELECT 1"))
     except SQLAlchemyError:
         logger.exception("Health check failed: PostgreSQL unavailable")
-        return JSONResponse(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            content={"status": "unhealthy", "service": "Lotto Analítica AI"},
-        )
+        return JSONResponse(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, content={"status": "unhealthy", "service": "Lotto Analítica AI"})
 
     if settings.environment.lower() == "production":
         try:
             login_rate_limiter.health_check()
         except Exception:
             logger.exception("Health check failed: Redis unavailable")
-            return JSONResponse(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                content={"status": "unhealthy", "service": "Lotto Analítica AI"},
-            )
+            return JSONResponse(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, content={"status": "unhealthy", "service": "Lotto Analítica AI"})
 
     return {"status": "healthy", "service": "Lotto Analítica AI"}
 
@@ -180,3 +164,4 @@ app.include_router(memberships_router)
 app.include_router(tenants_router)
 app.include_router(statistics_router)
 app.include_router(predictions_router)
+app.include_router(audit_events_router)
