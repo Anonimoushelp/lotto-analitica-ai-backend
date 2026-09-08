@@ -10,6 +10,7 @@ from app.api.routes.memberships import (
     update_membership,
 )
 from app.core.security import hash_password
+from app.models.audit_event import AuditEvent
 from app.models.membership import Membership
 from app.models.tenant import Tenant
 from app.models.user import User
@@ -24,6 +25,7 @@ engine = create_engine(
 User.__table__.create(bind=engine)
 Tenant.__table__.create(bind=engine)
 Membership.__table__.create(bind=engine)
+AuditEvent.__table__.create(bind=engine)
 
 
 def seed_user(db: Session, email: str, active: bool = True) -> User:
@@ -63,6 +65,7 @@ def seed_membership(
 
 
 def clean_db(db: Session) -> None:
+    db.execute(delete(AuditEvent))
     db.execute(delete(Membership))
     db.execute(delete(Tenant))
     db.execute(delete(User))
