@@ -26,7 +26,6 @@ def override_get_db():
         yield db
 
 
-app.dependency_overrides[get_db] = override_get_db
 client = TestClient(app)
 
 
@@ -66,9 +65,17 @@ def token_for(user_id: int, role: str) -> str:
 
 @pytest.fixture(autouse=True)
 def reset_database():
+    previous_override = app.dependency_overrides.get(get_db)
+    app.dependency_overrides[get_db] = override_get_db
     clean_db()
-    yield
-    clean_db()
+    try:
+        yield
+    finally:
+        clean_db()
+        if previous_override is None:
+            app.dependency_overrides.pop(get_db, None)
+        else:
+            app.dependency_overrides[get_db] = previous_override
 
 
 @pytest.mark.parametrize("role", ["analyst", "viewer"])
