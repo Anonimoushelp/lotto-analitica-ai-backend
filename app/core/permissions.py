@@ -47,4 +47,4 @@ ROLE_SCOPES: Final[dict[Role, frozenset[Scope]]] = {
 
 
 def has_scope(role: Role, scope: Scope) -> bool:
-    return scope in ROLE_SCOPES[role]
+    return scope in ROLE_SCOPES.get(role, frozenset())
