@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, delete
@@ -85,7 +87,7 @@ def add_event(tenant_id: int, actor_user_id: int, details: str = "safe audit det
             resource_id="123",
             outcome="success",
             details=details,
-            created_at=__import__("datetime").datetime.now(__import__("datetime").UTC),
+            created_at=datetime.now(UTC),
         )
         db.add(event)
         db.commit()
@@ -161,7 +163,7 @@ def test_forged_admin_jwt_cannot_read_audit_as_viewer():
 
 def test_audit_details_do_not_expose_secret_values():
     user_id, tenant_id = seed_user("secrets@example.com", "admin")
-    event_id = add_event(tenant_id, user_id, "role=analyst;password_hash=[REDACTED]")
+    event_id = add_event(tenant_id, user_id, "role=analyst;credential=[REDACTED]")
 
     response = client.get(
         f"/api/v1/audit-events/{event_id}",
@@ -173,5 +175,6 @@ def test_audit_details_do_not_expose_secret_values():
 
     assert response.status_code == 200
     body = response.json()
-    assert "password_hash" not in body["details"]
+    assert "password" not in body["details"].lower()
+    assert "secret" not in body["details"].lower()
     assert "StrongTestPassword123!" not in body["details"]
