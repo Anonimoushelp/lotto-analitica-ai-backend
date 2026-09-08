@@ -14,6 +14,7 @@ from app.schemas.membership import (
     MembershipResponse,
     MembershipUpdate,
 )
+from app.services.audit_service import record_audit_event
 
 router = APIRouter(
     prefix="/api/v1/memberships",
@@ -86,7 +87,7 @@ def create_membership(
     )
     db.add(membership)
     try:
-        db.commit()
+        db.flush()
     except IntegrityError:
         db.rollback()
         raise HTTPException(
@@ -94,6 +95,16 @@ def create_membership(
             detail="Membership already exists",
         ) from None
 
+    record_audit_event(
+        db,
+        tenant_id=tenant.tenant_id,
+        actor_user_id=tenant.user_id,
+        action="membership.create",
+        resource_type="membership",
+        resource_id=membership.id,
+        details=f"user_id={membership.user_id};role={membership.role};is_active={membership.is_active}",
+    )
+    db.commit()
     db.refresh(membership)
     return membership
 
@@ -149,11 +160,26 @@ def update_membership(
                 detail="Cannot remove the last active tenant admin",
             )
 
+    previous_role = membership.role
+    previous_is_active = membership.is_active
     if payload.role is not None:
         membership.role = payload.role
     if payload.is_active is not None:
         membership.is_active = payload.is_active
 
+    record_audit_event(
+        db,
+        tenant_id=tenant.tenant_id,
+        actor_user_id=tenant.user_id,
+        action="membership.update",
+        resource_type="membership",
+        resource_id=membership.id,
+        details=(
+            f"user_id={membership.user_id};"
+            f"role={previous_role}->{membership.role};"
+            f"is_active={previous_is_active}->{membership.is_active}"
+        ),
+    )
     db.commit()
     db.refresh(membership)
     return membership
@@ -196,4 +222,13 @@ def delete_membership(
             )
 
     membership.is_active = False
+    record_audit_event(
+        db,
+        tenant_id=tenant.tenant_id,
+        actor_user_id=tenant.user_id,
+        action="membership.deactivate",
+        resource_type="membership",
+        resource_id=membership.id,
+        details=f"user_id={membership.user_id};role={membership.role};is_active=false",
+    )
     db.commit()
