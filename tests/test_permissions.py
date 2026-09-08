@@ -1,8 +1,4 @@
-from app.core.permissions import (
-    ALL_SCOPES,
-    ROLE_SCOPES,
-    has_scope,
-)
+from app.core.permissions import ALL_SCOPES, ROLE_SCOPES, has_scope
 
 
 EXPECTED_ANALYST_SCOPES = frozenset(
