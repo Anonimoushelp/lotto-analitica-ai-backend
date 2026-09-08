@@ -1,4 +1,4 @@
-from fastapi.testclient import TestClient
+from fastapi.testclient import TestClient  # noqa: I001
 from sqlalchemy import create_engine, delete
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -172,7 +172,7 @@ def test_tenant_management_rejects_forged_admin_claim_for_viewer_membership():
 
 
 def test_tenant_selection_cannot_cross_into_unowned_tenant():
-    user_id, tenant_a_id, tenant_b_id, _ = seed_two_tenants()
+    user_id, _, tenant_b_id, _ = seed_two_tenants()
     response = client.patch(
         "/api/v1/tenant",
         headers={
@@ -185,7 +185,7 @@ def test_tenant_selection_cannot_cross_into_unowned_tenant():
 
 
 def test_membership_id_cannot_cross_tenant_boundary():
-    user_id, tenant_a_id, tenant_b_id, membership_b_id = seed_two_tenants()
+    user_id, tenant_a_id, _, membership_b_id = seed_two_tenants()
     response = client.patch(
         f"/api/v1/memberships/{membership_b_id}",
         headers={
