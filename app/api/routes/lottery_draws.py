@@ -4,8 +4,8 @@ from sqlalchemy.orm import Session
 from app.api.dependencies.auth import get_current_user
 from app.api.dependencies.tenant import TenantContext
 from app.api.dependencies.tenant_auth import (
-    require_tenant_admin,
-    require_tenant_admin_or_analyst,
+    require_draws_read,
+    require_draws_write,
 )
 from app.core.audit import log_mutation
 from app.db.session import get_db
@@ -34,7 +34,7 @@ def list_draws(
         le=MAX_DRAW_LIST_LIMIT,
     ),
     db: Session = Depends(get_db),
-    tenant: TenantContext = Depends(require_tenant_admin_or_analyst),
+    tenant: TenantContext = Depends(require_draws_read),
 ):
     return LotteryDrawService.list_draws(
         db=db,
@@ -48,7 +48,7 @@ def list_draws(
 def get_draw(
     draw_id: int = Path(gt=0),
     db: Session = Depends(get_db),
-    tenant: TenantContext = Depends(require_tenant_admin_or_analyst),
+    tenant: TenantContext = Depends(require_draws_read),
 ):
     return LotteryDrawService.get_draw(
         db=db,
@@ -62,7 +62,7 @@ def create_draw(
     payload: LotteryDrawCreate,
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
-    tenant: TenantContext = Depends(require_tenant_admin),
+    tenant: TenantContext = Depends(require_draws_write),
 ):
     draw = LotteryDrawService.create_draw(
         db=db,
@@ -90,7 +90,7 @@ def update_draw(
     draw_id: int = Path(gt=0),
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
-    tenant: TenantContext = Depends(require_tenant_admin),
+    tenant: TenantContext = Depends(require_draws_write),
 ):
     update_data = payload.model_dump(exclude_unset=True)
     draw = LotteryDrawService.update_draw(
@@ -113,7 +113,7 @@ def delete_draw(
     draw_id: int = Path(gt=0),
     db: Session = Depends(get_db),
     current_user=Depends(get_current_user),
-    tenant: TenantContext = Depends(require_tenant_admin),
+    tenant: TenantContext = Depends(require_draws_write),
 ):
     LotteryDrawService.delete_draw(
         db=db,
