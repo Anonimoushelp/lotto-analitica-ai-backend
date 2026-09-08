@@ -5,6 +5,7 @@ import pytest
 from sqlalchemy import delete, select
 from sqlalchemy.exc import IntegrityError
 
+from app.api.routes.memberships import _lock_tenant_for_admin_change
 from app.core.config import settings
 from app.core.security import hash_password
 from app.db.session import SessionLocal
@@ -152,6 +153,111 @@ def test_concurrent_duplicate_membership_insert_has_single_winner():
     finally:
         cleanup_db = SessionLocal()
         cleanup(cleanup_db, [user_id], [tenant_id])
+        cleanup_db.close()
+
+
+def test_concurrent_admin_change_lock_prevents_zero_active_admins():
+    setup_db = SessionLocal()
+    first_admin = seed_user(setup_db, "concurrent-admin-a")
+    second_admin = seed_user(setup_db, "concurrent-admin-b")
+    tenant = seed_tenant(setup_db, "concurrent-admin")
+    first_membership = seed_membership(setup_db, first_admin, tenant, role="admin")
+    second_membership = seed_membership(setup_db, second_admin, tenant, role="admin")
+    first_admin_id = first_admin.id
+    second_admin_id = second_admin.id
+    tenant_id = tenant.id
+    first_membership_id = first_membership.id
+    second_membership_id = second_membership.id
+    setup_db.close()
+
+    first_locked = threading.Event()
+    release_first = threading.Event()
+    results = []
+    errors = []
+
+    def demote_and_hold(membership_id: int) -> None:
+        db = SessionLocal()
+        try:
+            _lock_tenant_for_admin_change(db, tenant_id)
+            first_locked.set()
+            if not release_first.wait(timeout=15):
+                raise TimeoutError("first transaction was not released")
+            active_admins = db.scalar(
+                select(Membership.id).where(
+                    Membership.tenant_id == tenant_id,
+                    Membership.role == "admin",
+                    Membership.is_active.is_(True),
+                ).limit(2)
+            )
+            if active_admins is None:
+                results.append("blocked")
+                db.rollback()
+                return
+            db.get(Membership, membership_id).role = "viewer"
+            db.commit()
+            results.append("demoted")
+        except Exception as exc:  # noqa: BLE001
+            db.rollback()
+            errors.append(exc)
+        finally:
+            db.close()
+
+    def demote_after_lock(membership_id: int) -> None:
+        db = SessionLocal()
+        try:
+            if not first_locked.wait(timeout=15):
+                raise TimeoutError("first transaction did not acquire tenant lock")
+            _lock_tenant_for_admin_change(db, tenant_id)
+            active_admins = db.scalar(
+                select(Membership.id).where(
+                    Membership.tenant_id == tenant_id,
+                    Membership.role == "admin",
+                    Membership.is_active.is_(True),
+                ).limit(2)
+            )
+            if active_admins is None:
+                results.append("blocked")
+                db.rollback()
+                return
+            db.get(Membership, membership_id).role = "viewer"
+            db.commit()
+            results.append("demoted")
+        except Exception as exc:  # noqa: BLE001
+            db.rollback()
+            errors.append(exc)
+        finally:
+            db.close()
+
+    first = threading.Thread(target=demote_and_hold, args=(first_membership_id,))
+    second = threading.Thread(target=demote_after_lock, args=(second_membership_id,))
+
+    try:
+        first.start()
+        assert first_locked.wait(timeout=15)
+        second.start()
+        release_first.set()
+        first.join(timeout=20)
+        second.join(timeout=20)
+
+        assert not first.is_alive()
+        assert not second.is_alive()
+        assert not errors
+        assert sorted(results) == ["blocked", "demoted"]
+
+        verification = SessionLocal()
+        active_admins = verification.scalars(
+            select(Membership).where(
+                Membership.tenant_id == tenant_id,
+                Membership.role == "admin",
+                Membership.is_active.is_(True),
+            )
+        ).all()
+        verification.close()
+
+        assert len(active_admins) == 1
+    finally:
+        cleanup_db = SessionLocal()
+        cleanup(cleanup_db, [first_admin_id, second_admin_id], [tenant_id])
         cleanup_db.close()
 
 
