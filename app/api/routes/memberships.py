@@ -7,6 +7,7 @@ from app.api.dependencies.tenant import TenantContext
 from app.api.dependencies.tenant_auth import require_memberships_manage
 from app.db.session import get_db
 from app.models.membership import Membership
+from app.models.tenant import Tenant
 from app.models.user import User
 from app.schemas.membership import (
     MembershipCreate,
@@ -18,6 +19,14 @@ router = APIRouter(
     prefix="/api/v1/memberships",
     tags=["Memberships"],
 )
+
+
+def _lock_tenant_for_admin_change(db: Session, tenant_id: int) -> None:
+    db.scalar(
+        select(Tenant.id)
+        .where(Tenant.id == tenant_id)
+        .with_for_update()
+    )
 
 
 @router.get("", response_model=list[MembershipResponse])
@@ -126,6 +135,7 @@ def update_membership(
         )
     )
     if becomes_active_admin:
+        _lock_tenant_for_admin_change(db, tenant.tenant_id)
         active_admins = db.scalar(
             select(func.count(Membership.id)).where(
                 Membership.tenant_id == tenant.tenant_id,
@@ -171,6 +181,7 @@ def delete_membership(
         )
 
     if membership.role == "admin" and membership.is_active:
+        _lock_tenant_for_admin_change(db, tenant.tenant_id)
         active_admins = db.scalar(
             select(func.count(Membership.id)).where(
                 Membership.tenant_id == tenant.tenant_id,
