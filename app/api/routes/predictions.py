@@ -3,7 +3,10 @@ from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.tenant import TenantContext
-from app.api.dependencies.tenant_auth import require_tenant_admin_or_analyst
+from app.api.dependencies.tenant_auth import (
+    require_predictions_generate,
+    require_predictions_read,
+)
 from app.core.config import settings
 from app.core.rate_limit import ai_rate_limiter
 from app.db.session import get_db
@@ -22,7 +25,7 @@ router = APIRouter(
 
 @router.get("/model-status", response_model=ModelStatusResponse)
 def get_model_status(
-    tenant: TenantContext = Depends(require_tenant_admin_or_analyst),
+    tenant: TenantContext = Depends(require_predictions_read),
 ):
     return PredictionService.model_status()
 
@@ -31,7 +34,7 @@ def get_model_status(
 def generate_predictions(
     payload: AiPredictionRequest,
     db: Session = Depends(get_db),
-    tenant: TenantContext = Depends(require_tenant_admin_or_analyst),
+    tenant: TenantContext = Depends(require_predictions_generate),
 ):
     try:
         allowed = ai_rate_limiter.allow(tenant.user_id)
