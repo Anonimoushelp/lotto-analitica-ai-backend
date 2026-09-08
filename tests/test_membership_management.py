@@ -194,6 +194,50 @@ def test_admin_can_update_membership_role_and_active_state():
         clean_db(db)
 
 
+def test_inactive_user_membership_cannot_be_reactivated():
+    with Session(engine) as db:
+        actor = seed_user(db, "actor-reactivate@example.com")
+        target = seed_user(db, "inactive-reactivate@example.com", active=False)
+        tenant = seed_tenant(db, "inactive-reactivate")
+        membership = seed_membership(db, target, tenant, role="viewer")
+        membership.is_active = False
+        db.commit()
+
+        try:
+            update_membership(
+                membership.id,
+                MembershipUpdate(is_active=True),
+                db,
+                context(actor, tenant),
+            )
+        except HTTPException as exc:
+            assert exc.status_code == 400
+        else:
+            raise AssertionError("Expected inactive user membership reactivation to be rejected")
+        finally:
+            clean_db(db)
+
+
+def test_active_user_membership_can_be_reactivated():
+    with Session(engine) as db:
+        actor = seed_user(db, "actor-reactivate-active@example.com")
+        target = seed_user(db, "active-reactivate@example.com")
+        tenant = seed_tenant(db, "active-reactivate")
+        membership = seed_membership(db, target, tenant, role="viewer")
+        membership.is_active = False
+        db.commit()
+
+        updated = update_membership(
+            membership.id,
+            MembershipUpdate(is_active=True),
+            db,
+            context(actor, tenant),
+        )
+
+        assert updated.is_active is True
+        clean_db(db)
+
+
 def test_update_cannot_access_membership_from_another_tenant():
     with Session(engine) as db:
         actor = seed_user(db, "actor7@example.com")
