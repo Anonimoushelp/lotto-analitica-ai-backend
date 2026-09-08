@@ -2,7 +2,7 @@ import threading
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import delete, select
+from sqlalchemy import delete, select, update
 from sqlalchemy.exc import IntegrityError
 
 from app.api.routes.memberships import _lock_tenant_for_admin_change
@@ -170,43 +170,14 @@ def test_concurrent_admin_change_lock_prevents_zero_active_admins():
     second_membership_id = second_membership.id
     setup_db.close()
 
-    first_locked = threading.Event()
+    second_started = threading.Event()
     release_first = threading.Event()
     results = []
     errors = []
 
-    def demote_and_hold(membership_id: int) -> None:
+    def demote_first() -> None:
         db = SessionLocal()
         try:
-            _lock_tenant_for_admin_change(db, tenant_id)
-            first_locked.set()
-            if not release_first.wait(timeout=15):
-                raise TimeoutError("first transaction was not released")
-            active_admins = db.scalar(
-                select(Membership.id).where(
-                    Membership.tenant_id == tenant_id,
-                    Membership.role == "admin",
-                    Membership.is_active.is_(True),
-                ).limit(2)
-            )
-            if active_admins is None:
-                results.append("blocked")
-                db.rollback()
-                return
-            db.get(Membership, membership_id).role = "viewer"
-            db.commit()
-            results.append("demoted")
-        except Exception as exc:  # noqa: BLE001
-            db.rollback()
-            errors.append(exc)
-        finally:
-            db.close()
-
-    def demote_after_lock(membership_id: int) -> None:
-        db = SessionLocal()
-        try:
-            if not first_locked.wait(timeout=15):
-                raise TimeoutError("first transaction did not acquire tenant lock")
             _lock_tenant_for_admin_change(db, tenant_id)
             active_admins = db.scalar(
                 select(Membership.id).where(
@@ -215,11 +186,57 @@ def test_concurrent_admin_change_lock_prevents_zero_active_admins():
                     Membership.is_active.is_(True),
                 ).limit(2)
             )
-            if active_admins is None:
+            assert active_admins is not None
+            second_started.wait(timeout=15)
+            db.execute(
+                update(Membership)
+                .where(Membership.id == first_membership_id)
+                .values(role="viewer")
+            )
+            db.commit()
+            results.append("demoted")
+            release_first.set()
+        except Exception as exc:  # noqa: BLE001
+            db.rollback()
+            release_first.set()
+            errors.append(exc)
+        finally:
+            db.close()
+
+    def demote_second() -> None:
+        db = SessionLocal()
+        try:
+            second_started.set()
+            _lock_tenant_for_admin_change(db, tenant_id)
+            active_admin_count = db.scalar(
+                select(Membership.id)
+                .where(
+                    Membership.tenant_id == tenant_id,
+                    Membership.role == "admin",
+                    Membership.is_active.is_(True),
+                )
+                .limit(2)
+            )
+            if active_admin_count is None:
                 results.append("blocked")
                 db.rollback()
                 return
-            db.get(Membership, membership_id).role = "viewer"
+            admin_ids = db.scalars(
+                select(Membership.id).where(
+                    Membership.tenant_id == tenant_id,
+                    Membership.role == "admin",
+                    Membership.is_active.is_(True),
+                )
+            ).all()
+            if len(admin_ids) == 1:
+                results.append("blocked")
+                db.rollback()
+                return
+            db.execute(
+                update(Membership)
+                .where(Membership.id == second_membership_id)
+                .values(role="viewer")
+            )
             db.commit()
             results.append("demoted")
         except Exception as exc:  # noqa: BLE001
@@ -228,14 +245,15 @@ def test_concurrent_admin_change_lock_prevents_zero_active_admins():
         finally:
             db.close()
 
-    first = threading.Thread(target=demote_and_hold, args=(first_membership_id,))
-    second = threading.Thread(target=demote_after_lock, args=(second_membership_id,))
+    first = threading.Thread(target=demote_first)
+    second = threading.Thread(target=demote_second)
 
     try:
         first.start()
-        assert first_locked.wait(timeout=15)
+        assert second_started.wait(timeout=15) is False
         second.start()
-        release_first.set()
+        assert second_started.wait(timeout=15)
+        release_first.wait(timeout=15)
         first.join(timeout=20)
         second.join(timeout=20)
 
