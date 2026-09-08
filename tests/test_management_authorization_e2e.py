@@ -7,6 +7,7 @@ from sqlalchemy.pool import StaticPool
 from app.core.security import create_access_token, hash_password
 from app.db.session import get_db
 from app.main import app
+from app.models.audit_event import AuditEvent
 from app.models.membership import Membership
 from app.models.tenant import Tenant
 from app.models.user import User
@@ -21,6 +22,7 @@ TestingSessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=Fals
 Tenant.__table__.create(bind=engine)
 Membership.__table__.create(bind=engine)
 User.__table__.create(bind=engine)
+AuditEvent.__table__.create(bind=engine)
 
 
 client = TestClient(app)
@@ -36,6 +38,7 @@ def override_get_db():
 
 def cleanup():
     db = TestingSessionLocal()
+    db.execute(delete(AuditEvent))
     db.execute(delete(Membership))
     db.execute(delete(User))
     db.execute(delete(Tenant))
