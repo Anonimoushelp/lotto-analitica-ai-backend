@@ -23,7 +23,7 @@ SUPPORTED_QUOTA_CODES = (
 )
 
 
-def _quota_code_check(name: str) -> str:
+def _quota_code_check() -> str:
     values = ", ".join(f"'{code}'" for code in SUPPORTED_QUOTA_CODES)
     return f"quota_code IN ({values})"
 
@@ -32,12 +32,12 @@ def upgrade() -> None:
     op.create_check_constraint(
         "ck_plan_quotas_supported_code",
         "plan_quotas",
-        _quota_code_check("ck_plan_quotas_supported_code"),
+        _quota_code_check(),
     )
     op.create_check_constraint(
         "ck_tenant_quota_usages_supported_code",
         "tenant_quota_usages",
-        _quota_code_check("ck_tenant_quota_usages_supported_code"),
+        _quota_code_check(),
     )
 
 
