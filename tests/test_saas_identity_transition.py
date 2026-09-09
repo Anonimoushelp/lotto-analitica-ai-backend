@@ -1,5 +1,5 @@
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, delete
+from sqlalchemy import create_engine, delete, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -8,6 +8,7 @@ from app.db.session import get_db
 from app.main import app
 from app.models.lottery import Lottery
 from app.models.membership import Membership
+from app.models.plan import Plan
 from app.models.tenant import Tenant
 from app.models.user import User
 
@@ -17,6 +18,7 @@ engine = create_engine(
     poolclass=StaticPool,
 )
 TestingSessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+Plan.__table__.create(bind=engine)
 Tenant.__table__.create(bind=engine)
 User.__table__.create(bind=engine)
 Membership.__table__.create(bind=engine)
@@ -44,6 +46,7 @@ def teardown_function():
     db.execute(delete(Membership))
     db.execute(delete(User))
     db.execute(delete(Tenant))
+    db.execute(delete(Plan))
     db.commit()
     db.close()
     app.dependency_overrides.pop(get_db, None)
@@ -51,7 +54,17 @@ def teardown_function():
 
 def seed_user(user_role: str, membership_role: str) -> tuple[int, int]:
     db = TestingSessionLocal()
-    tenant = Tenant(name="SaaS Test Tenant", slug=f"saas-{user_role}-{membership_role}")
+    plan = db.scalar(select(Plan).where(Plan.code == "free"))
+    if plan is None:
+        plan = Plan(code="free", name="Free", is_active=True)
+        db.add(plan)
+        db.flush()
+
+    tenant = Tenant(
+        name="SaaS Test Tenant",
+        slug=f"saas-{user_role}-{membership_role}",
+        plan_id=plan.id,
+    )
     user = User(
         email=f"{user_role}-{membership_role}@example.com",
         password_hash=hash_password("StrongTestPassword123!"),
