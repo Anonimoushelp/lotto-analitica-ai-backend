@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, delete
+from sqlalchemy import create_engine, delete, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -11,6 +11,7 @@ from app.db.session import get_db
 from app.main import app
 from app.models.lottery import Lottery
 from app.models.membership import Membership
+from app.models.plan import Plan
 from app.models.tenant import Tenant
 from app.models.user import User
 from app.services.lottery_draw_service import LotteryDrawService
@@ -21,6 +22,7 @@ engine = create_engine(
     poolclass=StaticPool,
 )
 TestingSessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+Plan.__table__.create(bind=engine)
 Tenant.__table__.create(bind=engine)
 User.__table__.create(bind=engine)
 Lottery.__table__.create(bind=engine)
@@ -56,6 +58,7 @@ def clean_test_data():
     db.execute(delete(Lottery))
     db.execute(delete(Tenant))
     db.execute(delete(User))
+    db.execute(delete(Plan))
     db.commit()
     db.close()
 
@@ -65,7 +68,12 @@ client = TestClient(app)
 
 def seed_user(email: str, role: str) -> User:
     db = TestingSessionLocal()
-    tenant = Tenant(name="Test Tenant", slug="test")
+    plan = db.scalar(select(Plan).where(Plan.code == "free"))
+    if plan is None:
+        plan = Plan(code="free", name="Free", is_active=True)
+        db.add(plan)
+        db.flush()
+    tenant = Tenant(name="Test Tenant", slug=f"test-{email}", plan_id=plan.id)
     db.add(tenant)
     db.flush()
     user = User(
@@ -412,7 +420,7 @@ def test_draw_get_accepts_positive_id(draw_id, monkeypatch):
 @pytest.mark.parametrize("method", ["put", "delete"])
 @pytest.mark.parametrize("draw_id", [0, -1])
 def test_draw_mutations_reject_non_positive_id_before_service(method, draw_id, monkeypatch):
-    user = seed_user(f"draw-mutation-{method}-{draw_id}@example.com", "admin")
+    user = seed_user(f"draw-mutation-{method}-{draw_id}", "admin")
     called = False
 
     def forbidden_service(**kwargs):
@@ -437,7 +445,7 @@ def test_draw_mutations_reject_non_positive_id_before_service(method, draw_id, m
 @pytest.mark.parametrize("method", ["put", "delete"])
 @pytest.mark.parametrize("draw_id", [1, 42, 999999])
 def test_draw_mutations_accept_positive_id(method, draw_id, monkeypatch):
-    user = seed_user(f"draw-mutation-ok-{method}-{draw_id}@example.com", "admin")
+    user = seed_user(f"draw-mutation-ok-{method}-{draw_id}", "admin")
     calls = []
 
     def capture_service(**kwargs):
