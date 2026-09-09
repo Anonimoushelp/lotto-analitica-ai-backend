@@ -66,6 +66,7 @@ def create_draw(
     current_user=Depends(get_current_user),
     tenant: TenantContext = Depends(require_draws_write),
 ):
+    QuotaService.lock_tenant(db, tenant_id=tenant.tenant_id)
     current_usage = QuotaUsageService.get_current_usage(
         db,
         tenant_id=tenant.tenant_id,
