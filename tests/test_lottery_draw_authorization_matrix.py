@@ -13,6 +13,7 @@ from app.models.lottery import Lottery
 from app.models.lottery_draw import LotteryDraw
 from app.models.membership import Membership
 from app.models.plan import Plan
+from app.models.plan_quota import PlanQuota
 from app.models.tenant import Tenant
 from app.models.user import User
 
@@ -25,6 +26,7 @@ TestingSessionLocal = sessionmaker(
     bind=engine, autoflush=False, autocommit=False, expire_on_commit=False
 )
 Plan.__table__.create(bind=engine)
+PlanQuota.__table__.create(bind=engine)
 User.__table__.create(bind=engine)
 Tenant.__table__.create(bind=engine)
 Membership.__table__.create(bind=engine)
@@ -62,6 +64,7 @@ def clean_test_data():
     db.execute(delete(Membership))
     db.execute(delete(Tenant))
     db.execute(delete(User))
+    db.execute(delete(PlanQuota))
     db.execute(delete(Plan))
     db.commit()
     db.close()
