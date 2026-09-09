@@ -45,9 +45,11 @@ def clean_db() -> None:
 
 def seed_user(email: str, role: str) -> tuple[int, int]:
     with Session(engine) as db:
-        plan = Plan(code="free", name="Free", is_active=True)
-        db.add(plan)
-        db.flush()
+        plan = db.query(Plan).filter_by(code="free").one_or_none()
+        if plan is None:
+            plan = Plan(code="free", name="Free", is_active=True)
+            db.add(plan)
+            db.flush()
         tenant = Tenant(
             name=email,
             slug=email.replace("@", "-").replace(".", "-"),
