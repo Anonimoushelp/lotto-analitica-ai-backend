@@ -15,6 +15,8 @@ from app.schemas.lottery_draw import (
     LotteryDrawUpdate,
 )
 from app.services.lottery_draw_service import LotteryDrawService
+from app.services.quota_service import QuotaExceededError, QuotaService
+from app.services.quota_usage_service import QuotaUsageService
 
 DEFAULT_DRAW_LIST_LIMIT = 100
 MAX_DRAW_LIST_LIMIT = 500
@@ -64,6 +66,25 @@ def create_draw(
     current_user=Depends(get_current_user),
     tenant: TenantContext = Depends(require_draws_write),
 ):
+    current_usage = QuotaUsageService.get_current_usage(
+        db,
+        tenant_id=tenant.tenant_id,
+        quota_code="draws.max",
+    )
+    try:
+        QuotaService.enforce_if_configured(
+            db,
+            tenant_id=tenant.tenant_id,
+            quota_code="draws.max",
+            current_usage=current_usage,
+            increment=1,
+        )
+    except QuotaExceededError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Draw quota exceeded",
+        ) from exc
+
     draw = LotteryDrawService.create_draw(
         db=db,
         tenant_id=tenant.tenant_id,
