@@ -79,12 +79,17 @@ class PredictionService:
             QuotaUsageService.consume_if_configured(
                 db,
                 tenant_id=tenant_id,
+                quota_code="ai_generations.monthly",
+            )
+            QuotaUsageService.consume_if_configured(
+                db,
+                tenant_id=tenant_id,
                 quota_code="predictions.max",
             )
         except QuotaExceededError as exc:
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
-                detail="Prediction quota exceeded",
+                detail="AI generation quota exceeded",
             ) from exc
 
         frequency = Counter(
