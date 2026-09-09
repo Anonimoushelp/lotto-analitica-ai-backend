@@ -2,12 +2,13 @@ from datetime import date
 
 import pytest
 from fastapi import HTTPException
-from sqlalchemy import create_engine, delete
+from sqlalchemy import create_engine, delete, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.models.lottery import Lottery
 from app.models.lottery_draw import LotteryDraw
+from app.models.plan import Plan
 from app.models.tenant import Tenant
 from app.services.lottery_draw_service import LotteryDrawService
 
@@ -17,6 +18,7 @@ engine = create_engine(
     poolclass=StaticPool,
 )
 TestingSessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+Plan.__table__.create(bind=engine)
 Tenant.__table__.create(bind=engine)
 Lottery.__table__.create(bind=engine)
 LotteryDraw.__table__.create(bind=engine)
@@ -27,7 +29,12 @@ def db_session():
 
 
 def seed_tenant(db) -> Tenant:
-    tenant = Tenant(name="Test Tenant", slug="test-tenant")
+    plan = db.scalar(select(Plan).where(Plan.code == "free"))
+    if plan is None:
+        plan = Plan(code="free", name="Free", is_active=True)
+        db.add(plan)
+        db.flush()
+    tenant = Tenant(name="Test Tenant", slug="test-tenant", plan_id=plan.id)
     db.add(tenant)
     db.commit()
     db.refresh(tenant)
@@ -76,6 +83,7 @@ def db():
         cleanup.execute(delete(LotteryDraw))
         cleanup.execute(delete(Lottery))
         cleanup.execute(delete(Tenant))
+        cleanup.execute(delete(Plan))
         cleanup.commit()
         cleanup.close()
 
