@@ -141,8 +141,7 @@ def test_invalid_tenant_id_is_rejected() -> None:
     engine = create_engine("sqlite:///:memory:")
     Base.metadata.create_all(engine)
 
-    with Session(engine) as db:
-        with pytest.raises(ValueError):
-            QuotaUsageService.get_current_usage(
-                db, tenant_id=0, quota_code="memberships.max"
-            )
+    with Session(engine) as db, pytest.raises(ValueError):
+        QuotaUsageService.get_current_usage(
+            db, tenant_id=0, quota_code="memberships.max"
+        )
