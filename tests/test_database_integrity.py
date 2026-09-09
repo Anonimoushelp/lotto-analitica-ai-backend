@@ -38,11 +38,6 @@ class FailingSession:
 def test_saas_plan_models_enforce_unique_codes_and_quota_keys():
     plan_table = Plan.__table__
     quota_table = PlanQuota.__table__
-    plan_uniques = {
-        tuple(constraint.columns.keys())
-        for constraint in plan_table.constraints
-        if isinstance(constraint, UniqueConstraint)
-    }
     quota_uniques = {
         tuple(constraint.columns.keys())
         for constraint in quota_table.constraints
@@ -53,7 +48,7 @@ def test_saas_plan_models_enforce_unique_codes_and_quota_keys():
     assert quota_table.c.plan_id.nullable is False
     assert quota_table.c.quota_code.nullable is False
     assert quota_table.c.limit_value.nullable is False
-    assert ("code",) in plan_uniques
+    assert plan_table.c.code.unique is True
     assert ("plan_id", "quota_code") in quota_uniques
 
 
