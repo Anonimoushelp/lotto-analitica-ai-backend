@@ -13,6 +13,7 @@ from app.core.security import hash_password
 from app.models.audit_event import AuditEvent
 from app.models.membership import Membership
 from app.models.plan import Plan
+from app.models.plan_quota import PlanQuota
 from app.models.tenant import Tenant
 from app.models.user import User
 from app.schemas.membership import MembershipCreate, MembershipUpdate
@@ -24,6 +25,7 @@ engine = create_engine(
     poolclass=StaticPool,
 )
 Plan.__table__.create(bind=engine)
+PlanQuota.__table__.create(bind=engine)
 User.__table__.create(bind=engine)
 Tenant.__table__.create(bind=engine)
 Membership.__table__.create(bind=engine)
@@ -83,6 +85,7 @@ def clean_db(db: Session) -> None:
     db.execute(delete(Membership))
     db.execute(delete(Tenant))
     db.execute(delete(User))
+    db.execute(delete(PlanQuota))
     db.execute(delete(Plan))
     db.commit()
 
