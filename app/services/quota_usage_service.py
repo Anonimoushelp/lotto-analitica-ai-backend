@@ -156,7 +156,11 @@ class QuotaUsageService:
         except OperationalError as exc:
             if db.bind is not None and db.bind.dialect.name == "sqlite":
                 message = str(exc)
-                if "no such table: plan_quotas" in message or "no such table: tenant_quota_usages" in message:
+                missing_tables = {
+                    "no such table: plan_quotas",
+                    "no such table: tenant_quota_usages",
+                }
+                if any(error in message for error in missing_tables):
                     db.rollback()
                     return None
             raise
