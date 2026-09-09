@@ -4,6 +4,7 @@ import pytest
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
+from app.core.security import hash_password
 from app.db.base import Base
 from app.models.lottery import Lottery
 from app.models.lottery_draw import LotteryDraw
@@ -28,8 +29,16 @@ def test_quota_usage_is_tenant_scoped() -> None:
 
         tenant_a = Tenant(name="Tenant A", slug="tenant-a", plan_id=plan.id)
         tenant_b = Tenant(name="Tenant B", slug="tenant-b", plan_id=plan.id)
-        user_a = User(email="a@example.com", hashed_password="x", is_active=True)
-        user_b = User(email="b@example.com", hashed_password="x", is_active=True)
+        user_a = User(
+            email="a@example.com",
+            password_hash=hash_password("StrongTestPassword123!"),
+            is_active=True,
+        )
+        user_b = User(
+            email="b@example.com",
+            password_hash=hash_password("StrongTestPassword123!"),
+            is_active=True,
+        )
         db.add_all([tenant_a, tenant_b, user_a, user_b])
         db.flush()
 
