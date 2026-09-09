@@ -2,7 +2,7 @@ from datetime import date
 from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
-from sqlalchemy import delete
+from sqlalchemy import delete, select
 
 from app.api.dependencies.auth import get_current_user
 from app.api.dependencies.tenant import TenantContext, get_tenant_context
@@ -12,6 +12,7 @@ from app.main import app
 from app.models.lottery import Lottery
 from app.models.lottery_draw import LotteryDraw
 from app.models.membership import Membership
+from app.models.plan import Plan
 from app.models.tenant import Tenant
 from app.models.user import User
 
@@ -31,7 +32,12 @@ def seed_user(db, email, role="admin"):
 
 
 def seed_tenant(db, slug):
-    tenant = Tenant(name=f"Tenant {slug}", slug=slug, is_active=True)
+    plan = db.scalar(select(Plan).where(Plan.code == "free"))
+    if plan is None:
+        plan = Plan(code="free", name="Free", is_active=True)
+        db.add(plan)
+        db.flush()
+    tenant = Tenant(name=f"Tenant {slug}", slug=slug, is_active=True, plan_id=plan.id)
     db.add(tenant)
     db.flush()
     return tenant
