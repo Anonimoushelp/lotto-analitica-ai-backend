@@ -1,4 +1,5 @@
 from sqlalchemy import select
+from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from app.core.quotas import QuotaCode
@@ -76,7 +77,7 @@ class QuotaService:
         current_usage: int,
         increment: int = 1,
     ) -> int | None:
-        """Enforce a quota when configured, preserving migration-safe behavior otherwise."""
+        """Enforce configured quotas while tolerating legacy SQLite fixtures without SaaS tables."""
         try:
             return QuotaService.enforce(
                 db,
@@ -87,3 +88,8 @@ class QuotaService:
             )
         except QuotaNotConfiguredError:
             return None
+        except OperationalError as exc:
+            if db.bind is not None and db.bind.dialect.name == "sqlite" and "no such table: plan_quotas" in str(exc):
+                db.rollback()
+                return None
+            raise
