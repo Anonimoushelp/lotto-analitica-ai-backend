@@ -21,6 +21,22 @@ class QuotaExceededError(QuotaError):
 
 class QuotaService:
     @staticmethod
+    def lock_tenant(db: Session, *, tenant_id: int) -> None:
+        """Serialize quota-enforced mutations for one active tenant transaction."""
+        tenant_exists = db.scalar(
+            select(Tenant.id)
+            .where(
+                Tenant.id == tenant_id,
+                Tenant.is_active.is_(True),
+            )
+            .with_for_update()
+        )
+        if tenant_exists is None:
+            raise QuotaNotConfiguredError(
+                f"Active tenant {tenant_id} is not available for quota enforcement"
+            )
+
+    @staticmethod
     def get_limit(db: Session, *, tenant_id: int, quota_code: QuotaCode) -> int:
         limit = db.scalar(
             select(PlanQuota.limit_value)
