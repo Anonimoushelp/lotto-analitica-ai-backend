@@ -11,6 +11,8 @@ from app.repositories.lottery_draw_repository import LotteryDrawRepository
 from app.services.gemini_client import GeminiClient
 from app.services.gemini_prompt import build_prediction_prompt
 from app.services.gemini_validator import validate_predictions
+from app.services.quota_service import QuotaExceededError
+from app.services.quota_usage_service import QuotaUsageService
 
 
 class PredictionService:
@@ -73,6 +75,18 @@ class PredictionService:
                 detail="Gemini returned predictions that do not match the required contract",
             )
 
+        try:
+            QuotaUsageService.consume_if_configured(
+                db,
+                tenant_id=tenant_id,
+                quota_code="predictions.max",
+            )
+        except QuotaExceededError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Prediction quota exceeded",
+            ) from exc
+
         frequency = Counter(
             number
             for numbers in historical_numbers
@@ -104,6 +118,7 @@ class PredictionService:
         top = ranked[:5]
         cold = sorted(frequency, key=lambda number: (frequency[number], number))[:4]
         model_status = PredictionService.model_status()
+        db.commit()
         return {
             "summary": {
                 "lottery_id": str(lottery.id),
