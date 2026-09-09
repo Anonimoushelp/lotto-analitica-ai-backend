@@ -9,6 +9,7 @@ from app.db.session import get_db
 from app.main import app
 from app.models.audit_event import AuditEvent
 from app.models.membership import Membership
+from app.models.plan import Plan
 from app.models.tenant import Tenant
 from app.models.user import User
 
@@ -19,6 +20,7 @@ engine = create_engine(
     poolclass=StaticPool,
 )
 TestingSessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+Plan.__table__.create(bind=engine)
 Tenant.__table__.create(bind=engine)
 Membership.__table__.create(bind=engine)
 User.__table__.create(bind=engine)
@@ -42,13 +44,24 @@ def cleanup():
     db.execute(delete(Membership))
     db.execute(delete(User))
     db.execute(delete(Tenant))
+    db.execute(delete(Plan))
     db.commit()
     db.close()
 
 
+def seed_plan(db):
+    plan = db.scalar(select(Plan).where(Plan.code == "free"))
+    if plan is None:
+        plan = Plan(code="free", name="Free", is_active=True)
+        db.add(plan)
+        db.flush()
+    return plan
+
+
 def seed_user(role: str, tenant_role: str | None = None):
     db = TestingSessionLocal()
-    tenant = Tenant(name=f"Tenant {role}", slug=f"tenant-{role}")
+    plan = seed_plan(db)
+    tenant = Tenant(name=f"Tenant {role}", slug=f"tenant-{role}", plan_id=plan.id)
     user = User(
         email=f"{role}@example.com",
         password_hash=hash_password("StrongTestPassword123!"),
@@ -74,8 +87,9 @@ def seed_user(role: str, tenant_role: str | None = None):
 
 def seed_two_tenants():
     db = TestingSessionLocal()
-    tenant_a = Tenant(name="Tenant A", slug="tenant-a")
-    tenant_b = Tenant(name="Tenant B", slug="tenant-b")
+    plan = seed_plan(db)
+    tenant_a = Tenant(name="Tenant A", slug="tenant-a", plan_id=plan.id)
+    tenant_b = Tenant(name="Tenant B", slug="tenant-b", plan_id=plan.id)
     user = User(
         email="admin@example.com",
         password_hash=hash_password("StrongTestPassword123!"),
@@ -111,8 +125,9 @@ def seed_two_tenants():
 
 def seed_multi_tenant_user():
     db = TestingSessionLocal()
-    tenant_a = Tenant(name="Tenant A", slug="tenant-a")
-    tenant_b = Tenant(name="Tenant B", slug="tenant-b")
+    plan = seed_plan(db)
+    tenant_a = Tenant(name="Tenant A", slug="tenant-a", plan_id=plan.id)
+    tenant_b = Tenant(name="Tenant B", slug="tenant-b", plan_id=plan.id)
     admin = User(
         email="admin@example.com",
         password_hash=hash_password("StrongTestPassword123!"),
