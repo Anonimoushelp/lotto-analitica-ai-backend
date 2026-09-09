@@ -11,6 +11,7 @@ from app.db.session import get_db
 from app.main import app
 from app.models.lottery import Lottery
 from app.models.membership import Membership
+from app.models.plan import Plan
 from app.models.tenant import Tenant
 from app.models.user import User
 from app.services.lottery_service import LotteryService
@@ -21,10 +22,20 @@ engine = create_engine(
     poolclass=StaticPool,
 )
 TestingSessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+Plan.__table__.create(bind=engine)
 Tenant.__table__.create(bind=engine)
 User.__table__.create(bind=engine)
 Membership.__table__.create(bind=engine)
 Lottery.__table__.create(bind=engine)
+
+
+def seed_free_plan(db):
+    plan = db.scalar(select(Plan).where(Plan.code == "free"))
+    if plan is None:
+        plan = Plan(code="free", name="Free", is_active=True)
+        db.add(plan)
+        db.flush()
+    return plan
 
 
 def override_get_db():
@@ -40,6 +51,7 @@ client = TestClient(app)
 
 def seed_user(email: str, memberships: list[tuple[str, str, bool]]) -> User:
     db = TestingSessionLocal()
+    plan = seed_free_plan(db)
     user = User(
         email=email,
         password_hash=hash_password("StrongTestPassword123!"),
@@ -49,7 +61,7 @@ def seed_user(email: str, memberships: list[tuple[str, str, bool]]) -> User:
     db.add(user)
     db.flush()
     for slug, role, active in memberships:
-        tenant = Tenant(name=slug.title(), slug=slug, is_active=active)
+        tenant = Tenant(name=slug.title(), slug=slug, is_active=active, plan_id=plan.id)
         db.add(tenant)
         db.flush()
         db.add(
