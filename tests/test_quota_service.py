@@ -96,6 +96,46 @@ def test_quota_service_rejects_missing_quota():
     Plan.__table__.drop(engine)
 
 
+def test_quota_service_locks_active_tenant_for_quota_mutation():
+    engine = create_engine("sqlite:///:memory:")
+    Tenant.__table__.create(engine)
+
+    with Session(engine) as db:
+        tenant = Tenant(
+            name="Tenant",
+            slug="tenant",
+            plan_id=None,
+            is_active=True,
+        )
+        db.add(tenant)
+        db.commit()
+
+        QuotaService.lock_tenant(db, tenant_id=tenant.id)
+        assert db.in_transaction()
+
+    Tenant.__table__.drop(engine)
+
+
+def test_quota_service_does_not_lock_inactive_tenant():
+    engine = create_engine("sqlite:///:memory:")
+    Tenant.__table__.create(engine)
+
+    with Session(engine) as db:
+        tenant = Tenant(
+            name="Tenant",
+            slug="tenant",
+            plan_id=None,
+            is_active=False,
+        )
+        db.add(tenant)
+        db.commit()
+
+        with pytest.raises(QuotaNotConfiguredError):
+            QuotaService.lock_tenant(db, tenant_id=tenant.id)
+
+    Tenant.__table__.drop(engine)
+
+
 def test_quota_service_enforces_projected_usage():
     engine = create_engine("sqlite:///:memory:")
     Plan.__table__.create(engine)
