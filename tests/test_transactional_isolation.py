@@ -10,6 +10,7 @@ from app.core.config import settings
 from app.db.session import SessionLocal
 from app.models.lottery import Lottery
 from app.models.lottery_draw import LotteryDraw
+from app.models.plan import Plan
 from app.models.tenant import Tenant
 from app.repositories.lottery_repository import LotteryRepository
 from app.services.lottery_draw_service import LotteryDrawService
@@ -21,7 +22,16 @@ pytestmark = pytest.mark.skipif(
 
 
 def _seed_tenant(db, suffix: str) -> Tenant:
-    tenant = Tenant(name=f"Tx {suffix}", slug=f"tx-{suffix}-{uuid4().hex[:8]}")
+    plan = db.scalar(select(Plan).where(Plan.code == "free"))
+    if plan is None:
+        plan = Plan(code="free", name="Free", is_active=True)
+        db.add(plan)
+        db.flush()
+    tenant = Tenant(
+        name=f"Tx {suffix}",
+        slug=f"tx-{suffix}-{uuid4().hex[:8]}",
+        plan_id=plan.id,
+    )
     db.add(tenant)
     db.commit()
     db.refresh(tenant)
