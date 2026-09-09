@@ -1,5 +1,7 @@
+from datetime import date
+
 import pytest
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
 from app.db.base import Base
@@ -7,7 +9,6 @@ from app.models.lottery import Lottery
 from app.models.lottery_draw import LotteryDraw
 from app.models.membership import Membership
 from app.models.plan import Plan
-from app.models.plan_quota import PlanQuota
 from app.models.tenant import Tenant
 from app.models.user import User
 from app.services.quota_usage_service import (
@@ -36,7 +37,12 @@ def test_quota_usage_is_tenant_scoped() -> None:
             [
                 Membership(tenant_id=tenant_a.id, user_id=user_a.id, role="admin"),
                 Membership(tenant_id=tenant_b.id, user_id=user_b.id, role="admin"),
-                Membership(tenant_id=tenant_a.id, user_id=user_b.id, role="viewer", is_active=False),
+                Membership(
+                    tenant_id=tenant_a.id,
+                    user_id=user_b.id,
+                    role="viewer",
+                    is_active=False,
+                ),
                 Lottery(
                     tenant_id=tenant_a.id,
                     code="A",
@@ -76,31 +82,43 @@ def test_quota_usage_is_tenant_scoped() -> None:
                 LotteryDraw(
                     lottery_id=lottery_a.id,
                     draw_number="A-1",
-                    draw_date="2026-01-01",
+                    draw_date=date(2026, 1, 1),
                     main_numbers=[1, 2, 3],
                 ),
                 LotteryDraw(
                     lottery_id=lottery_b.id,
                     draw_number="B-1",
-                    draw_date="2026-01-02",
+                    draw_date=date(2026, 1, 2),
                     main_numbers=[4, 5, 6],
                 ),
             ]
         )
         db.commit()
 
-        assert QuotaUsageService.get_current_usage(
-            db, tenant_id=tenant_a.id, quota_code="memberships.max"
-        ) == 1
-        assert QuotaUsageService.get_current_usage(
-            db, tenant_id=tenant_a.id, quota_code="lotteries.max"
-        ) == 1
-        assert QuotaUsageService.get_current_usage(
-            db, tenant_id=tenant_a.id, quota_code="draws.max"
-        ) == 1
-        assert QuotaUsageService.get_current_usage(
-            db, tenant_id=tenant_b.id, quota_code="draws.max"
-        ) == 1
+        assert (
+            QuotaUsageService.get_current_usage(
+                db, tenant_id=tenant_a.id, quota_code="memberships.max"
+            )
+            == 1
+        )
+        assert (
+            QuotaUsageService.get_current_usage(
+                db, tenant_id=tenant_a.id, quota_code="lotteries.max"
+            )
+            == 1
+        )
+        assert (
+            QuotaUsageService.get_current_usage(
+                db, tenant_id=tenant_a.id, quota_code="draws.max"
+            )
+            == 1
+        )
+        assert (
+            QuotaUsageService.get_current_usage(
+                db, tenant_id=tenant_b.id, quota_code="draws.max"
+            )
+            == 1
+        )
 
 
 def test_unsupported_usage_quota_is_explicit() -> None:
