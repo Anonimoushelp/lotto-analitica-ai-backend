@@ -308,6 +308,8 @@ def test_consume_rejects_quota_overflow_without_increment() -> None:
             )
             == 1
         )
+        db.commit()
+
         with pytest.raises(QuotaExceededError):
             QuotaUsageService.consume(
                 db,
@@ -323,4 +325,5 @@ def test_consume_rejects_quota_overflow_without_increment() -> None:
                 TenantQuotaUsage.period_key == "lifetime",
             )
         )
-        assert usage is None
+        assert usage is not None
+        assert usage.usage_value == 1
