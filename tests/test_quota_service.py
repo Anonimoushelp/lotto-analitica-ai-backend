@@ -98,13 +98,17 @@ def test_quota_service_rejects_missing_quota():
 
 def test_quota_service_locks_active_tenant_for_quota_mutation():
     engine = create_engine("sqlite:///:memory:")
+    Plan.__table__.create(engine)
     Tenant.__table__.create(engine)
 
     with Session(engine) as db:
+        plan = Plan(code="lock-test", name="Lock Test", is_active=True)
+        db.add(plan)
+        db.flush()
         tenant = Tenant(
             name="Tenant",
             slug="tenant",
-            plan_id=None,
+            plan_id=plan.id,
             is_active=True,
         )
         db.add(tenant)
@@ -114,17 +118,22 @@ def test_quota_service_locks_active_tenant_for_quota_mutation():
         assert db.in_transaction()
 
     Tenant.__table__.drop(engine)
+    Plan.__table__.drop(engine)
 
 
 def test_quota_service_does_not_lock_inactive_tenant():
     engine = create_engine("sqlite:///:memory:")
+    Plan.__table__.create(engine)
     Tenant.__table__.create(engine)
 
     with Session(engine) as db:
+        plan = Plan(code="inactive-lock-test", name="Inactive Lock Test", is_active=True)
+        db.add(plan)
+        db.flush()
         tenant = Tenant(
             name="Tenant",
             slug="tenant",
-            plan_id=None,
+            plan_id=plan.id,
             is_active=False,
         )
         db.add(tenant)
@@ -134,6 +143,7 @@ def test_quota_service_does_not_lock_inactive_tenant():
             QuotaService.lock_tenant(db, tenant_id=tenant.id)
 
     Tenant.__table__.drop(engine)
+    Plan.__table__.drop(engine)
 
 
 def test_quota_service_enforces_projected_usage():
