@@ -10,6 +10,7 @@ from app.core.config import settings
 from app.core.security import hash_password
 from app.db.session import SessionLocal
 from app.models.membership import Membership
+from app.models.plan import Plan
 from app.models.tenant import Tenant
 from app.models.user import User
 
@@ -33,10 +34,16 @@ def seed_user(db, suffix: str) -> User:
 
 
 def seed_tenant(db, suffix: str) -> Tenant:
+    plan = db.scalar(select(Plan).where(Plan.code == "free"))
+    if plan is None:
+        plan = Plan(code="free", name="Free", is_active=True)
+        db.add(plan)
+        db.flush()
     tenant = Tenant(
         name=f"Membership Integrity {suffix}",
         slug=f"membership-integrity-{suffix}-{uuid4().hex}",
         is_active=True,
+        plan_id=plan.id,
     )
     db.add(tenant)
     db.commit()
