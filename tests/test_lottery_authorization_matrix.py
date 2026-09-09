@@ -13,6 +13,7 @@ from app.main import app
 from app.models.lottery import Lottery
 from app.models.membership import Membership
 from app.models.plan import Plan
+from app.models.plan_quota import PlanQuota
 from app.models.tenant import Tenant
 from app.models.user import User
 from app.services.lottery_service import LotteryService
@@ -24,6 +25,7 @@ engine = create_engine(
 )
 TestingSessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 Plan.__table__.create(bind=engine)
+PlanQuota.__table__.create(bind=engine)
 User.__table__.create(bind=engine)
 Tenant.__table__.create(bind=engine)
 Membership.__table__.create(bind=engine)
@@ -62,6 +64,7 @@ def clean_test_data():
     db.execute(delete(Membership))
     db.execute(delete(Tenant))
     db.execute(delete(User))
+    db.execute(delete(PlanQuota))
     db.execute(delete(Plan))
     db.commit()
     db.close()
@@ -242,6 +245,34 @@ def test_admin_can_delete_lottery(monkeypatch):
 
     assert response.status_code == 204
     assert called is True
+
+
+def test_configured_lottery_quota_blocks_creation_above_limit():
+    user = seed_user("quota-lottery@example.com", "admin")
+    tenant_id = user[2]
+    db = TestingSessionLocal()
+    tenant = db.get(Tenant, tenant_id)
+    assert tenant is not None
+    plan = db.get(Plan, tenant.plan_id)
+    assert plan is not None
+    db.add(PlanQuota(plan_id=plan.id, quota_code="lotteries.max", limit_value=1))
+    db.commit()
+    db.close()
+
+    first = client.post(
+        "/api/v1/lotteries",
+        headers=auth_header(user),
+        json={"name": "First Lottery", "code": "FIRST", "country": "CO"},
+    )
+    second = client.post(
+        "/api/v1/lotteries",
+        headers=auth_header(user),
+        json={"name": "Second Lottery", "code": "SECOND", "country": "CO"},
+    )
+
+    assert first.status_code == 201
+    assert second.status_code == 429
+    assert second.json()["detail"] == "Lottery quota exceeded"
 
 
 def test_cross_tenant_get_isolated():
