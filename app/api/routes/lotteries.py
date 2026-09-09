@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_user
@@ -11,6 +11,8 @@ from app.core.audit import log_mutation
 from app.db.session import get_db
 from app.schemas.lottery import LotteryCreate, LotteryResponse, LotteryUpdate
 from app.services.lottery_service import LotteryService
+from app.services.quota_service import QuotaExceededError, QuotaService
+from app.services.quota_usage_service import QuotaUsageService
 
 router = APIRouter(
     prefix="/api/v1/lotteries",
@@ -46,6 +48,25 @@ def create_lottery(
     current_user=Depends(get_current_user),
     tenant: TenantContext = Depends(require_lotteries_write),
 ):
+    current_usage = QuotaUsageService.get_current_usage(
+        db,
+        tenant_id=tenant.tenant_id,
+        quota_code="lotteries.max",
+    )
+    try:
+        QuotaService.enforce_if_configured(
+            db,
+            tenant_id=tenant.tenant_id,
+            quota_code="lotteries.max",
+            current_usage=current_usage,
+            increment=1,
+        )
+    except QuotaExceededError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Lottery quota exceeded",
+        ) from exc
+
     lottery = LotteryService.create_lottery(
         db=db,
         payload=payload.model_dump(),
