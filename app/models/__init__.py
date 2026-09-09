@@ -5,6 +5,7 @@ from app.models.membership import Membership
 from app.models.plan import Plan
 from app.models.plan_quota import PlanQuota
 from app.models.tenant import Tenant
+from app.models.tenant_quota_usage import TenantQuotaUsage
 from app.models.user import User
 
 __all__ = [
@@ -15,5 +16,6 @@ __all__ = [
     "Plan",
     "PlanQuota",
     "Tenant",
+    "TenantQuotaUsage",
     "User",
 ]
