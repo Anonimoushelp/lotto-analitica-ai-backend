@@ -2,7 +2,7 @@ from datetime import UTC, date, datetime
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, delete
+from sqlalchemy import create_engine, delete, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -12,6 +12,7 @@ from app.main import app
 from app.models.lottery import Lottery
 from app.models.lottery_draw import LotteryDraw
 from app.models.membership import Membership
+from app.models.plan import Plan
 from app.models.tenant import Tenant
 from app.models.user import User
 
@@ -23,6 +24,7 @@ engine = create_engine(
 TestingSessionLocal = sessionmaker(
     bind=engine, autoflush=False, autocommit=False, expire_on_commit=False
 )
+Plan.__table__.create(bind=engine)
 User.__table__.create(bind=engine)
 Tenant.__table__.create(bind=engine)
 Membership.__table__.create(bind=engine)
@@ -60,6 +62,7 @@ def clean_test_data():
     db.execute(delete(Membership))
     db.execute(delete(Tenant))
     db.execute(delete(User))
+    db.execute(delete(Plan))
     db.commit()
     db.close()
 
@@ -77,7 +80,17 @@ def seed_user(db, email: str, role: str = "admin") -> tuple[User, Tenant]:
     db.add(user)
     db.commit()
     db.refresh(user)
-    tenant = Tenant(name=f"Tenant {user.id}", slug=f"tenant-{user.id}", is_active=True)
+    plan = db.scalar(select(Plan).where(Plan.code == "free"))
+    if plan is None:
+        plan = Plan(code="free", name="Free", is_active=True)
+        db.add(plan)
+        db.flush()
+    tenant = Tenant(
+        name=f"Tenant {user.id}",
+        slug=f"tenant-{user.id}",
+        is_active=True,
+        plan_id=plan.id,
+    )
     db.add(tenant)
     db.commit()
     db.refresh(tenant)
