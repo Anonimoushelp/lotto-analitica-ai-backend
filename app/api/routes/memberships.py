@@ -15,6 +15,8 @@ from app.schemas.membership import (
     MembershipUpdate,
 )
 from app.services.audit_service import record_audit_event
+from app.services.quota_service import QuotaExceededError, QuotaService
+from app.services.quota_usage_service import QuotaUsageService
 
 router = APIRouter(
     prefix="/api/v1/memberships",
@@ -78,6 +80,25 @@ def create_membership(
             status_code=status.HTTP_409_CONFLICT,
             detail="Membership already exists",
         )
+
+    current_usage = QuotaUsageService.get_current_usage(
+        db,
+        tenant_id=tenant.tenant_id,
+        quota_code="memberships.max",
+    )
+    try:
+        QuotaService.enforce_if_configured(
+            db,
+            tenant_id=tenant.tenant_id,
+            quota_code="memberships.max",
+            current_usage=current_usage,
+            increment=1,
+        )
+    except QuotaExceededError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Membership quota exceeded",
+        ) from exc
 
     membership = Membership(
         tenant_id=tenant.tenant_id,
