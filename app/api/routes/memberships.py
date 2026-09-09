@@ -81,6 +81,7 @@ def create_membership(
             detail="Membership already exists",
         )
 
+    QuotaService.lock_tenant(db, tenant_id=tenant.tenant_id)
     current_usage = QuotaUsageService.get_current_usage(
         db,
         tenant_id=tenant.tenant_id,
