@@ -11,6 +11,7 @@ from app.core.config import settings
 from app.core.security import hash_password
 from app.db.session import SessionLocal
 from app.models.membership import Membership
+from app.models.plan import Plan
 from app.models.tenant import Tenant
 from app.models.user import User
 from app.schemas.membership import MembershipUpdate
@@ -35,10 +36,16 @@ def seed_user(db, suffix: str) -> User:
 
 
 def seed_tenant(db) -> Tenant:
+    plan = db.scalar(select(Plan).where(Plan.code == "free"))
+    if plan is None:
+        plan = Plan(code="free", name="Free", is_active=True)
+        db.add(plan)
+        db.flush()
     tenant = Tenant(
         name="Last Admin Concurrency",
         slug=f"last-admin-concurrency-{uuid4().hex}",
         is_active=True,
+        plan_id=plan.id,
     )
     db.add(tenant)
     db.commit()
