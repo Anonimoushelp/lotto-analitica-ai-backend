@@ -13,6 +13,7 @@ from app.core.security import hash_password
 from app.models.audit_event import AuditEvent
 from app.models.membership import Membership
 from app.models.plan import Plan
+from app.models.plan_quota import PlanQuota
 from app.models.tenant import Tenant
 from app.models.user import User
 from app.schemas.membership import MembershipCreate, MembershipUpdate
@@ -24,6 +25,7 @@ engine = create_engine(
     poolclass=StaticPool,
 )
 Plan.__table__.create(bind=engine)
+PlanQuota.__table__.create(bind=engine)
 User.__table__.create(bind=engine)
 Tenant.__table__.create(bind=engine)
 Membership.__table__.create(bind=engine)
@@ -76,6 +78,7 @@ def clean_db(db: Session) -> None:
     db.execute(delete(Membership))
     db.execute(delete(Tenant))
     db.execute(delete(User))
+    db.execute(delete(PlanQuota))
     db.execute(delete(Plan))
     db.commit()
 
@@ -106,6 +109,38 @@ def test_admin_can_create_membership_in_selected_tenant():
         assert membership.role == "analyst"
         assert membership.is_active is True
         clean_db(db)
+
+
+def test_configured_membership_quota_blocks_creation_above_limit():
+    with Session(engine) as db:
+        actor = seed_user(db, "quota-actor@example.com")
+        first_target = seed_user(db, "quota-first@example.com")
+        second_target = seed_user(db, "quota-second@example.com")
+        tenant = seed_tenant(db, "quota-membership")
+        plan = db.get(Plan, tenant.plan_id)
+        assert plan is not None
+        db.add(PlanQuota(plan_id=plan.id, quota_code="memberships.max", limit_value=1))
+        db.commit()
+
+        create_membership(
+            MembershipCreate(user_id=first_target.id, role="viewer"),
+            db,
+            context(actor, tenant),
+        )
+
+        try:
+            create_membership(
+                MembershipCreate(user_id=second_target.id, role="viewer"),
+                db,
+                context(actor, tenant),
+            )
+        except HTTPException as exc:
+            assert exc.status_code == 429
+            assert exc.detail == "Membership quota exceeded"
+        else:
+            raise AssertionError("Expected configured membership quota to be enforced")
+        finally:
+            clean_db(db)
 
 
 def test_membership_creation_uses_context_tenant_not_client_payload():
