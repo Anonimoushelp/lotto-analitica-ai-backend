@@ -327,3 +327,108 @@ def test_consume_rejects_quota_overflow_without_increment() -> None:
         )
         assert usage is not None
         assert usage.usage_value == 1
+
+
+def test_consume_rolls_back_with_outer_transaction_failure() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+
+    with Session(engine) as db:
+        plan = Plan(code="rollback-test", name="Rollback Test", is_active=True)
+        db.add(plan)
+        db.flush()
+        db.add(
+            PlanQuota(
+                plan_id=plan.id,
+                quota_code="predictions.max",
+                limit_value=3,
+            )
+        )
+        tenant = Tenant(
+            name="Rollback Tenant",
+            slug="rollback-tenant",
+            plan_id=plan.id,
+            is_active=True,
+        )
+        db.add(tenant)
+        db.commit()
+
+        QuotaUsageService.consume(
+            db,
+            tenant_id=tenant.id,
+            quota_code="predictions.max",
+            increment=2,
+        )
+        db.rollback()
+
+        usage = db.scalar(
+            select(TenantQuotaUsage).where(
+                TenantQuotaUsage.tenant_id == tenant.id,
+                TenantQuotaUsage.quota_code == "predictions.max",
+                TenantQuotaUsage.period_key == "lifetime",
+            )
+        )
+        assert usage is None
+
+
+def test_ledger_usage_isolated_between_tenants() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+
+    with Session(engine) as db:
+        plan = Plan(code="ledger-isolation", name="Ledger Isolation", is_active=True)
+        db.add(plan)
+        db.flush()
+        db.add(
+            PlanQuota(
+                plan_id=plan.id,
+                quota_code="predictions.max",
+                limit_value=3,
+            )
+        )
+        tenant_a = Tenant(
+            name="Ledger Tenant A",
+            slug="ledger-tenant-a",
+            plan_id=plan.id,
+            is_active=True,
+        )
+        tenant_b = Tenant(
+            name="Ledger Tenant B",
+            slug="ledger-tenant-b",
+            plan_id=plan.id,
+            is_active=True,
+        )
+        db.add_all([tenant_a, tenant_b])
+        db.commit()
+
+        assert (
+            QuotaUsageService.consume(
+                db,
+                tenant_id=tenant_a.id,
+                quota_code="predictions.max",
+                increment=2,
+            )
+            == 2
+        )
+        assert (
+            QuotaUsageService.consume(
+                db,
+                tenant_id=tenant_b.id,
+                quota_code="predictions.max",
+            )
+            == 1
+        )
+        db.commit()
+
+        usages = db.scalars(
+            select(TenantQuotaUsage).where(
+                TenantQuotaUsage.quota_code == "predictions.max",
+                TenantQuotaUsage.period_key == "lifetime",
+            )
+        ).all()
+        assert {
+            (usage.tenant_id, usage.usage_value) for usage in usages
+        } == {
+            (tenant_a.id, 2),
+            (tenant_b.id, 1),
+        }
