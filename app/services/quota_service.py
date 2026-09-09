@@ -66,3 +66,24 @@ class QuotaService:
                 f"current={current_usage}, increment={increment}, limit={limit}"
             )
         return limit
+
+    @staticmethod
+    def enforce_if_configured(
+        db: Session,
+        *,
+        tenant_id: int,
+        quota_code: QuotaCode,
+        current_usage: int,
+        increment: int = 1,
+    ) -> int | None:
+        """Enforce a quota when configured, preserving migration-safe behavior otherwise."""
+        try:
+            return QuotaService.enforce(
+                db,
+                tenant_id=tenant_id,
+                quota_code=quota_code,
+                current_usage=current_usage,
+                increment=increment,
+            )
+        except QuotaNotConfiguredError:
+            return None
