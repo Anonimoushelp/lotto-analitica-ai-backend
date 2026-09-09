@@ -5,6 +5,7 @@ from app.models.plan_quota import PlanQuota
 
 def pytest_collection_modifyitems(session, config, items):
     target_modules = {
+        "test_draw_permission_matrix",
         "tests.test_draw_permission_matrix",
     }
     for item in items:
