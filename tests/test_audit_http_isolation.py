@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, delete
+from sqlalchemy import create_engine, delete, select
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
@@ -11,6 +11,7 @@ from app.db.session import get_db
 from app.main import app
 from app.models.audit_event import AuditEvent
 from app.models.membership import Membership
+from app.models.plan import Plan
 from app.models.tenant import Tenant
 from app.models.user import User
 
@@ -19,6 +20,7 @@ engine = create_engine(
     connect_args={"check_same_thread": False},
     poolclass=StaticPool,
 )
+Plan.__table__.create(bind=engine)
 User.__table__.create(bind=engine)
 Tenant.__table__.create(bind=engine)
 Membership.__table__.create(bind=engine)
@@ -39,12 +41,22 @@ def clean_db() -> None:
         db.execute(delete(Membership))
         db.execute(delete(Tenant))
         db.execute(delete(User))
+        db.execute(delete(Plan))
         db.commit()
 
 
 def seed_user(email: str, role: str) -> tuple[int, int]:
     with Session(engine) as db:
-        tenant = Tenant(name=email, slug=email.replace("@", "-").replace(".", "-"))
+        plan = db.scalar(select(Plan).where(Plan.code == "free"))
+        if plan is None:
+            plan = Plan(code="free", name="Free", is_active=True)
+            db.add(plan)
+            db.flush()
+        tenant = Tenant(
+            name=email,
+            slug=email.replace("@", "-").replace(".", "-"),
+            plan_id=plan.id,
+        )
         user = User(
             email=email,
             password_hash=hash_password("StrongTestPassword123!"),
