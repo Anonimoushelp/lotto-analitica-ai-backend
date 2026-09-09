@@ -1,5 +1,5 @@
 from fastapi import HTTPException
-from sqlalchemy import create_engine, delete
+from sqlalchemy import create_engine, delete, select
 from sqlalchemy.orm import Session
 from sqlalchemy.pool import StaticPool
 
@@ -12,6 +12,7 @@ from app.api.routes.memberships import (
 from app.core.security import hash_password
 from app.models.audit_event import AuditEvent
 from app.models.membership import Membership
+from app.models.plan import Plan
 from app.models.tenant import Tenant
 from app.models.user import User
 from app.schemas.membership import MembershipCreate, MembershipUpdate
@@ -22,6 +23,7 @@ engine = create_engine(
     connect_args={"check_same_thread": False},
     poolclass=StaticPool,
 )
+Plan.__table__.create(bind=engine)
 User.__table__.create(bind=engine)
 Tenant.__table__.create(bind=engine)
 Membership.__table__.create(bind=engine)
@@ -42,7 +44,12 @@ def seed_user(db: Session, email: str, active: bool = True) -> User:
 
 
 def seed_tenant(db: Session, slug: str) -> Tenant:
-    tenant = Tenant(name=slug.title(), slug=slug, is_active=True)
+    plan = db.scalar(select(Plan).where(Plan.code == "free"))
+    if plan is None:
+        plan = Plan(code="free", name="Free", is_active=True)
+        db.add(plan)
+        db.flush()
+    tenant = Tenant(name=slug.title(), slug=slug, is_active=True, plan_id=plan.id)
     db.add(tenant)
     db.commit()
     db.refresh(tenant)
@@ -69,6 +76,7 @@ def clean_db(db: Session) -> None:
     db.execute(delete(Membership))
     db.execute(delete(Tenant))
     db.execute(delete(User))
+    db.execute(delete(Plan))
     db.commit()
 
 
