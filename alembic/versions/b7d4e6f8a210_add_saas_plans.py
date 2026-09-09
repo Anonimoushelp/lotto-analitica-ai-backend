@@ -15,6 +15,17 @@ branch_labels: Union[str, Sequence[str], None] = None
 depends_on: Union[str, Sequence[str], None] = None
 
 
+# Initial limits for the built-in free tier. Keeping the seed in the migration
+# makes a fresh deployment deterministic instead of silently disabling quota enforcement.
+FREE_PLAN_QUOTAS = (
+    ("memberships.max", 3),
+    ("lotteries.max", 3),
+    ("draws.max", 100),
+    ("predictions.max", 50),
+    ("ai_generations.monthly", 10),
+)
+
+
 def upgrade() -> None:
     op.create_table(
         "plans",
@@ -50,6 +61,27 @@ def upgrade() -> None:
             VALUES ('free', 'Free', TRUE, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)
             """
         )
+    )
+
+    free_plan_quotas = sa.table(
+        "plan_quotas",
+        sa.column("plan_id", sa.Integer()),
+        sa.column("quota_code", sa.String(length=80)),
+        sa.column("limit_value", sa.BigInteger()),
+    )
+    free_plan_id = op.get_bind().execute(
+        sa.text("SELECT id FROM plans WHERE code = 'free'")
+    ).scalar_one()
+    op.bulk_insert(
+        free_plan_quotas,
+        [
+            {
+                "plan_id": free_plan_id,
+                "quota_code": quota_code,
+                "limit_value": limit_value,
+            }
+            for quota_code, limit_value in FREE_PLAN_QUOTAS
+        ],
     )
 
     op.add_column("tenants", sa.Column("plan_id", sa.Integer(), nullable=True))
