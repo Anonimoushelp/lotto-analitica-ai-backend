@@ -2,7 +2,7 @@ from datetime import UTC, datetime
 
 import pytest
 from fastapi.testclient import TestClient
-from sqlalchemy import create_engine, delete
+from sqlalchemy import create_engine, delete, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -11,6 +11,7 @@ from app.db.session import get_db
 from app.main import app
 from app.models.lottery import Lottery
 from app.models.membership import Membership
+from app.models.plan import Plan
 from app.models.tenant import Tenant
 from app.models.user import User
 from app.services.prediction_service import PredictionService
@@ -21,6 +22,7 @@ engine = create_engine(
     poolclass=StaticPool,
 )
 TestingSessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+Plan.__table__.create(bind=engine)
 User.__table__.create(bind=engine)
 Tenant.__table__.create(bind=engine)
 Membership.__table__.create(bind=engine)
@@ -56,6 +58,7 @@ def clean_test_data():
     db.execute(delete(Membership))
     db.execute(delete(Tenant))
     db.execute(delete(User))
+    db.execute(delete(Plan))
     db.commit()
     db.close()
 
@@ -65,6 +68,12 @@ client = TestClient(app)
 
 def seed_user(email: str, role: str) -> tuple[int, int]:
     db = TestingSessionLocal()
+    plan = db.scalar(select(Plan).where(Plan.code == "free"))
+    if plan is None:
+        plan = Plan(code="free", name="Free", is_active=True)
+        db.add(plan)
+        db.flush()
+
     user = User(
         email=email,
         password_hash=hash_password("StrongTestPassword123!"),
@@ -79,6 +88,7 @@ def seed_user(email: str, role: str) -> tuple[int, int]:
     tenant = Tenant(
         name=f"Tenant {email}",
         slug=f"tenant-{user_id}",
+        plan_id=plan.id,
         is_active=True,
     )
     db.add(tenant)
