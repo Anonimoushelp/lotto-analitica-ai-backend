@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import UTC, date, datetime
 
 import pytest
 from sqlalchemy import create_engine, select
@@ -10,8 +10,11 @@ from app.models.lottery import Lottery
 from app.models.lottery_draw import LotteryDraw
 from app.models.membership import Membership
 from app.models.plan import Plan
+from app.models.plan_quota import PlanQuota
 from app.models.tenant import Tenant
+from app.models.tenant_quota_usage import TenantQuotaUsage
 from app.models.user import User
+from app.services.quota_service import QuotaExceededError
 from app.services.quota_usage_service import (
     QuotaUsageNotSupportedError,
     QuotaUsageService,
@@ -154,3 +157,170 @@ def test_invalid_tenant_id_is_rejected() -> None:
         QuotaUsageService.get_current_usage(
             db, tenant_id=0, quota_code="memberships.max"
         )
+
+
+def test_consume_predictions_uses_lifetime_ledger() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+
+    with Session(engine) as db:
+        plan = Plan(code="prediction-test", name="Prediction Test", is_active=True)
+        db.add(plan)
+        db.flush()
+        db.add(
+            PlanQuota(
+                plan_id=plan.id,
+                quota_code="predictions.max",
+                limit_value=3,
+            )
+        )
+        tenant = Tenant(
+            name="Prediction Tenant",
+            slug="prediction-tenant",
+            plan_id=plan.id,
+            is_active=True,
+        )
+        db.add(tenant)
+        db.commit()
+
+        first = QuotaUsageService.consume(
+            db,
+            tenant_id=tenant.id,
+            quota_code="predictions.max",
+        )
+        second = QuotaUsageService.consume(
+            db,
+            tenant_id=tenant.id,
+            quota_code="predictions.max",
+            increment=2,
+        )
+        db.commit()
+
+        assert first == 1
+        assert second == 3
+        usage = db.scalar(
+            select(TenantQuotaUsage).where(
+                TenantQuotaUsage.tenant_id == tenant.id,
+                TenantQuotaUsage.quota_code == "predictions.max",
+                TenantQuotaUsage.period_key == "lifetime",
+            )
+        )
+        assert usage is not None
+        assert usage.usage_value == 3
+
+
+def test_consume_ai_generations_rolls_over_monthly_period() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+
+    with Session(engine) as db:
+        plan = Plan(code="ai-test", name="AI Test", is_active=True)
+        db.add(plan)
+        db.flush()
+        db.add(
+            PlanQuota(
+                plan_id=plan.id,
+                quota_code="ai_generations.monthly",
+                limit_value=2,
+            )
+        )
+        tenant = Tenant(
+            name="AI Tenant",
+            slug="ai-tenant",
+            plan_id=plan.id,
+            is_active=True,
+        )
+        db.add(tenant)
+        db.commit()
+
+        january = datetime(2026, 1, 31, 23, 59, tzinfo=UTC)
+        february = datetime(2026, 2, 1, 0, 1, tzinfo=UTC)
+        assert (
+            QuotaUsageService.consume(
+                db,
+                tenant_id=tenant.id,
+                quota_code="ai_generations.monthly",
+                now=january,
+            )
+            == 1
+        )
+        assert (
+            QuotaUsageService.consume(
+                db,
+                tenant_id=tenant.id,
+                quota_code="ai_generations.monthly",
+                now=january,
+            )
+            == 2
+        )
+        assert (
+            QuotaUsageService.consume(
+                db,
+                tenant_id=tenant.id,
+                quota_code="ai_generations.monthly",
+                now=february,
+            )
+            == 1
+        )
+        db.commit()
+
+        rows = db.scalars(
+            select(TenantQuotaUsage).where(
+                TenantQuotaUsage.tenant_id == tenant.id,
+                TenantQuotaUsage.quota_code == "ai_generations.monthly",
+            )
+        ).all()
+        assert {(row.period_key, row.usage_value) for row in rows} == {
+            ("2026-01", 2),
+            ("2026-02", 1),
+        }
+
+
+def test_consume_rejects_quota_overflow_without_increment() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+
+    with Session(engine) as db:
+        plan = Plan(code="limit-test", name="Limit Test", is_active=True)
+        db.add(plan)
+        db.flush()
+        db.add(
+            PlanQuota(
+                plan_id=plan.id,
+                quota_code="predictions.max",
+                limit_value=1,
+            )
+        )
+        tenant = Tenant(
+            name="Limit Tenant",
+            slug="limit-tenant",
+            plan_id=plan.id,
+            is_active=True,
+        )
+        db.add(tenant)
+        db.commit()
+
+        assert (
+            QuotaUsageService.consume(
+                db,
+                tenant_id=tenant.id,
+                quota_code="predictions.max",
+            )
+            == 1
+        )
+        with pytest.raises(QuotaExceededError):
+            QuotaUsageService.consume(
+                db,
+                tenant_id=tenant.id,
+                quota_code="predictions.max",
+            )
+
+        db.rollback()
+        usage = db.scalar(
+            select(TenantQuotaUsage).where(
+                TenantQuotaUsage.tenant_id == tenant.id,
+                TenantQuotaUsage.quota_code == "predictions.max",
+                TenantQuotaUsage.period_key == "lifetime",
+            )
+        )
+        assert usage is None
