@@ -5,6 +5,7 @@ from app.db.base import Base
 from app.models.tenant_quota_usage import TenantQuotaUsage
 from app.schemas.ai_prediction import AiPredictionRequest
 from app.services.prediction_service import PredictionService
+from app.services.quota_service import QuotaExceededError
 from tests.test_prediction_quota_order import _seed_prediction_context
 
 
@@ -28,7 +29,7 @@ def test_prediction_quota_rejection_does_not_persist_partial_ai_usage_on_commit(
         payload = AiPredictionRequest(lottery_id=lottery_id, prediction_count=1)
         try:
             PredictionService.generate(db, payload, tenant_id)
-        except Exception:
+        except (QuotaExceededError, Exception):
             pass
 
         db.commit()
