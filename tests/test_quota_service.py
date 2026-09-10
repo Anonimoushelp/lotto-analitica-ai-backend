@@ -1,5 +1,6 @@
 import pytest
 from sqlalchemy import create_engine
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.quotas import ALL_QUOTA_CODES
@@ -99,6 +100,29 @@ def test_quota_service_rejects_quota_from_inactive_plan():
             )
 
     Tenant.__table__.drop(engine)
+    PlanQuota.__table__.drop(engine)
+    Plan.__table__.drop(engine)
+
+
+def test_plan_quota_rejects_negative_limit_at_database_constraint():
+    engine = create_engine("sqlite:///:memory:")
+    Plan.__table__.create(engine)
+    PlanQuota.__table__.create(engine)
+
+    with Session(engine) as db:
+        plan = Plan(code="negative-limit", name="Negative Limit", is_active=True)
+        db.add(plan)
+        db.flush()
+        db.add(
+            PlanQuota(
+                plan_id=plan.id,
+                quota_code="draws.max",
+                limit_value=-1,
+            )
+        )
+        with pytest.raises(IntegrityError):
+            db.commit()
+
     PlanQuota.__table__.drop(engine)
     Plan.__table__.drop(engine)
 
