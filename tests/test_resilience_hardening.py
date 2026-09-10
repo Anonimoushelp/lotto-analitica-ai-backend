@@ -155,6 +155,40 @@ def test_rate_limiters_wire_redis_timeouts_and_health_check(monkeypatch):
         }
 
 
+def test_redis_health_check_propagates_dependency_failure(monkeypatch):
+    class FailingRedis:
+        def ping(self):
+            raise ConnectionError("redis unavailable")
+
+    monkeypatch.setattr(
+        "app.core.rate_limit.redis.Redis.from_url",
+        lambda url, **kwargs: FailingRedis(),
+    )
+    monkeypatch.setattr("app.core.rate_limit.settings", production_settings())
+
+    limiter = LoginRateLimiter()
+
+    with pytest.raises(ConnectionError, match="redis unavailable"):
+        limiter.health_check()
+
+
+def test_rate_limiter_does_not_fail_open_when_redis_is_unavailable(monkeypatch):
+    class FailingRedis:
+        def eval(self, *args, **kwargs):
+            raise ConnectionError("redis unavailable")
+
+    monkeypatch.setattr(
+        "app.core.rate_limit.redis.Redis.from_url",
+        lambda url, **kwargs: FailingRedis(),
+    )
+    monkeypatch.setattr("app.core.rate_limit.settings", production_settings())
+
+    limiter = LoginRateLimiter()
+
+    with pytest.raises(ConnectionError, match="redis unavailable"):
+        limiter.allow("user@example.com", "192.0.2.10")
+
+
 def test_draw_repository_create_rolls_back_on_database_failure():
     class FailingSession:
         def __init__(self):
