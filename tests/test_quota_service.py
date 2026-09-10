@@ -208,6 +208,44 @@ def test_quota_service_does_not_lock_inactive_tenant():
     Plan.__table__.drop(engine)
 
 
+def test_quota_service_rejects_inactive_tenant_limit_lookup():
+    engine = create_engine("sqlite:///:memory:")
+    Plan.__table__.create(engine)
+    PlanQuota.__table__.create(engine)
+    Tenant.__table__.create(engine)
+
+    with Session(engine) as db:
+        plan = Plan(code="inactive-tenant", name="Inactive Tenant", is_active=True)
+        db.add(plan)
+        db.flush()
+        db.add(
+            PlanQuota(
+                plan_id=plan.id,
+                quota_code="draws.max",
+                limit_value=10,
+            )
+        )
+        tenant = Tenant(
+            name="Tenant",
+            slug="inactive-tenant",
+            plan_id=plan.id,
+            is_active=False,
+        )
+        db.add(tenant)
+        db.commit()
+
+        with pytest.raises(QuotaNotConfiguredError):
+            QuotaService.get_limit(
+                db,
+                tenant_id=tenant.id,
+                quota_code="draws.max",
+            )
+
+    Tenant.__table__.drop(engine)
+    PlanQuota.__table__.drop(engine)
+    Plan.__table__.drop(engine)
+
+
 def test_quota_service_enforces_projected_usage():
     engine = create_engine("sqlite:///:memory:")
     Plan.__table__.create(engine)
