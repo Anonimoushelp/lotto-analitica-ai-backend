@@ -15,16 +15,12 @@ from app.models.tenant import Tenant
 from app.models.tenant_quota_usage import TenantQuotaUsage
 from app.models.user import User
 from app.services.quota_service import QuotaExceededError
-from app.services.quota_usage_service import (
-    QuotaUsageNotSupportedError,
-    QuotaUsageService,
-)
+from app.services.quota_usage_service import QuotaUsageNotSupportedError, QuotaUsageService
 
 
 def test_quota_usage_is_tenant_scoped() -> None:
     engine = create_engine("sqlite:///:memory:")
     Base.metadata.create_all(engine)
-
     with Session(engine) as db:
         plan = Plan(code="free", name="Free", is_active=True)
         db.add(plan)
@@ -137,6 +133,23 @@ def test_consume_rejects_quota_overflow_without_increment() -> None:
         usage = db.scalar(select(TenantQuotaUsage).where(TenantQuotaUsage.tenant_id == tenant.id, TenantQuotaUsage.quota_code == "predictions.max", TenantQuotaUsage.period_key == "lifetime"))
         assert usage is not None
         assert usage.usage_value == 1
+
+
+def test_consume_overflow_does_not_create_zero_usage_row() -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+    with Session(engine) as db:
+        plan = Plan(code="zero-row-test", name="Zero Row Test", is_active=True)
+        db.add(plan)
+        db.flush()
+        db.add(PlanQuota(plan_id=plan.id, quota_code="predictions.max", limit_value=0))
+        tenant = Tenant(name="Zero Row Tenant", slug="zero-row-tenant", plan_id=plan.id, is_active=True)
+        db.add(tenant)
+        db.commit()
+        with pytest.raises(QuotaExceededError):
+            QuotaUsageService.consume(db, tenant_id=tenant.id, quota_code="predictions.max")
+        db.commit()
+        assert db.scalar(select(TenantQuotaUsage).where(TenantQuotaUsage.tenant_id == tenant.id)) is None
 
 
 def test_consume_rolls_back_with_outer_transaction_failure() -> None:
