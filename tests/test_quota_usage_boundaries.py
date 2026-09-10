@@ -2,7 +2,6 @@ from datetime import UTC, datetime
 
 import pytest
 from sqlalchemy import create_engine, select
-from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.db.base import Base
@@ -72,7 +71,9 @@ def test_consume_allows_exact_limit_then_rejects_overage_without_increment() -> 
             )
 
         db.rollback()
-        usage = db.scalar(select(TenantQuotaUsage).where(TenantQuotaUsage.tenant_id == tenant_id))
+        usage = db.scalar(
+            select(TenantQuotaUsage).where(TenantQuotaUsage.tenant_id == tenant_id)
+        )
         assert usage is not None
         assert usage.usage_value == 2
 
