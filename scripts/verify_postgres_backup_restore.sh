@@ -12,13 +12,11 @@ backup_file="$(mktemp --suffix=.dump)"
 
 cleanup() {
   rm -f "$backup_file"
-  PGPASSWORD="$PGPASSWORD" dropdb --if-exists --host="$PGHOST" --port="$PGPORT" --username="$PGUSER" "$restore_db" >/dev/null 2>&1 || true
+  PGPASSWORD="$PGPASSWORD" psql --host="$PGHOST" --port="$PGPORT" --username="$PGUSER" --dbname="$PGDATABASE" --set=ON_ERROR_STOP=1 -c "DROP DATABASE IF EXISTS \"$restore_db\" WITH (FORCE);" >/dev/null 2>&1 || true
 }
 trap cleanup EXIT
 
 psql_cmd=(psql --host="$PGHOST" --port="$PGPORT" --username="$PGUSER" --dbname="$PGDATABASE" --set=ON_ERROR_STOP=1)
-db_cmd=(dropdb --host="$PGHOST" --port="$PGPORT" --username="$PGUSER")
-createdb_cmd=(createdb --host="$PGHOST" --port="$PGPORT" --username="$PGUSER")
 
 "${psql_cmd[@]}" <<'SQL'
 CREATE TABLE IF NOT EXISTS backup_restore_probe (
@@ -33,8 +31,8 @@ SQL
 
 pg_dump --host="$PGHOST" --port="$PGPORT" --username="$PGUSER" --dbname="$PGDATABASE" --format=custom --file="$backup_file"
 
-"${db_cmd[@]}" --if-exists "$restore_db"
-"${createdb_cmd[@]}" "$restore_db"
+"${psql_cmd[@]}" -c "DROP DATABASE IF EXISTS \"$restore_db\" WITH (FORCE);"
+"${psql_cmd[@]}" -c "CREATE DATABASE \"$restore_db\";"
 
 pg_restore --host="$PGHOST" --port="$PGPORT" --username="$PGUSER" --dbname="$restore_db" --no-owner --exit-on-error "$backup_file"
 
@@ -45,7 +43,7 @@ restored_tables="$(psql --host="$PGHOST" --port="$PGPORT" --username="$PGUSER" -
 
 [[ "$restored_marker" == "bcp-restore-ok" ]]
 [[ "$restored_payload" == "v1" ]]
-[[ "$restored_migration" == "377b13f6e3b4" ]]
+[[ "$restored_migration" == "b7c4d9e2f1a3" ]]
 [[ "$restored_tables" == "3" ]]
 
 echo "PostgreSQL backup/restore verification passed."
