@@ -15,7 +15,10 @@ from app.models.tenant import Tenant
 from app.models.tenant_quota_usage import TenantQuotaUsage
 from app.models.user import User
 from app.services.quota_service import QuotaExceededError
-from app.services.quota_usage_service import QuotaUsageNotSupportedError, QuotaUsageService
+from app.services.quota_usage_service import (
+    QuotaUsageNotSupportedError,
+    QuotaUsageService,
+)
 
 
 def test_quota_usage_is_tenant_scoped() -> None:
