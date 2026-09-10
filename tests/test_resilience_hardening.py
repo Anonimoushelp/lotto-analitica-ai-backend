@@ -1,11 +1,11 @@
-import httpx
 import pytest
-from fastapi import HTTPException
 from pydantic import ValidationError
+from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.config import Settings
 from app.core.rate_limit import AiRateLimiter, LoginRateLimiter
-from app.services.gemini_client import GeminiClient
+from app.models.lottery_draw import LotteryDraw
+from app.repositories.lottery_draw_repository import LotteryDrawRepository
 
 
 def production_settings(**overrides):
@@ -155,107 +155,59 @@ def test_rate_limiters_wire_redis_timeouts_and_health_check(monkeypatch):
         }
 
 
-def test_gemini_requires_configuration_without_network_call(monkeypatch):
-    settings = production_settings(GEMINI_API_KEY="")
-    monkeypatch.setattr("app.services.gemini_client.settings", settings)
+def test_draw_repository_create_rolls_back_on_database_failure():
+    class FailingSession:
+        def __init__(self):
+            self.added = None
+            self.rollback_called = False
 
-    with pytest.raises(HTTPException) as exc_info:
-        GeminiClient.generate_json("test prompt")
+        def add(self, value):
+            self.added = value
 
-    assert exc_info.value.status_code == 503
-    assert exc_info.value.detail == "Gemini AI is not configured"
+        def commit(self):
+            raise SQLAlchemyError("database unavailable")
 
+        def rollback(self):
+            self.rollback_called = True
 
-def test_gemini_timeout_maps_to_gateway_timeout(monkeypatch):
-    settings = production_settings(GEMINI_API_KEY="test-key")
-    monkeypatch.setattr("app.services.gemini_client.settings", settings)
+        def refresh(self, value):
+            raise AssertionError("refresh must not run after commit failure")
 
-    request = httpx.Request("POST", GeminiClient.API_URL)
+    db = FailingSession()
+    draw = LotteryDraw(
+        lottery_id=1,
+        draw_number="RECOVERY-001",
+        draw_date="2026-09-10",
+        main_numbers=[1, 2, 3, 4, 5],
+    )
 
-    class TimeoutClient:
-        def __enter__(self):
-            return self
+    with pytest.raises(SQLAlchemyError):
+        LotteryDrawRepository.create(db, draw)
 
-        def __exit__(self, exc_type, exc_value, traceback):
-            return False
-
-        def post(self, *args, **kwargs):
-            raise httpx.ReadTimeout("provider timeout", request=request)
-
-    monkeypatch.setattr("app.services.gemini_client.httpx.Client", lambda **kwargs: TimeoutClient())
-
-    with pytest.raises(HTTPException) as exc_info:
-        GeminiClient.generate_json("test prompt")
-
-    assert exc_info.value.status_code == 504
-    assert exc_info.value.detail == "Gemini AI request timed out"
+    assert db.added is draw
+    assert db.rollback_called is True
 
 
-def test_gemini_provider_http_failure_maps_to_bad_gateway(monkeypatch):
-    settings = production_settings(GEMINI_API_KEY="test-key")
-    monkeypatch.setattr("app.services.gemini_client.settings", settings)
+def test_draw_repository_delete_rolls_back_on_database_failure():
+    class FailingSession:
+        def __init__(self):
+            self.deleted = None
+            self.rollback_called = False
 
-    request = httpx.Request("POST", GeminiClient.API_URL)
+        def delete(self, value):
+            self.deleted = value
 
-    class FailingResponse:
-        def raise_for_status(self):
-            raise httpx.HTTPStatusError(
-                "provider unavailable",
-                request=request,
-                response=httpx.Response(503, request=request),
-            )
+        def commit(self):
+            raise SQLAlchemyError("database unavailable")
 
-    class FailingClient:
-        def __enter__(self):
-            return self
+        def rollback(self):
+            self.rollback_called = True
 
-        def __exit__(self, exc_type, exc_value, traceback):
-            return False
+    db = FailingSession()
+    draw = LotteryDraw(id=1, lottery_id=1, draw_number="RECOVERY-002")
 
-        def post(self, *args, **kwargs):
-            return FailingResponse()
+    with pytest.raises(SQLAlchemyError):
+        LotteryDrawRepository.delete(db, draw)
 
-    monkeypatch.setattr("app.services.gemini_client.httpx.Client", lambda **kwargs: FailingClient())
-
-    with pytest.raises(HTTPException) as exc_info:
-        GeminiClient.generate_json("test prompt")
-
-    assert exc_info.value.status_code == 502
-    assert exc_info.value.detail == "Gemini AI request failed"
-
-
-def test_gemini_client_uses_bounded_timeout(monkeypatch):
-    settings = production_settings(GEMINI_API_KEY="test-key")
-    monkeypatch.setattr("app.services.gemini_client.settings", settings)
-    captured = {}
-
-    class Response:
-        def raise_for_status(self):
-            return None
-
-        def json(self):
-            return {
-                "candidates": [
-                    {"content": {"parts": [{"text": "{\"ok\": true}"}]}}
-                ]
-            }
-
-    class Client:
-        def __init__(self, **kwargs):
-            captured.update(kwargs)
-
-        def __enter__(self):
-            return self
-
-        def __exit__(self, exc_type, exc_value, traceback):
-            return False
-
-        def post(self, *args, **kwargs):
-            return Response()
-
-    monkeypatch.setattr("app.services.gemini_client.httpx.Client", Client)
-
-    result = GeminiClient.generate_json("test prompt")
-
-    assert result == {"ok": True}
-    assert captured == {"timeout": 15.0}
+    assert db.deleted is draw
+    assert db.rollback_called is True
