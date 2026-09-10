@@ -5,7 +5,6 @@ import pytest
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session
 
-from app.db.base import Base
 from app.models.plan import Plan
 from app.models.plan_quota import PlanQuota
 from app.models.tenant import Tenant
@@ -20,7 +19,6 @@ from app.services.quota_usage_service import QuotaUsageService
 )
 def test_concurrent_consumption_cannot_exceed_quota() -> None:
     engine = create_engine(os.environ["DATABASE_URL"], pool_size=4, max_overflow=0)
-    Base.metadata.create_all(engine)
 
     with Session(engine) as db:
         plan = Plan(code="concurrency", name="Concurrency", is_active=True)
