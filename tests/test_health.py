@@ -203,7 +203,7 @@ def test_cors_rejects_unconfigured_http_method():
     assert "PATCH" not in response.headers["Access-Control-Allow-Methods"]
 
 
-def test_cors_rejects_credentials_for_preflight(monkeypatch):
+def test_cors_rejects_credentials_for_preflight():
     response = client.options(
         "/api/v1/lotteries",
         headers={
