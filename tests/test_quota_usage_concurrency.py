@@ -77,5 +77,3 @@ def test_concurrent_consumption_cannot_exceed_quota() -> None:
         )
         assert usage is not None
         assert usage.usage_value == 1
-
-    Base.metadata.drop_all(engine)
