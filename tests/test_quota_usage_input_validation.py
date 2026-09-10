@@ -46,3 +46,21 @@ def test_consume_rejects_non_positive_increment_without_usage_mutation(
             )
 
         assert db.scalar(select(TenantQuotaUsage).where(TenantQuotaUsage.tenant_id == tenant.id)) is None
+
+
+@pytest.mark.parametrize("tenant_id", [0, -1])
+def test_consume_rejects_non_positive_tenant_id_before_quota_mutation(
+    tenant_id: int,
+) -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+
+    with Session(engine) as db:
+        with pytest.raises(ValueError, match="tenant_id must be positive"):
+            QuotaUsageService.consume(
+                db,
+                tenant_id=tenant_id,
+                quota_code="predictions.max",
+            )
+
+        assert db.scalar(select(TenantQuotaUsage)) is None
