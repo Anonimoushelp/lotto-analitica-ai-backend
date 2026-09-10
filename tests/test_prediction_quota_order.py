@@ -120,3 +120,28 @@ def test_prediction_quota_reservation_is_atomic_when_second_quota_rejects(
         db.rollback()
         assert called is False
         assert db.scalar(select(TenantQuotaUsage)) is None
+
+
+def test_prediction_quota_reservation_rolls_back_when_gemini_fails(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+
+    with Session(engine) as db:
+        tenant_id, lottery_id = _seed_prediction_context(db, prediction_limit=3)
+
+        def failing_gemini(prompt: str):
+            raise RuntimeError("simulated provider failure")
+
+        monkeypatch.setattr(
+            "app.services.prediction_service.GeminiClient.generate_json",
+            failing_gemini,
+        )
+
+        payload = AiPredictionRequest(lottery_id=lottery_id, prediction_count=1)
+        with pytest.raises(RuntimeError, match="simulated provider failure"):
+            PredictionService.generate(db, payload, tenant_id)
+
+        db.rollback()
+        assert db.scalars(select(TenantQuotaUsage)).all() == []
