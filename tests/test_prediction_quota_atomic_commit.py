@@ -39,3 +39,35 @@ def test_prediction_quota_rejection_does_not_persist_partial_ai_usage_on_commit(
             select(TenantQuotaUsage).where(TenantQuotaUsage.tenant_id == tenant_id)
         ).all()
         assert rows == []
+
+
+def test_prediction_quota_provider_failure_does_not_persist_usage_on_commit(
+    monkeypatch,
+) -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+
+    with Session(engine) as db:
+        tenant_id, lottery_id = _seed_prediction_context(db, prediction_limit=3)
+
+        def failing_gemini(prompt: str):
+            raise RuntimeError("simulated provider failure")
+
+        monkeypatch.setattr(
+            "app.services.prediction_service.GeminiClient.generate_json",
+            failing_gemini,
+        )
+
+        payload = AiPredictionRequest(lottery_id=lottery_id, prediction_count=1)
+        try:
+            PredictionService.generate(db, payload, tenant_id)
+        except RuntimeError as exc:
+            assert str(exc) == "simulated provider failure"
+        else:
+            raise AssertionError("Expected Gemini provider failure")
+
+        db.commit()
+        rows = db.scalars(
+            select(TenantQuotaUsage).where(TenantQuotaUsage.tenant_id == tenant_id)
+        ).all()
+        assert rows == []
