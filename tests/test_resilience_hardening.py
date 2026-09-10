@@ -1,5 +1,5 @@
-from pydantic import ValidationError
 import pytest
+from pydantic import ValidationError
 
 from app.core.config import Settings
 from app.core.rate_limit import LoginRateLimiter
