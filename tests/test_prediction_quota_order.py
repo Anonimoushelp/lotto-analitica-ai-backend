@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import UTC, date, datetime
 
 import pytest
 from fastapi import HTTPException
@@ -145,3 +145,55 @@ def test_prediction_quota_reservation_rolls_back_when_gemini_fails(
 
         db.rollback()
         assert db.scalars(select(TenantQuotaUsage)).all() == []
+
+
+def test_prediction_success_consumes_each_quota_exactly_once(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    engine = create_engine("sqlite:///:memory:")
+    Base.metadata.create_all(engine)
+
+    with Session(engine) as db:
+        tenant_id, lottery_id = _seed_prediction_context(db, prediction_limit=3)
+        calls = 0
+
+        def successful_gemini(prompt: str) -> dict:
+            nonlocal calls
+            calls += 1
+            return {
+                "predictions": [
+                    {
+                        "numbers": [6, 7, 8, 9, 10],
+                        "confidence_score": 87.5,
+                        "extra_number": None,
+                        "risk_level": "Moderado",
+                        "pattern_detected": "Frecuencia",
+                        "rationale": "Valid test response",
+                    }
+                ]
+            }
+
+        monkeypatch.setattr(
+            "app.services.prediction_service.GeminiClient.generate_json",
+            successful_gemini,
+        )
+
+        payload = AiPredictionRequest(lottery_id=lottery_id, prediction_count=1)
+        result = PredictionService.generate(db, payload, tenant_id)
+
+        assert calls == 1
+        assert len(result["predictions"]) == 1
+        assert result["predictions"][0]["numbers"] == [6, 7, 8, 9, 10]
+
+        usage_rows = db.scalars(
+            select(TenantQuotaUsage).where(TenantQuotaUsage.tenant_id == tenant_id)
+        ).all()
+        usage = {
+            (row.quota_code, row.period_key): row.usage_value for row in usage_rows
+        }
+        current_month = datetime.now(UTC).strftime("%Y-%m")
+
+        assert usage == {
+            ("ai_generations.monthly", current_month): 1,
+            ("predictions.max", "lifetime"): 1,
+        }
