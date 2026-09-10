@@ -1,11 +1,14 @@
 import pytest
+from fastapi import HTTPException
 from pydantic import ValidationError
 from sqlalchemy.exc import SQLAlchemyError
 
 from app.core.config import Settings
 from app.core.rate_limit import AiRateLimiter, LoginRateLimiter
+from app.models.lottery import Lottery
 from app.models.lottery_draw import LotteryDraw
 from app.repositories.lottery_draw_repository import LotteryDrawRepository
+from app.services.lottery_draw_service import LotteryDrawService
 
 
 def production_settings(**overrides):
@@ -187,6 +190,92 @@ def test_rate_limiter_does_not_fail_open_when_redis_is_unavailable(monkeypatch):
 
     with pytest.raises(ConnectionError, match="redis unavailable"):
         limiter.allow("user@example.com", "192.0.2.10")
+
+
+def test_draw_creation_is_idempotency_safe_for_repeated_draw_number(monkeypatch):
+    class FakeSession:
+        def get(self, model, identifier):
+            assert model is Lottery
+            assert identifier == 1
+            return Lottery(id=1, code="TEST", name="Test Lottery")
+
+    existing = LotteryDraw(
+        id=10,
+        lottery_id=1,
+        draw_number="RECOVERY-003",
+        draw_date="2026-09-10",
+        main_numbers=[1, 2, 3, 4, 5],
+    )
+    monkeypatch.setattr(
+        LotteryDrawRepository,
+        "get_by_number",
+        lambda **kwargs: existing,
+    )
+    monkeypatch.setattr(
+        LotteryDrawRepository,
+        "get_by_date",
+        lambda **kwargs: None,
+    )
+    monkeypatch.setattr(
+        LotteryDrawRepository,
+        "create",
+        lambda **kwargs: pytest.fail("duplicate draw must not be inserted"),
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        LotteryDrawService.create_draw(
+            db=FakeSession(),
+            lottery_id=1,
+            draw_number="RECOVERY-003",
+            draw_date="2026-09-10",
+            main_numbers=[1, 2, 3, 4, 5],
+        )
+
+    assert exc_info.value.status_code == 409
+    assert exc_info.value.detail == "Draw number already exists for this lottery"
+
+
+def test_draw_creation_is_idempotency_safe_for_repeated_draw_date(monkeypatch):
+    class FakeSession:
+        def get(self, model, identifier):
+            assert model is Lottery
+            assert identifier == 1
+            return Lottery(id=1, code="TEST", name="Test Lottery")
+
+    existing = LotteryDraw(
+        id=11,
+        lottery_id=1,
+        draw_number="RECOVERY-004",
+        draw_date="2026-09-11",
+        main_numbers=[6, 7, 8, 9, 10],
+    )
+    monkeypatch.setattr(
+        LotteryDrawRepository,
+        "get_by_number",
+        lambda **kwargs: None,
+    )
+    monkeypatch.setattr(
+        LotteryDrawRepository,
+        "get_by_date",
+        lambda **kwargs: existing,
+    )
+    monkeypatch.setattr(
+        LotteryDrawRepository,
+        "create",
+        lambda **kwargs: pytest.fail("duplicate draw must not be inserted"),
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        LotteryDrawService.create_draw(
+            db=FakeSession(),
+            lottery_id=1,
+            draw_number="RECOVERY-004",
+            draw_date="2026-09-11",
+            main_numbers=[6, 7, 8, 9, 10],
+        )
+
+    assert exc_info.value.status_code == 409
+    assert exc_info.value.detail == "Draw date already exists for this lottery"
 
 
 def test_draw_repository_create_rolls_back_on_database_failure():
