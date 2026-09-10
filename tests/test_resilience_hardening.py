@@ -66,7 +66,7 @@ def test_production_accepts_railway_private_redis_networking():
         ("TRUSTED_HOSTS", ["*"]),
         ("TRUSTED_HOSTS", ["https://app.example.com"]),
         ("TRUSTED_HOSTS", ["app.example.com:443"]),
-        ("TRUSTED_HOSTS", ["*.example.com"]),
+        ("TRUSTED_HOSTS", ["*example.com"]),
     ],
 )
 def test_production_rejects_unsafe_network_allowlists(field, value):
