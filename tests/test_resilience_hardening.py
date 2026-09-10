@@ -1,7 +1,7 @@
 import pytest
 from fastapi import HTTPException
 from pydantic import ValidationError
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 
 from app.core.config import Settings
 from app.core.rate_limit import AiRateLimiter, LoginRateLimiter
@@ -276,6 +276,36 @@ def test_draw_creation_is_idempotency_safe_for_repeated_draw_date(monkeypatch):
 
     assert exc_info.value.status_code == 409
     assert exc_info.value.detail == "Draw date already exists for this lottery"
+
+
+def test_draw_creation_translates_integrity_error_from_race_condition(monkeypatch):
+    class FakeSession:
+        def get(self, model, identifier):
+            assert model is Lottery
+            assert identifier == 1
+            return Lottery(id=1, code="TEST", name="Test Lottery")
+
+    monkeypatch.setattr(LotteryDrawRepository, "get_by_number", lambda **kwargs: None)
+    monkeypatch.setattr(LotteryDrawRepository, "get_by_date", lambda **kwargs: None)
+    monkeypatch.setattr(
+        LotteryDrawRepository,
+        "create",
+        lambda **kwargs: (_ for _ in ()).throw(
+            IntegrityError("duplicate key", {}, Exception("unique constraint"))
+        ),
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        LotteryDrawService.create_draw(
+            db=FakeSession(),
+            lottery_id=1,
+            draw_number="RECOVERY-RACE-001",
+            draw_date="2026-09-12",
+            main_numbers=[11, 12, 13, 14, 15],
+        )
+
+    assert exc_info.value.status_code == 409
+    assert exc_info.value.detail == "Lottery draw conflicts with an existing record"
 
 
 def test_draw_repository_create_rolls_back_on_database_failure():
