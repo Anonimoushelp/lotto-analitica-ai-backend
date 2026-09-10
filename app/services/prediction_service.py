@@ -63,34 +63,35 @@ class PredictionService:
             )
 
         try:
-            QuotaUsageService.consume_if_configured(
-                db,
-                tenant_id=tenant_id,
-                quota_code="ai_generations.monthly",
-            )
-            QuotaUsageService.consume_if_configured(
-                db,
-                tenant_id=tenant_id,
-                quota_code="predictions.max",
-            )
+            with db.begin_nested():
+                QuotaUsageService.consume_if_configured(
+                    db,
+                    tenant_id=tenant_id,
+                    quota_code="ai_generations.monthly",
+                )
+                QuotaUsageService.consume_if_configured(
+                    db,
+                    tenant_id=tenant_id,
+                    quota_code="predictions.max",
+                )
+
+                prompt = build_prediction_prompt(
+                    lottery_name=lottery.name,
+                    strategy=payload.strategy,
+                    prediction_count=payload.prediction_count,
+                    historical_numbers=historical_numbers,
+                )
+                generated = GeminiClient.generate_json(prompt)
+                if not validate_predictions(generated, payload.prediction_count):
+                    raise HTTPException(
+                        status_code=status.HTTP_502_BAD_GATEWAY,
+                        detail="Gemini returned predictions that do not match the required contract",
+                    )
         except QuotaExceededError as exc:
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
                 detail="AI generation quota exceeded",
             ) from exc
-
-        prompt = build_prediction_prompt(
-            lottery_name=lottery.name,
-            strategy=payload.strategy,
-            prediction_count=payload.prediction_count,
-            historical_numbers=historical_numbers,
-        )
-        generated = GeminiClient.generate_json(prompt)
-        if not validate_predictions(generated, payload.prediction_count):
-            raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY,
-                detail="Gemini returned predictions that do not match the required contract",
-            )
 
         frequency = Counter(
             number
