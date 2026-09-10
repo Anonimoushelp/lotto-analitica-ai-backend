@@ -66,6 +66,37 @@ def test_health_reports_redis_failure_in_production(monkeypatch):
         )
 
 
+def test_health_recovers_after_redis_becomes_available(monkeypatch):
+    original_environment = settings.environment
+    calls = []
+
+    def recovering_health_check():
+        calls.append(len(calls) + 1)
+        if len(calls) == 1:
+            raise RuntimeError("transient redis outage")
+
+    try:
+        settings.environment = "production"
+        monkeypatch.setattr(
+            login_rate_limiter,
+            "health_check",
+            recovering_health_check,
+        )
+
+        failed_response = client.get("/health")
+        recovered_response = client.get("/health")
+
+        assert failed_response.status_code == 503
+        assert recovered_response.status_code == 200
+        assert recovered_response.json() == {
+            "status": "healthy",
+            "service": "Lotto Analítica AI",
+        }
+        assert calls == [1, 2]
+    finally:
+        settings.environment = original_environment
+
+
 def test_security_headers():
     response = client.get("/health")
 
@@ -172,7 +203,7 @@ def test_cors_rejects_unconfigured_http_method():
     assert "PATCH" not in response.headers["Access-Control-Allow-Methods"]
 
 
-def test_cors_rejects_credentials_for_preflight():
+def test_cors_rejects_credentials_for_preflight(monkeypatch):
     response = client.options(
         "/api/v1/lotteries",
         headers={
