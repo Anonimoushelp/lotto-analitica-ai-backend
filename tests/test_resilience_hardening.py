@@ -1,8 +1,11 @@
+import httpx
 import pytest
+from fastapi import HTTPException
 from pydantic import ValidationError
 
 from app.core.config import Settings
 from app.core.rate_limit import AiRateLimiter, LoginRateLimiter
+from app.services.gemini_client import GeminiClient
 
 
 def production_settings(**overrides):
@@ -150,3 +153,109 @@ def test_rate_limiters_wire_redis_timeouts_and_health_check(monkeypatch):
             "socket_timeout": 7.5,
             "health_check_interval": 45,
         }
+
+
+def test_gemini_requires_configuration_without_network_call(monkeypatch):
+    settings = production_settings(GEMINI_API_KEY="")
+    monkeypatch.setattr("app.services.gemini_client.settings", settings)
+
+    with pytest.raises(HTTPException) as exc_info:
+        GeminiClient.generate_json("test prompt")
+
+    assert exc_info.value.status_code == 503
+    assert exc_info.value.detail == "Gemini AI is not configured"
+
+
+def test_gemini_timeout_maps_to_gateway_timeout(monkeypatch):
+    settings = production_settings(GEMINI_API_KEY="test-key")
+    monkeypatch.setattr("app.services.gemini_client.settings", settings)
+
+    request = httpx.Request("POST", GeminiClient.API_URL)
+
+    class TimeoutClient:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            return False
+
+        def post(self, *args, **kwargs):
+            raise httpx.ReadTimeout("provider timeout", request=request)
+
+    monkeypatch.setattr("app.services.gemini_client.httpx.Client", lambda **kwargs: TimeoutClient())
+
+    with pytest.raises(HTTPException) as exc_info:
+        GeminiClient.generate_json("test prompt")
+
+    assert exc_info.value.status_code == 504
+    assert exc_info.value.detail == "Gemini AI request timed out"
+
+
+def test_gemini_provider_http_failure_maps_to_bad_gateway(monkeypatch):
+    settings = production_settings(GEMINI_API_KEY="test-key")
+    monkeypatch.setattr("app.services.gemini_client.settings", settings)
+
+    request = httpx.Request("POST", GeminiClient.API_URL)
+
+    class FailingResponse:
+        def raise_for_status(self):
+            raise httpx.HTTPStatusError(
+                "provider unavailable",
+                request=request,
+                response=httpx.Response(503, request=request),
+            )
+
+    class FailingClient:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            return False
+
+        def post(self, *args, **kwargs):
+            return FailingResponse()
+
+    monkeypatch.setattr("app.services.gemini_client.httpx.Client", lambda **kwargs: FailingClient())
+
+    with pytest.raises(HTTPException) as exc_info:
+        GeminiClient.generate_json("test prompt")
+
+    assert exc_info.value.status_code == 502
+    assert exc_info.value.detail == "Gemini AI request failed"
+
+
+def test_gemini_client_uses_bounded_timeout(monkeypatch):
+    settings = production_settings(GEMINI_API_KEY="test-key")
+    monkeypatch.setattr("app.services.gemini_client.settings", settings)
+    captured = {}
+
+    class Response:
+        def raise_for_status(self):
+            return None
+
+        def json(self):
+            return {
+                "candidates": [
+                    {"content": {"parts": [{"text": "{\"ok\": true}"}]}}
+                ]
+            }
+
+    class Client:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc_value, traceback):
+            return False
+
+        def post(self, *args, **kwargs):
+            return Response()
+
+    monkeypatch.setattr("app.services.gemini_client.httpx.Client", Client)
+
+    result = GeminiClient.generate_json("test prompt")
+
+    assert result == {"ok": True}
+    assert captured == {"timeout": 15.0}
