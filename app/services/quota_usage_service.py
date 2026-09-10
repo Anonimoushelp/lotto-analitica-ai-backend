@@ -114,6 +114,14 @@ class QuotaUsageService:
             )
             .with_for_update()
         )
+        current_usage = usage.usage_value if usage is not None else 0
+        projected_usage = current_usage + increment
+        if projected_usage > limit:
+            raise QuotaExceededError(
+                f"Quota '{quota_code}' exceeded: "
+                f"current={current_usage}, increment={increment}, limit={limit}"
+            )
+
         if usage is None:
             usage = TenantQuotaUsage(
                 tenant_id=tenant_id,
@@ -122,14 +130,6 @@ class QuotaUsageService:
                 usage_value=0,
             )
             db.add(usage)
-            db.flush()
-
-        projected_usage = usage.usage_value + increment
-        if projected_usage > limit:
-            raise QuotaExceededError(
-                f"Quota '{quota_code}' exceeded: "
-                f"current={usage.usage_value}, increment={increment}, limit={limit}"
-            )
 
         usage.usage_value = projected_usage
         db.flush()
