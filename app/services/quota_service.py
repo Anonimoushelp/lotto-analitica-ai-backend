@@ -3,6 +3,7 @@ from sqlalchemy.exc import OperationalError
 from sqlalchemy.orm import Session
 
 from app.core.quotas import QuotaCode
+from app.models.plan import Plan
 from app.models.plan_quota import PlanQuota
 from app.models.tenant import Tenant
 
@@ -41,9 +42,11 @@ class QuotaService:
         limit = db.scalar(
             select(PlanQuota.limit_value)
             .join(Tenant, Tenant.plan_id == PlanQuota.plan_id)
+            .join(Plan, Plan.id == PlanQuota.plan_id)
             .where(
                 Tenant.id == tenant_id,
                 Tenant.is_active.is_(True),
+                Plan.is_active.is_(True),
                 PlanQuota.quota_code == quota_code,
             )
         )
