@@ -65,6 +65,44 @@ def test_quota_service_resolves_limit_from_tenant_plan():
     Plan.__table__.drop(engine)
 
 
+def test_quota_service_rejects_quota_from_inactive_plan():
+    engine = create_engine("sqlite:///:memory:")
+    Plan.__table__.create(engine)
+    PlanQuota.__table__.create(engine)
+    Tenant.__table__.create(engine)
+
+    with Session(engine) as db:
+        plan = Plan(code="inactive", name="Inactive", is_active=False)
+        db.add(plan)
+        db.flush()
+        db.add(
+            PlanQuota(
+                plan_id=plan.id,
+                quota_code="memberships.max",
+                limit_value=5,
+            )
+        )
+        tenant = Tenant(
+            name="Tenant",
+            slug="inactive-plan-tenant",
+            plan_id=plan.id,
+            is_active=True,
+        )
+        db.add(tenant)
+        db.commit()
+
+        with pytest.raises(QuotaNotConfiguredError):
+            QuotaService.get_limit(
+                db,
+                tenant_id=tenant.id,
+                quota_code="memberships.max",
+            )
+
+    Tenant.__table__.drop(engine)
+    PlanQuota.__table__.drop(engine)
+    Plan.__table__.drop(engine)
+
+
 def test_quota_service_rejects_missing_quota():
     engine = create_engine("sqlite:///:memory:")
     Plan.__table__.create(engine)
