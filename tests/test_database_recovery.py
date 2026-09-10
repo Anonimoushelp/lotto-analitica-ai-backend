@@ -54,4 +54,26 @@ def test_health_returns_503_when_postgresql_is_unavailable(monkeypatch):
     response = health(FailingSession())
 
     assert response.status_code == 503
-    assert response.body == b'{"status":"unhealthy","service":"Lotto Anal\xc3\xadtica AI"}'
+    assert response.body == b'{"status":"unhealthy","service":"Lotto Anal\\xc3\\xadtica AI"}'
+
+
+def test_get_db_closes_session_after_request_lifecycle(monkeypatch):
+    from app.db import session as db_session
+
+    class TrackingSession:
+        def __init__(self):
+            self.closed = False
+
+        def close(self):
+            self.closed = True
+
+    tracked = TrackingSession()
+    monkeypatch.setattr(db_session, "SessionLocal", lambda: tracked)
+
+    generator = db_session.get_db()
+    assert next(generator) is tracked
+
+    with pytest.raises(StopIteration):
+        next(generator)
+
+    assert tracked.closed is True
