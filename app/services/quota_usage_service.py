@@ -33,6 +33,13 @@ class QuotaUsageService:
         if tenant_id <= 0:
             raise ValueError("tenant_id must be positive")
 
+        if quota_code not in {"memberships.max", "lotteries.max", "draws.max"}:
+            raise QuotaUsageNotSupportedError(
+                f"Usage tracking for quota '{quota_code}' is not persisted yet"
+            )
+
+        QuotaService.lock_tenant(db, tenant_id=tenant_id)
+
         if quota_code == "memberships.max":
             return int(
                 db.scalar(
@@ -55,18 +62,13 @@ class QuotaUsageService:
                 or 0
             )
 
-        if quota_code == "draws.max":
-            return int(
-                db.scalar(
-                    select(func.count(LotteryDraw.id))
-                    .join(Lottery, Lottery.id == LotteryDraw.lottery_id)
-                    .where(Lottery.tenant_id == tenant_id)
-                )
-                or 0
+        return int(
+            db.scalar(
+                select(func.count(LotteryDraw.id))
+                .join(Lottery, Lottery.id == LotteryDraw.lottery_id)
+                .where(Lottery.tenant_id == tenant_id)
             )
-
-        raise QuotaUsageNotSupportedError(
-            f"Usage tracking for quota '{quota_code}' is not persisted yet"
+            or 0
         )
 
     @staticmethod
