@@ -73,12 +73,11 @@ def test_get_current_usage_rejects_non_positive_tenant_id_before_query(
     engine = create_engine("sqlite:///:memory:")
     Base.metadata.create_all(engine)
 
-    with Session(engine) as db:
-        with (
-            pytest.raises(ValueError, match="tenant_id must be positive")
-        ):
-            QuotaUsageService.get_current_usage(
-                db,
-                tenant_id=tenant_id,
-                quota_code="memberships.max",
-            )
+    with Session(engine) as db, pytest.raises(
+        ValueError, match="tenant_id must be positive"
+    ):
+        QuotaUsageService.get_current_usage(
+            db,
+            tenant_id=tenant_id,
+            quota_code="memberships.max",
+        )
