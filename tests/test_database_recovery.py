@@ -54,4 +54,4 @@ def test_health_returns_503_when_postgresql_is_unavailable(monkeypatch):
     response = health(FailingSession())
 
     assert response.status_code == 503
-    assert response.body == b'{"status":"unhealthy","service":"Lotto Analítica AI"}'
+    assert response.body == b'{"status":"unhealthy","service":"Lotto Analitica AI"}'
