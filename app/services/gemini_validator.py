@@ -1,3 +1,9 @@
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from .lottery_rules import LotteryRules
+
+
 def validate_predictions(
     value: object,
     expected_count: int,
