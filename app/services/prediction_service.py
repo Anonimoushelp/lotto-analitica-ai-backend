@@ -2,6 +2,7 @@ from collections import Counter
 from datetime import UTC, datetime
 
 from fastapi import HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.core.config import settings
@@ -10,6 +11,8 @@ from app.repositories.lottery_draw_repository import LotteryDrawRepository
 from app.services.gemini_client import GeminiClient
 from app.services.gemini_prompt import build_prediction_prompt
 from app.services.gemini_validator import validate_predictions
+from app.services.quota_service import QuotaExceededError
+from app.services.quota_usage_service import QuotaUsageService
 
 
 class PredictionService:
@@ -23,8 +26,13 @@ class PredictionService:
         }
 
     @staticmethod
-    def generate(db: Session, payload) -> dict:
-        lottery = db.get(Lottery, payload.lottery_id)
+    def generate(db: Session, payload, tenant_id: int) -> dict:
+        lottery = db.scalar(
+            select(Lottery).where(
+                Lottery.id == payload.lottery_id,
+                Lottery.tenant_id == tenant_id,
+            )
+        )
         if lottery is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -34,6 +42,7 @@ class PredictionService:
         draws = LotteryDrawRepository.list(
             db=db,
             lottery_id=payload.lottery_id,
+            tenant_id=tenant_id,
             limit=100,
         )
         if not draws:
@@ -53,18 +62,36 @@ class PredictionService:
                 detail="The selected lottery has no main numbers available",
             )
 
-        prompt = build_prediction_prompt(
-            lottery_name=lottery.name,
-            strategy=payload.strategy,
-            prediction_count=payload.prediction_count,
-            historical_numbers=historical_numbers,
-        )
-        generated = GeminiClient.generate_json(prompt)
-        if not validate_predictions(generated, payload.prediction_count):
+        try:
+            with db.begin_nested():
+                QuotaUsageService.consume_if_configured(
+                    db,
+                    tenant_id=tenant_id,
+                    quota_code="ai_generations.monthly",
+                )
+                QuotaUsageService.consume_if_configured(
+                    db,
+                    tenant_id=tenant_id,
+                    quota_code="predictions.max",
+                )
+
+                prompt = build_prediction_prompt(
+                    lottery_name=lottery.name,
+                    strategy=payload.strategy,
+                    prediction_count=payload.prediction_count,
+                    historical_numbers=historical_numbers,
+                )
+                generated = GeminiClient.generate_json(prompt)
+                if not validate_predictions(generated, payload.prediction_count):
+                    raise HTTPException(
+                        status_code=status.HTTP_502_BAD_GATEWAY,
+                        detail="Gemini returned predictions that do not match the required contract",
+                    )
+        except QuotaExceededError as exc:
             raise HTTPException(
-                status_code=status.HTTP_502_BAD_GATEWAY,
-                detail="Gemini returned predictions that do not match the required contract",
-            )
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="AI generation quota exceeded",
+            ) from exc
 
         frequency = Counter(
             number
@@ -97,6 +124,7 @@ class PredictionService:
         top = ranked[:5]
         cold = sorted(frequency, key=lambda number: (frequency[number], number))[:4]
         model_status = PredictionService.model_status()
+        db.commit()
         return {
             "summary": {
                 "lottery_id": str(lottery.id),

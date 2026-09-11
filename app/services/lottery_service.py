@@ -8,12 +8,16 @@ from app.repositories.lottery_repository import LotteryRepository
 
 class LotteryService:
     @staticmethod
-    def list_lotteries(db: Session) -> list[Lottery]:
-        return LotteryRepository.list(db=db)
+    def list_lotteries(db: Session, tenant_id: int) -> list[Lottery]:
+        return LotteryRepository.list(db=db, tenant_id=tenant_id)
 
     @staticmethod
-    def get_lottery(db: Session, lottery_id: int) -> Lottery:
-        lottery = LotteryRepository.get_by_id(db=db, lottery_id=lottery_id)
+    def get_lottery(db: Session, lottery_id: int, tenant_id: int) -> Lottery:
+        lottery = LotteryRepository.get_by_id(
+            db=db,
+            lottery_id=lottery_id,
+            tenant_id=tenant_id,
+        )
         if lottery is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -25,14 +29,19 @@ class LotteryService:
     def create_lottery(
         db: Session,
         payload: dict,
+        tenant_id: int,
     ) -> Lottery:
-        if LotteryRepository.get_by_code(db=db, code=payload["code"]) is not None:
+        if LotteryRepository.get_by_code(
+            db=db,
+            code=payload["code"],
+            tenant_id=tenant_id,
+        ) is not None:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Lottery code already exists",
             )
 
-        lottery = Lottery(**payload)
+        lottery = Lottery(**payload, tenant_id=tenant_id)
         try:
             return LotteryRepository.create(db=db, lottery=lottery)
         except IntegrityError as exc:
@@ -46,13 +55,19 @@ class LotteryService:
         db: Session,
         lottery_id: int,
         update_data: dict,
+        tenant_id: int,
     ) -> Lottery:
-        lottery = LotteryService.get_lottery(db=db, lottery_id=lottery_id)
+        lottery = LotteryService.get_lottery(
+            db=db,
+            lottery_id=lottery_id,
+            tenant_id=tenant_id,
+        )
 
         if "code" in update_data:
             existing = LotteryRepository.get_by_code(
                 db=db,
                 code=update_data["code"],
+                tenant_id=tenant_id,
             )
             if existing is not None and existing.id != lottery_id:
                 raise HTTPException(
@@ -72,6 +87,10 @@ class LotteryService:
             ) from exc
 
     @staticmethod
-    def delete_lottery(db: Session, lottery_id: int) -> None:
-        lottery = LotteryService.get_lottery(db=db, lottery_id=lottery_id)
+    def delete_lottery(db: Session, lottery_id: int, tenant_id: int) -> None:
+        lottery = LotteryService.get_lottery(
+            db=db,
+            lottery_id=lottery_id,
+            tenant_id=tenant_id,
+        )
         LotteryRepository.delete(db=db, lottery=lottery)

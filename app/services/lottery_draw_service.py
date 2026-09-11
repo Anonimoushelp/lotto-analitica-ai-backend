@@ -1,4 +1,5 @@
 from fastapi import HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -8,40 +9,36 @@ from app.repositories.lottery_draw_repository import LotteryDrawRepository
 
 
 class LotteryDrawService:
-
     @staticmethod
     def list_draws(
         db: Session,
+        tenant_id: int,
         lottery_id: int | None = None,
         limit: int = 100,
     ) -> list[LotteryDraw]:
         return LotteryDrawRepository.list(
             db=db,
+            tenant_id=tenant_id,
             lottery_id=lottery_id,
             limit=limit,
         )
 
     @staticmethod
-    def get_draw(
-        db: Session,
-        draw_id: int,
-    ) -> LotteryDraw:
+    def get_draw(db: Session, draw_id: int, tenant_id: int) -> LotteryDraw:
         draw = LotteryDrawRepository.get_by_id(
-            db=db,
-            draw_id=draw_id,
+            db=db, draw_id=draw_id, tenant_id=tenant_id
         )
-
         if draw is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Lottery draw not found",
             )
-
         return draw
 
     @staticmethod
     def create_draw(
         db: Session,
+        tenant_id: int,
         lottery_id: int,
         draw_number: str,
         draw_date,
@@ -50,9 +47,12 @@ class LotteryDrawService:
         source: str | None = None,
         metadata_json: dict | None = None,
     ) -> LotteryDraw:
-
-        lottery = db.get(Lottery, lottery_id)
-
+        lottery = db.scalar(
+            select(Lottery).where(
+                Lottery.id == lottery_id,
+                Lottery.tenant_id == tenant_id,
+            )
+        )
         if lottery is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -63,8 +63,8 @@ class LotteryDrawService:
             db=db,
             lottery_id=lottery_id,
             draw_number=draw_number,
+            tenant_id=tenant_id,
         )
-
         if existing_number is not None:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -75,8 +75,8 @@ class LotteryDrawService:
             db=db,
             lottery_id=lottery_id,
             draw_date=draw_date,
+            tenant_id=tenant_id,
         )
-
         if existing_date is not None:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -92,12 +92,8 @@ class LotteryDrawService:
             source=source,
             metadata_json=metadata_json,
         )
-
         try:
-            return LotteryDrawRepository.create(
-                db=db,
-                draw=draw,
-            )
+            return LotteryDrawRepository.create(db=db, draw=draw)
         except IntegrityError as exc:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -108,31 +104,22 @@ class LotteryDrawService:
     def update_draw(
         db: Session,
         draw_id: int,
+        tenant_id: int,
         update_data: dict,
     ) -> LotteryDraw:
-
         draw = LotteryDrawService.get_draw(
-            db=db,
-            draw_id=draw_id,
+            db=db, draw_id=draw_id, tenant_id=tenant_id
         )
+        new_lottery_id = update_data.get("lottery_id", draw.lottery_id)
+        new_draw_number = update_data.get("draw_number", draw.draw_number)
+        new_draw_date = update_data.get("draw_date", draw.draw_date)
 
-        new_lottery_id = update_data.get(
-            "lottery_id",
-            draw.lottery_id,
+        lottery = db.scalar(
+            select(Lottery).where(
+                Lottery.id == new_lottery_id,
+                Lottery.tenant_id == tenant_id,
+            )
         )
-
-        new_draw_number = update_data.get(
-            "draw_number",
-            draw.draw_number,
-        )
-
-        new_draw_date = update_data.get(
-            "draw_date",
-            draw.draw_date,
-        )
-
-        lottery = db.get(Lottery, new_lottery_id)
-
         if lottery is None:
             raise HTTPException(
                 status_code=status.HTTP_404_NOT_FOUND,
@@ -143,12 +130,9 @@ class LotteryDrawService:
             db=db,
             lottery_id=new_lottery_id,
             draw_number=new_draw_number,
+            tenant_id=tenant_id,
         )
-
-        if (
-            existing_number is not None
-            and existing_number.id != draw_id
-        ):
+        if existing_number is not None and existing_number.id != draw_id:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Draw number already exists for this lottery",
@@ -158,12 +142,9 @@ class LotteryDrawService:
             db=db,
             lottery_id=new_lottery_id,
             draw_date=new_draw_date,
+            tenant_id=tenant_id,
         )
-
-        if (
-            existing_date is not None
-            and existing_date.id != draw_id
-        ):
+        if existing_date is not None and existing_date.id != draw_id:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Draw date already exists for this lottery",
@@ -181,25 +162,15 @@ class LotteryDrawService:
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Lottery draw conflicts with an existing record",
             ) from exc
-
         return draw
 
     @staticmethod
-    def delete_draw(
-        db: Session,
-        draw_id: int,
-    ) -> None:
-
+    def delete_draw(db: Session, draw_id: int, tenant_id: int) -> None:
         draw = LotteryDrawService.get_draw(
-            db=db,
-            draw_id=draw_id,
+            db=db, draw_id=draw_id, tenant_id=tenant_id
         )
-
         try:
-            LotteryDrawRepository.delete(
-                db=db,
-                draw=draw,
-            )
+            LotteryDrawRepository.delete(db=db, draw=draw)
         except IntegrityError as exc:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,

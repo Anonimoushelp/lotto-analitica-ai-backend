@@ -2,11 +2,14 @@ import redis
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlalchemy.orm import Session
 
-from app.api.dependencies.auth import require_admin_or_analyst
+from app.api.dependencies.tenant import TenantContext
+from app.api.dependencies.tenant_auth import (
+    require_predictions_generate,
+    require_predictions_read,
+)
 from app.core.config import settings
 from app.core.rate_limit import ai_rate_limiter
 from app.db.session import get_db
-from app.models.user import User
 from app.schemas.ai_prediction import (
     AiPredictionRequest,
     AiPredictionResponse,
@@ -21,7 +24,9 @@ router = APIRouter(
 
 
 @router.get("/model-status", response_model=ModelStatusResponse)
-def get_model_status(user: User = Depends(require_admin_or_analyst)):
+def get_model_status(
+    tenant: TenantContext = Depends(require_predictions_read),
+):
     return PredictionService.model_status()
 
 
@@ -29,10 +34,10 @@ def get_model_status(user: User = Depends(require_admin_or_analyst)):
 def generate_predictions(
     payload: AiPredictionRequest,
     db: Session = Depends(get_db),
-    user: User = Depends(require_admin_or_analyst),
+    tenant: TenantContext = Depends(require_predictions_generate),
 ):
     try:
-        allowed = ai_rate_limiter.allow(user.id)
+        allowed = ai_rate_limiter.allow(tenant.user_id)
     except redis.RedisError:
         if settings.environment == "production":
             raise HTTPException(
@@ -48,4 +53,8 @@ def generate_predictions(
             headers={"Retry-After": "60"},
         )
 
-    return PredictionService.generate(db=db, payload=payload)
+    return PredictionService.generate(
+        db=db,
+        payload=payload,
+        tenant_id=tenant.tenant_id,
+    )

@@ -195,12 +195,12 @@ def test_cors_rejects_unconfigured_http_method():
         "/api/v1/lotteries",
         headers={
             "Origin": "http://localhost:3000",
-            "Access-Control-Request-Method": "PATCH",
+            "Access-Control-Request-Method": "TRACE",
         },
     )
 
     assert response.status_code == 400
-    assert "PATCH" not in response.headers["Access-Control-Allow-Methods"]
+    assert "TRACE" not in response.headers["Access-Control-Allow-Methods"]
 
 
 def test_cors_rejects_credentials_for_preflight():

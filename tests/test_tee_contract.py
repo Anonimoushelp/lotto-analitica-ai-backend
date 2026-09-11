@@ -1,7 +1,11 @@
 from fastapi.testclient import TestClient
 
-from app.api.dependencies.auth import require_admin_or_analyst
+from app.api.dependencies.tenant import TenantContext, get_tenant_context
 from app.main import app
+
+
+def _authorized_tenant():
+    return TenantContext(user_id=1, tenant_id=1, membership_id=1, role="analyst")
 
 
 def test_tee_status_requires_authentication():
@@ -10,7 +14,7 @@ def test_tee_status_requires_authentication():
 
 
 def test_tee_status_is_fail_closed_without_provider():
-    app.dependency_overrides[require_admin_or_analyst] = lambda: object()
+    app.dependency_overrides[get_tenant_context] = _authorized_tenant
     try:
         response = TestClient(app).get("/api/v1/tee/status")
     finally:
@@ -38,7 +42,7 @@ def test_tee_operation_requires_authentication():
 
 
 def test_tee_operation_fails_closed_without_provider():
-    app.dependency_overrides[require_admin_or_analyst] = lambda: object()
+    app.dependency_overrides[get_tenant_context] = _authorized_tenant
     try:
         response = TestClient(app).post(
             "/api/v1/tee/operations",
@@ -52,7 +56,7 @@ def test_tee_operation_fails_closed_without_provider():
 
 
 def test_tee_operation_rejects_unknown_fields():
-    app.dependency_overrides[require_admin_or_analyst] = lambda: object()
+    app.dependency_overrides[get_tenant_context] = _authorized_tenant
     try:
         response = TestClient(app).post(
             "/api/v1/tee/operations",

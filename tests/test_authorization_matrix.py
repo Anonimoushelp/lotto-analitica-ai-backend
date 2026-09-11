@@ -4,6 +4,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from app.api.dependencies.auth import get_current_user
+from app.api.dependencies.tenant import TenantContext, get_tenant_context
 from app.db.session import get_db
 from app.main import app
 from app.services.statistical_service import StatisticalService
@@ -15,6 +16,7 @@ client = TestClient(app)
 def clean_overrides():
     previous_user = app.dependency_overrides.get(get_current_user)
     previous_db = app.dependency_overrides.get(get_db)
+    previous_tenant = app.dependency_overrides.get(get_tenant_context)
     yield
     if previous_user is None:
         app.dependency_overrides.pop(get_current_user, None)
@@ -24,6 +26,10 @@ def clean_overrides():
         app.dependency_overrides.pop(get_db, None)
     else:
         app.dependency_overrides[get_db] = previous_db
+    if previous_tenant is None:
+        app.dependency_overrides.pop(get_tenant_context, None)
+    else:
+        app.dependency_overrides[get_tenant_context] = previous_tenant
 
 
 def set_user(role: str) -> None:
@@ -31,6 +37,12 @@ def set_user(role: str) -> None:
         id=1,
         role=role,
         is_active=True,
+    )
+    app.dependency_overrides[get_tenant_context] = lambda: TenantContext(
+        user_id=1,
+        tenant_id=1,
+        membership_id=1,
+        role=role,
     )
 
 
@@ -44,7 +56,7 @@ def test_statistics_rejects_non_analyst_roles(role, monkeypatch):
     app.dependency_overrides[get_db] = override_db
     called = False
 
-    def fake_overview(db):
+    def fake_overview(db, tenant_id):
         nonlocal called
         called = True
         return {

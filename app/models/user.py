@@ -1,10 +1,13 @@
 from datetime import UTC, datetime
-from typing import Literal
+from typing import TYPE_CHECKING, Literal
 
 from sqlalchemy import Boolean, DateTime, String
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+
+if TYPE_CHECKING:
+    from app.models.membership import Membership
 
 UserRole = Literal["admin", "analyst", "viewer", "service"]
 
@@ -27,4 +30,8 @@ class User(Base):
         nullable=False,
         default=lambda: datetime.now(UTC),
         onupdate=lambda: datetime.now(UTC),
+    )
+
+    memberships: Mapped[list["Membership"]] = relationship(
+        "Membership", back_populates="user", cascade="all, delete-orphan"
     )

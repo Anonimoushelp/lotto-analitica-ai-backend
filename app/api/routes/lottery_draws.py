@@ -1,7 +1,12 @@
-from fastapi import APIRouter, Depends, Path, Query, status
+from fastapi import APIRouter, Depends, HTTPException, Path, Query, status
 from sqlalchemy.orm import Session
 
-from app.api.dependencies.auth import require_admin, require_admin_or_analyst
+from app.api.dependencies.auth import get_current_user
+from app.api.dependencies.tenant import TenantContext
+from app.api.dependencies.tenant_auth import (
+    require_draws_read,
+    require_draws_write,
+)
 from app.core.audit import log_mutation
 from app.db.session import get_db
 from app.schemas.lottery_draw import (
@@ -10,6 +15,8 @@ from app.schemas.lottery_draw import (
     LotteryDrawUpdate,
 )
 from app.services.lottery_draw_service import LotteryDrawService
+from app.services.quota_service import QuotaExceededError, QuotaService
+from app.services.quota_usage_service import QuotaUsageService
 
 DEFAULT_DRAW_LIST_LIMIT = 100
 MAX_DRAW_LIST_LIMIT = 500
@@ -29,10 +36,11 @@ def list_draws(
         le=MAX_DRAW_LIST_LIMIT,
     ),
     db: Session = Depends(get_db),
-    current_user=Depends(require_admin_or_analyst),
+    tenant: TenantContext = Depends(require_draws_read),
 ):
     return LotteryDrawService.list_draws(
         db=db,
+        tenant_id=tenant.tenant_id,
         lottery_id=lottery_id,
         limit=limit,
     )
@@ -42,19 +50,45 @@ def list_draws(
 def get_draw(
     draw_id: int = Path(gt=0),
     db: Session = Depends(get_db),
-    current_user=Depends(require_admin_or_analyst),
+    tenant: TenantContext = Depends(require_draws_read),
 ):
-    return LotteryDrawService.get_draw(db=db, draw_id=draw_id)
+    return LotteryDrawService.get_draw(
+        db=db,
+        draw_id=draw_id,
+        tenant_id=tenant.tenant_id,
+    )
 
 
 @router.post("", response_model=LotteryDrawResponse, status_code=status.HTTP_201_CREATED)
 def create_draw(
     payload: LotteryDrawCreate,
     db: Session = Depends(get_db),
-    current_user=Depends(require_admin),
+    current_user=Depends(get_current_user),
+    tenant: TenantContext = Depends(require_draws_write),
 ):
+    QuotaService.lock_tenant(db, tenant_id=tenant.tenant_id)
+    current_usage = QuotaUsageService.get_current_usage(
+        db,
+        tenant_id=tenant.tenant_id,
+        quota_code="draws.max",
+    )
+    try:
+        QuotaService.enforce_if_configured(
+            db,
+            tenant_id=tenant.tenant_id,
+            quota_code="draws.max",
+            current_usage=current_usage,
+            increment=1,
+        )
+    except QuotaExceededError as exc:
+        raise HTTPException(
+            status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+            detail="Draw quota exceeded",
+        ) from exc
+
     draw = LotteryDrawService.create_draw(
         db=db,
+        tenant_id=tenant.tenant_id,
         lottery_id=payload.lottery_id,
         draw_number=payload.draw_number,
         draw_date=payload.draw_date,
@@ -77,12 +111,14 @@ def update_draw(
     payload: LotteryDrawUpdate,
     draw_id: int = Path(gt=0),
     db: Session = Depends(get_db),
-    current_user=Depends(require_admin),
+    current_user=Depends(get_current_user),
+    tenant: TenantContext = Depends(require_draws_write),
 ):
     update_data = payload.model_dump(exclude_unset=True)
     draw = LotteryDrawService.update_draw(
         db=db,
         draw_id=draw_id,
+        tenant_id=tenant.tenant_id,
         update_data=update_data,
     )
     log_mutation(
@@ -98,9 +134,14 @@ def update_draw(
 def delete_draw(
     draw_id: int = Path(gt=0),
     db: Session = Depends(get_db),
-    current_user=Depends(require_admin),
+    current_user=Depends(get_current_user),
+    tenant: TenantContext = Depends(require_draws_write),
 ):
-    LotteryDrawService.delete_draw(db=db, draw_id=draw_id)
+    LotteryDrawService.delete_draw(
+        db=db,
+        draw_id=draw_id,
+        tenant_id=tenant.tenant_id,
+    )
     log_mutation(
         action="delete",
         resource="draw",

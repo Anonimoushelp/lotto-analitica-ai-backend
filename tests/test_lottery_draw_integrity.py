@@ -2,12 +2,14 @@ from datetime import date
 
 import pytest
 from fastapi import HTTPException
-from sqlalchemy import create_engine, delete
+from sqlalchemy import create_engine, delete, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.models.lottery import Lottery
 from app.models.lottery_draw import LotteryDraw
+from app.models.plan import Plan
+from app.models.tenant import Tenant
 from app.services.lottery_draw_service import LotteryDrawService
 
 engine = create_engine(
@@ -16,6 +18,8 @@ engine = create_engine(
     poolclass=StaticPool,
 )
 TestingSessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+Plan.__table__.create(bind=engine)
+Tenant.__table__.create(bind=engine)
 Lottery.__table__.create(bind=engine)
 LotteryDraw.__table__.create(bind=engine)
 
@@ -24,11 +28,26 @@ def db_session():
     return TestingSessionLocal()
 
 
+def seed_tenant(db) -> Tenant:
+    plan = db.scalar(select(Plan).where(Plan.code == "free"))
+    if plan is None:
+        plan = Plan(code="free", name="Free", is_active=True)
+        db.add(plan)
+        db.flush()
+    tenant = Tenant(name="Test Tenant", slug="test-tenant", plan_id=plan.id)
+    db.add(tenant)
+    db.commit()
+    db.refresh(tenant)
+    return tenant
+
+
 def seed_lottery(db, name: str) -> Lottery:
+    tenant = db.query(Tenant).first() or seed_tenant(db)
     lottery = Lottery(
         name=name,
         code=name.lower().replace(" ", "-"),
         country="Colombia",
+        tenant_id=tenant.id,
     )
     db.add(lottery)
     db.commit()
@@ -36,7 +55,11 @@ def seed_lottery(db, name: str) -> Lottery:
     return lottery
 
 
-def draw_payload(lottery_id: int, draw_number: str = "D-001", draw_date=date(2026, 9, 2)):
+def draw_payload(
+    lottery_id: int,
+    draw_number: str = "D-001",
+    draw_date=date(2026, 9, 2),
+):
     return {
         "lottery_id": lottery_id,
         "draw_number": draw_number,
@@ -59,14 +82,17 @@ def db():
         cleanup = db_session()
         cleanup.execute(delete(LotteryDraw))
         cleanup.execute(delete(Lottery))
+        cleanup.execute(delete(Tenant))
+        cleanup.execute(delete(Plan))
         cleanup.commit()
         cleanup.close()
 
 
 def test_create_draw_persists_valid_record(db):
     lottery = seed_lottery(db, "MiLoto")
-
-    draw = LotteryDrawService.create_draw(db=db, **draw_payload(lottery.id))
+    draw = LotteryDrawService.create_draw(
+        db=db, tenant_id=lottery.tenant_id, **draw_payload(lottery.id)
+    )
 
     assert draw.id is not None
     assert draw.lottery_id == lottery.id
@@ -76,19 +102,25 @@ def test_create_draw_persists_valid_record(db):
 
 
 def test_create_draw_rejects_missing_lottery(db):
+    tenant = seed_tenant(db)
     with pytest.raises(HTTPException) as exc:
-        LotteryDrawService.create_draw(db=db, **draw_payload(999))
-
+        LotteryDrawService.create_draw(
+            db=db, tenant_id=tenant.id, **draw_payload(999)
+        )
     assert exc.value.status_code == 404
 
 
 def test_create_draw_rejects_duplicate_number_per_lottery(db):
     lottery = seed_lottery(db, "MiLoto")
-    LotteryDrawService.create_draw(db=db, **draw_payload(lottery.id))
+    tenant_id = lottery.tenant_id
+    LotteryDrawService.create_draw(
+        db=db, tenant_id=tenant_id, **draw_payload(lottery.id)
+    )
 
     with pytest.raises(HTTPException) as exc:
         LotteryDrawService.create_draw(
             db=db,
+            tenant_id=tenant_id,
             **draw_payload(lottery.id, draw_date=date(2026, 9, 3)),
         )
 
@@ -98,11 +130,15 @@ def test_create_draw_rejects_duplicate_number_per_lottery(db):
 
 def test_create_draw_rejects_duplicate_date_per_lottery(db):
     lottery = seed_lottery(db, "MiLoto")
-    LotteryDrawService.create_draw(db=db, **draw_payload(lottery.id))
+    tenant_id = lottery.tenant_id
+    LotteryDrawService.create_draw(
+        db=db, tenant_id=tenant_id, **draw_payload(lottery.id)
+    )
 
     with pytest.raises(HTTPException) as exc:
         LotteryDrawService.create_draw(
             db=db,
+            tenant_id=tenant_id,
             **draw_payload(lottery.id, draw_number="D-002"),
         )
 
@@ -113,20 +149,29 @@ def test_create_draw_rejects_duplicate_date_per_lottery(db):
 def test_same_number_and_date_are_allowed_for_different_lotteries(db):
     first = seed_lottery(db, "MiLoto")
     second = seed_lottery(db, "Baloto")
+    tenant_id = first.tenant_id
 
-    first_draw = LotteryDrawService.create_draw(db=db, **draw_payload(first.id))
-    second_draw = LotteryDrawService.create_draw(db=db, **draw_payload(second.id))
+    first_draw = LotteryDrawService.create_draw(
+        db=db, tenant_id=tenant_id, **draw_payload(first.id)
+    )
+    second_draw = LotteryDrawService.create_draw(
+        db=db, tenant_id=tenant_id, **draw_payload(second.id)
+    )
 
     assert first_draw.id != second_draw.id
 
 
 def test_update_draw_persists_valid_changes(db):
     lottery = seed_lottery(db, "MiLoto")
-    draw = LotteryDrawService.create_draw(db=db, **draw_payload(lottery.id))
+    tenant_id = lottery.tenant_id
+    draw = LotteryDrawService.create_draw(
+        db=db, tenant_id=tenant_id, **draw_payload(lottery.id)
+    )
 
     updated = LotteryDrawService.update_draw(
         db=db,
         draw_id=draw.id,
+        tenant_id=tenant_id,
         update_data={
             "draw_number": "D-002",
             "draw_date": date(2026, 9, 3),
@@ -141,9 +186,13 @@ def test_update_draw_persists_valid_changes(db):
 
 def test_update_draw_rejects_duplicate_number(db):
     lottery = seed_lottery(db, "MiLoto")
-    first = LotteryDrawService.create_draw(db=db, **draw_payload(lottery.id))
+    tenant_id = lottery.tenant_id
+    first = LotteryDrawService.create_draw(
+        db=db, tenant_id=tenant_id, **draw_payload(lottery.id)
+    )
     second = LotteryDrawService.create_draw(
         db=db,
+        tenant_id=tenant_id,
         **draw_payload(lottery.id, draw_number="D-002", draw_date=date(2026, 9, 3)),
     )
 
@@ -151,6 +200,7 @@ def test_update_draw_rejects_duplicate_number(db):
         LotteryDrawService.update_draw(
             db=db,
             draw_id=second.id,
+            tenant_id=tenant_id,
             update_data={"draw_number": first.draw_number},
         )
 
@@ -159,9 +209,13 @@ def test_update_draw_rejects_duplicate_number(db):
 
 def test_update_draw_rejects_duplicate_date(db):
     lottery = seed_lottery(db, "MiLoto")
-    first = LotteryDrawService.create_draw(db=db, **draw_payload(lottery.id))
+    tenant_id = lottery.tenant_id
+    first = LotteryDrawService.create_draw(
+        db=db, tenant_id=tenant_id, **draw_payload(lottery.id)
+    )
     second = LotteryDrawService.create_draw(
         db=db,
+        tenant_id=tenant_id,
         **draw_payload(lottery.id, draw_number="D-002", draw_date=date(2026, 9, 3)),
     )
 
@@ -169,6 +223,7 @@ def test_update_draw_rejects_duplicate_date(db):
         LotteryDrawService.update_draw(
             db=db,
             draw_id=second.id,
+            tenant_id=tenant_id,
             update_data={"draw_date": first.draw_date},
         )
 
@@ -177,12 +232,16 @@ def test_update_draw_rejects_duplicate_date(db):
 
 def test_update_draw_rejects_missing_target_lottery(db):
     lottery = seed_lottery(db, "MiLoto")
-    draw = LotteryDrawService.create_draw(db=db, **draw_payload(lottery.id))
+    tenant_id = lottery.tenant_id
+    draw = LotteryDrawService.create_draw(
+        db=db, tenant_id=tenant_id, **draw_payload(lottery.id)
+    )
 
     with pytest.raises(HTTPException) as exc:
         LotteryDrawService.update_draw(
             db=db,
             draw_id=draw.id,
+            tenant_id=tenant_id,
             update_data={"lottery_id": 999},
         )
 
@@ -191,12 +250,15 @@ def test_update_draw_rejects_missing_target_lottery(db):
 
 def test_delete_draw_removes_record(db):
     lottery = seed_lottery(db, "MiLoto")
-    draw = LotteryDrawService.create_draw(db=db, **draw_payload(lottery.id))
+    tenant_id = lottery.tenant_id
+    draw = LotteryDrawService.create_draw(
+        db=db, tenant_id=tenant_id, **draw_payload(lottery.id)
+    )
 
-    LotteryDrawService.delete_draw(db=db, draw_id=draw.id)
+    LotteryDrawService.delete_draw(db=db, draw_id=draw.id, tenant_id=tenant_id)
 
     with pytest.raises(HTTPException) as exc:
-        LotteryDrawService.get_draw(db=db, draw_id=draw.id)
+        LotteryDrawService.get_draw(db=db, draw_id=draw.id, tenant_id=tenant_id)
 
     assert exc.value.status_code == 404
 
@@ -204,20 +266,26 @@ def test_delete_draw_removes_record(db):
 def test_list_draws_filters_by_lottery_and_orders_by_date(db):
     first = seed_lottery(db, "MiLoto")
     second = seed_lottery(db, "Baloto")
+    tenant_id = first.tenant_id
     LotteryDrawService.create_draw(
         db=db,
+        tenant_id=tenant_id,
         **draw_payload(first.id, draw_number="D-001", draw_date=date(2026, 9, 1)),
     )
     LotteryDrawService.create_draw(
         db=db,
+        tenant_id=tenant_id,
         **draw_payload(first.id, draw_number="D-002", draw_date=date(2026, 9, 3)),
     )
     LotteryDrawService.create_draw(
         db=db,
+        tenant_id=tenant_id,
         **draw_payload(second.id, draw_number="D-001", draw_date=date(2026, 9, 2)),
     )
 
-    draws = LotteryDrawService.list_draws(db=db, lottery_id=first.id, limit=100)
+    draws = LotteryDrawService.list_draws(
+        db=db, tenant_id=tenant_id, lottery_id=first.id, limit=100
+    )
 
     assert [item.draw_number for item in draws] == ["D-002", "D-001"]
     assert all(item.lottery_id == first.id for item in draws)
