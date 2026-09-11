@@ -10,6 +10,7 @@ from app.repositories.lottery_draw_repository import LotteryDrawRepository
 from app.services.gemini_client import GeminiClient
 from app.services.gemini_prompt import build_prediction_prompt
 from app.services.gemini_validator import validate_predictions
+from app.services.lottery_rules import get_verified_lottery_rules
 
 
 class PredictionService:
@@ -27,6 +28,18 @@ class PredictionService:
         lottery = db.get(Lottery, payload.lottery_id)
         if lottery is None:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lottery not found")
+
+        rules = get_verified_lottery_rules(lottery.code)
+        if rules is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Prediction rules are not verified for the selected lottery",
+            )
+        if payload.include_extra_number and not rules.has_extra_number:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="The selected lottery does not support an extra number",
+            )
 
         draws = LotteryDrawRepository.list(db=db, lottery_id=payload.lottery_id, limit=100)
         if not draws:
@@ -47,12 +60,19 @@ class PredictionService:
             strategy=payload.strategy,
             prediction_count=payload.prediction_count,
             historical_numbers=historical_numbers,
+            rules=rules,
+            include_extra_number=payload.include_extra_number,
         )
         generated = GeminiClient.generate_json(prompt, temperature=payload.temperature)
-        if not validate_predictions(generated, payload.prediction_count):
+        if not validate_predictions(
+            generated,
+            payload.prediction_count,
+            rules,
+            payload.include_extra_number,
+        ):
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
-                detail="Gemini returned predictions that do not match the required contract",
+                detail="Gemini returned predictions that do not match the verified lottery contract",
             )
         if any(
             float(item["confidence_score"]) < payload.min_confidence_threshold
@@ -73,7 +93,7 @@ class PredictionService:
                 {
                     "id": f"ai-pred-{payload.lottery_id}-{index + 1}",
                     "numbers": numbers,
-                    "extra_number": item.get("extra_number"),
+                    "extra_number": item.get("extra_number") if payload.include_extra_number else None,
                     "confidence_score": round(float(item["confidence_score"]), 2),
                     "risk_level": item.get("risk_level", "Moderado"),
                     "pattern_detected": item.get("pattern_detected", "Análisis Gemini"),
