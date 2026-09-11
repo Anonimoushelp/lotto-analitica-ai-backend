@@ -47,3 +47,13 @@ def test_extra_number_is_rejected_when_not_requested():
         ]
     }
     assert not validate_predictions(value, 1, rules, include_extra_number=False)
+
+
+def test_revancha_uses_the_same_verified_matrix_as_baloto():
+    rules = get_verified_lottery_rules("revancha")
+    assert rules is not None
+    assert rules.main_numbers_count == 5
+    assert rules.max_number == 43
+    assert rules.has_extra_number is True
+    assert rules.extra_number_min == 1
+    assert rules.extra_number_max == 16
