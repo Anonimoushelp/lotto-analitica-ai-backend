@@ -71,5 +71,14 @@ jobs:
           alembic upgrade head
           alembic current | grep -q "(head)"
 
+      - name: Verificar backup y restore PostgreSQL
+        env:
+          PGHOST: localhost
+          PGPORT: "5432"
+          PGUSER: ci
+          PGPASSWORD: ci
+          PGDATABASE: ci
+        run: bash scripts/verify_postgres_backup_restore.sh
+
       - name: Ejecutar pruebas
         run: pytest -q

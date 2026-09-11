@@ -65,6 +65,20 @@ def test_gemini_client_maps_timeout_to_504(monkeypatch):
     assert exc_info.value.status_code == 504
 
 
+def test_gemini_client_maps_transport_error_to_502(monkeypatch):
+    class TransportErrorClient(MockClient):
+        def post(self, url, *, headers, json):
+            raise httpx.ConnectError("connection refused")
+
+    monkeypatch.setattr(settings, "gemini_api_key", "test-key")
+    monkeypatch.setattr("app.services.gemini_client.httpx.Client", TransportErrorClient)
+
+    with pytest.raises(HTTPException) as exc_info:
+        GeminiClient.generate_json("test prompt")
+
+    assert exc_info.value.status_code == 502
+
+
 def test_gemini_client_maps_http_error_to_502(monkeypatch):
     request = httpx.Request("POST", GeminiClient.API_URL)
     MockClient.response = MockResponse(
@@ -96,6 +110,20 @@ def test_gemini_client_rejects_malformed_response(monkeypatch):
 
     assert exc_info.value.status_code == 502
     assert "invalid structured response" in str(exc_info.value.detail)
+
+
+def test_gemini_client_rejects_non_dict_response(monkeypatch):
+    payload = {"candidates": [{"content": {"parts": [{"text": json.dumps([])}]}}]}
+    MockClient.response = MockResponse(payload=payload)
+
+    monkeypatch.setattr(settings, "gemini_api_key", "test-key")
+    monkeypatch.setattr("app.services.gemini_client.httpx.Client", MockClient)
+
+    with pytest.raises(HTTPException) as exc_info:
+        GeminiClient.generate_json("test prompt")
+
+    assert exc_info.value.status_code == 502
+    assert "invalid response shape" in str(exc_info.value.detail)
 
 
 def test_gemini_client_keeps_api_key_out_of_url_and_body(monkeypatch):
