@@ -13,6 +13,7 @@ def _setup(monkeypatch, generated):
     class FakeLottery:
         id = 1
         name = "Test Lottery"
+        code = "miloto"
 
     class FakeDB:
         def get(self, model, lottery_id):
@@ -44,7 +45,7 @@ def _setup(monkeypatch, generated):
     monkeypatch.setattr(
         prediction_service,
         "validate_predictions",
-        lambda value, expected_count: True,
+        lambda value, expected_count, rules, include_extra_number=False: True,
     )
     return FakeDB(), captured
 
@@ -60,6 +61,7 @@ def test_generate_passes_requested_temperature(monkeypatch):
         prediction_count=1,
         temperature=0.7,
         min_confidence_threshold=80,
+        include_extra_number=False,
     )
 
     result = PredictionService.generate(db, payload)
@@ -79,6 +81,7 @@ def test_generate_rejects_prediction_below_confidence_threshold(monkeypatch):
         prediction_count=1,
         temperature=0.7,
         min_confidence_threshold=80,
+        include_extra_number=False,
     )
 
     with pytest.raises(HTTPException) as exc_info:
