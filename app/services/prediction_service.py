@@ -63,7 +63,7 @@ class PredictionService:
             rules=rules,
             include_extra_number=payload.include_extra_number,
         )
-        generated = GeminiClient.generate_json(prompt)
+        generated = GeminiClient.generate_json(prompt, temperature=payload.temperature)
         if not validate_predictions(
             generated,
             payload.prediction_count,
@@ -73,6 +73,14 @@ class PredictionService:
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 detail="Gemini returned predictions that do not match the verified lottery contract",
+            )
+        if any(
+            float(item["confidence_score"]) < payload.min_confidence_threshold
+            for item in generated["predictions"]
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Gemini returned predictions below the requested confidence threshold",
             )
 
         frequency = Counter(number for numbers in historical_numbers for number in numbers)
