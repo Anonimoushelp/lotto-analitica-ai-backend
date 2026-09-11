@@ -1,19 +1,7 @@
-# ruff: noqa: I001
-from .lottery_rules import LotteryRules
-
-
-_LEGACY_RULES = LotteryRules(
-    main_numbers_count=5,
-    min_number=1,
-    max_number=1000,
-    has_extra_number=False,
-)
-
-
 def validate_predictions(
     value: object,
     expected_count: int,
-    rules: LotteryRules | None = None,
+    rules: "LotteryRules | None" = None,
     include_extra_number: bool = False,
 ) -> bool:
     """Validate predictions using verified lottery rules.
@@ -22,7 +10,14 @@ def validate_predictions(
     generic validator contract. Production callers should always provide the
     verified rules resolved for the target lottery.
     """
-    effective_rules = rules or _LEGACY_RULES
+    from .lottery_rules import LotteryRules
+
+    effective_rules = rules or LotteryRules(
+        main_numbers_count=5,
+        min_number=1,
+        max_number=1000,
+        has_extra_number=False,
+    )
 
     if not isinstance(value, dict) or not isinstance(value.get("predictions"), list):
         return False
