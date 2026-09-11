@@ -1,3 +1,4 @@
+# ruff: noqa: I001
 from .lottery_rules import LotteryRules
 
 
