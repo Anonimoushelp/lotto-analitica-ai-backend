@@ -1,9 +1,8 @@
-from unittest.mock import patch
-
 import pytest
 from sqlalchemy import create_engine, delete, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
+from unittest.mock import patch
 
 from app.cli.bootstrap_admin import bootstrap_admin
 from app.core.security import verify_password
