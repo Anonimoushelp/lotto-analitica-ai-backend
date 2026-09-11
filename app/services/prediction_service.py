@@ -26,27 +26,16 @@ class PredictionService:
     def generate(db: Session, payload) -> dict:
         lottery = db.get(Lottery, payload.lottery_id)
         if lottery is None:
-            raise HTTPException(
-                status_code=status.HTTP_404_NOT_FOUND,
-                detail="Lottery not found",
-            )
+            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Lottery not found")
 
-        draws = LotteryDrawRepository.list(
-            db=db,
-            lottery_id=payload.lottery_id,
-            limit=100,
-        )
+        draws = LotteryDrawRepository.list(db=db, lottery_id=payload.lottery_id, limit=100)
         if not draws:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                 detail="The selected lottery has no historical draws available",
             )
 
-        historical_numbers = [
-            draw.main_numbers or []
-            for draw in draws
-            if draw.main_numbers
-        ]
+        historical_numbers = [draw.main_numbers or [] for draw in draws if draw.main_numbers]
         if not historical_numbers:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -59,18 +48,22 @@ class PredictionService:
             prediction_count=payload.prediction_count,
             historical_numbers=historical_numbers,
         )
-        generated = GeminiClient.generate_json(prompt)
+        generated = GeminiClient.generate_json(prompt, temperature=payload.temperature)
         if not validate_predictions(generated, payload.prediction_count):
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 detail="Gemini returned predictions that do not match the required contract",
             )
+        if any(
+            float(item["confidence_score"]) < payload.min_confidence_threshold
+            for item in generated["predictions"]
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_502_BAD_GATEWAY,
+                detail="Gemini returned predictions below the requested confidence threshold",
+            )
 
-        frequency = Counter(
-            number
-            for numbers in historical_numbers
-            for number in numbers
-        )
+        frequency = Counter(number for numbers in historical_numbers for number in numbers)
         ranked = [number for number, _ in frequency.most_common()]
         predictions = []
         for index, item in enumerate(generated["predictions"]):
