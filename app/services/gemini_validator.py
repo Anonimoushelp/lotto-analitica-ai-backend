@@ -1,4 +1,4 @@
-from app.services.lottery_rules import LotteryRules
+from .lottery_rules import LotteryRules
 
 
 _LEGACY_RULES = LotteryRules(
