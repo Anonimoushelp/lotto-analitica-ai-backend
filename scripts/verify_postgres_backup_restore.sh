@@ -39,11 +39,11 @@ pg_restore --host="$PGHOST" --port="$PGPORT" --username="$PGUSER" --dbname="$res
 restored_marker="$(psql --host="$PGHOST" --port="$PGPORT" --username="$PGUSER" --dbname="$restore_db" --tuples-only --no-align --set=ON_ERROR_STOP=1 -c "SELECT marker FROM backup_restore_probe WHERE id = 1;")"
 restored_payload="$(psql --host="$PGHOST" --port="$PGPORT" --username="$PGUSER" --dbname="$restore_db" --tuples-only --no-align --set=ON_ERROR_STOP=1 -c "SELECT payload->>'schema' FROM backup_restore_probe WHERE id = 1;")"
 restored_migration="$(psql --host="$PGHOST" --port="$PGPORT" --username="$PGUSER" --dbname="$restore_db" --tuples-only --no-align --set=ON_ERROR_STOP=1 -c "SELECT version_num FROM alembic_version LIMIT 1;")"
-restored_tables="$(psql --host="$PGHOST" --port="$PGPORT" --username="$PGUSER" --dbname="$restore_db" --tuples-only --no-align --set=ON_ERROR_STOP=1 -c "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name IN ('lotteries', 'lottery_draws', 'alembic_version');")"
+restored_tables="$(psql --host="$PGHOST" --port="$PGPORT" --username="$PGUSER" --dbname="$restore_db" --tuples-only --no-align --set=ON_ERROR_STOP=1 -c "SELECT count(*) FROM information_schema.tables WHERE table_schema = 'public' AND table_name IN ('lotteries', 'lottery_draws', 'alembic_version', 'users');")"
 
 [[ "$restored_marker" == "bcp-restore-ok" ]]
 [[ "$restored_payload" == "v1" ]]
-[[ "$restored_migration" == "b7c4d9e2f1a3" ]]
-[[ "$restored_tables" == "3" ]]
+[[ "$restored_migration" == "c1d8e7f4a2b6" ]]
+[[ "$restored_tables" == "4" ]]
 
 echo "PostgreSQL backup/restore verification passed."
