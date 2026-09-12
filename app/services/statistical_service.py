@@ -20,7 +20,7 @@ class StatisticalService:
     def overview(db: Session) -> dict[str, int | str]:
         draws_analyzed = db.scalar(select(func.count(LotteryDraw.id))) or 0
         return {
-            "module_status": "READY",
-            "algorithms_count": len(STATISTICAL_ALGORITHMS),
+            "module_status": "STANDBY",
+            "algorithms_count": 0,
             "draws_analyzed": draws_analyzed,
         }
