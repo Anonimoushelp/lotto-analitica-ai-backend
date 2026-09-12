@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy import func, select
+from sqlalchemy import func, select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -11,6 +11,13 @@ from app.models.user import User
 from app.schemas.user import UserCreate, UserResponse, UserUpdate
 
 router = APIRouter(prefix="/api/v1/users", tags=["Users"])
+
+ADMIN_INVARIANT_LOCK_KEY = 2147483647
+
+
+def _lock_admin_invariant(db: Session) -> None:
+    if db.bind is not None and db.bind.dialect.name == "postgresql":
+        db.execute(text("SELECT pg_advisory_xact_lock(:lock_key)"), {"lock_key": ADMIN_INVARIANT_LOCK_KEY})
 
 
 @router.get("", response_model=list[UserResponse])
@@ -59,6 +66,8 @@ def update_user(
     if user is None:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="User not found")
 
+    _lock_admin_invariant(db)
+
     if user.id == actor.id and payload.is_active is False:
         raise HTTPException(status_code=status.HTTP_422_UNPROCESSABLE_ENTITY, detail="An administrator cannot deactivate the current user")
 
@@ -80,9 +89,13 @@ def update_user(
 
     if payload.password is not None:
         user.password_hash = hash_password(payload.password)
-        user.session_version += 1
+        user.session_version = User.session_version + 1
 
-    db.commit()
+    try:
+        db.commit()
+    except IntegrityError:
+        db.rollback()
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail="User update conflicts with an existing record") from None
     db.refresh(user)
     log_mutation(action="update", resource="user", resource_id=user.id, actor=actor)
     return user
