@@ -80,6 +80,7 @@ def update_user(
 
     if payload.password is not None:
         user.password_hash = hash_password(payload.password)
+        user.session_version += 1
 
     db.commit()
     db.refresh(user)
