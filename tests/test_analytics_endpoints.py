@@ -29,10 +29,33 @@ def authenticated_read_context():
 
 
 def test_statistical_overview_contract(monkeypatch):
-    monkeypatch.setattr(StatisticalService, "overview", lambda db: {"module_status": "READY", "algorithms_count": 6, "draws_analyzed": 42})
+    monkeypatch.setattr(
+        StatisticalService,
+        "overview",
+        lambda db, lottery_id=None: {"module_status": "READY", "algorithms_count": 6, "draws_analyzed": 42},
+    )
     response = client.get("/api/v1/statistics/overview")
     assert response.status_code == 200
     assert response.json() == {"module_status": "READY", "algorithms_count": 6, "draws_analyzed": 42}
+
+
+def test_statistical_overview_forwards_lottery_scope(monkeypatch):
+    captured = {}
+
+    def overview(db, lottery_id=None):
+        captured["lottery_id"] = lottery_id
+        return {"module_status": "READY", "algorithms_count": 6, "draws_analyzed": 2}
+
+    monkeypatch.setattr(StatisticalService, "overview", overview)
+    response = client.get("/api/v1/statistics/overview?lottery_id=7")
+    assert response.status_code == 200
+    assert captured["lottery_id"] == 7
+    assert response.json() == {"module_status": "READY", "algorithms_count": 6, "draws_analyzed": 2}
+
+
+def test_statistical_overview_rejects_non_positive_lottery_scope():
+    response = client.get("/api/v1/statistics/overview?lottery_id=0")
+    assert response.status_code == 422
 
 
 def test_statistical_service_advanced_algorithms_are_deterministic():
@@ -83,6 +106,23 @@ def test_statistical_service_invariants_hold_for_multiple_draw_sizes():
 def test_statistical_service_is_reproducible_and_ignores_input_order():
     draws = [SimpleNamespace(id=2, draw_date=date(2026, 1, 2), main_numbers=[4, 5, 6, 7]), SimpleNamespace(id=1, draw_date=date(2026, 1, 1), main_numbers=[1, 2, 3, 4])]
     assert StatisticalService.analyze(draws) == StatisticalService.analyze(list(reversed(draws)))
+
+
+def test_statistical_service_scopes_all_algorithms_to_lottery():
+    draws = [
+        SimpleNamespace(id=1, lottery_id=10, draw_date=date(2026, 1, 1), main_numbers=[1, 2, 3]),
+        SimpleNamespace(id=2, lottery_id=20, draw_date=date(2026, 1, 2), main_numbers=[9, 10, 11]),
+        SimpleNamespace(id=3, lottery_id=10, draw_date=date(2026, 1, 3), main_numbers=[2, 3, 4]),
+    ]
+    result = StatisticalService.analyze(draws, lottery_id=10)
+    assert result["number_frequency"] == {1: 1, 2: 2, 3: 2, 4: 1}
+    assert result["sum_distribution"] == {"count": 2, "minimum": 6, "maximum": 9, "average": 7.5}
+    assert result["even_odd_distribution"] == {"1-2": 1, "2-1": 1}
+    assert result["pair_frequency"]["2-3"] == 2
+    assert "9-10" not in result["pair_frequency"]
+    assert result["consecutive_numbers"] == {"draws_with_consecutive": 2, "total_consecutive_pairs": 3, "maximum_consecutive_pairs": 2}
+    assert result["number_recency"][2] == {"last_seen_draw": 2, "draws_since_seen": 0}
+    assert 9 not in result["number_recency"]
 
 
 def test_statistical_service_handles_empty_and_single_draw_boundaries():
