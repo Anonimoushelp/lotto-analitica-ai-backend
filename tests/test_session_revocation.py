@@ -1,3 +1,4 @@
+from fastapi import HTTPException
 from fastapi.security import HTTPAuthorizationCredentials
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, delete, select
@@ -64,10 +65,11 @@ def test_existing_token_is_revoked_after_password_change():
         credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
         try:
             get_current_user(credentials=credentials, db=db)
+        except HTTPException as exc:
+            assert exc.status_code == 401
+            assert exc.detail == "Session revoked"
+        else:
             raise AssertionError("revoked token must be rejected")
-        except Exception as exc:
-            assert getattr(exc, "status_code", None) == 401
-            assert getattr(exc, "detail", None) == "Session revoked"
     finally:
         db.close()
         clean_users()
