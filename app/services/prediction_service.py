@@ -31,6 +31,12 @@ class PredictionService:
                 detail="Lottery not found",
             )
 
+        if payload.include_extra_number:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Extra-number predictions require a verified lottery rule catalog",
+            )
+
         draws = LotteryDrawRepository.list(
             db=db,
             lottery_id=payload.lottery_id,
@@ -59,8 +65,13 @@ class PredictionService:
             prediction_count=payload.prediction_count,
             historical_numbers=historical_numbers,
         )
-        generated = GeminiClient.generate_json(prompt)
-        if not validate_predictions(generated, payload.prediction_count):
+        generated = GeminiClient.generate_json(prompt, temperature=payload.temperature)
+        if not validate_predictions(
+            generated,
+            payload.prediction_count,
+            min_confidence_threshold=payload.min_confidence_threshold,
+            include_extra_number=payload.include_extra_number,
+        ):
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 detail="Gemini returned predictions that do not match the required contract",
