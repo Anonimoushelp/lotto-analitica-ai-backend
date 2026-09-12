@@ -69,7 +69,11 @@ def login(
             ) from None
 
     logger.info("auth.login.success user_id=%s", user.id)
-    return TokenResponse(access_token=create_access_token(str(user.id), user.role))
+    return TokenResponse(
+        access_token=create_access_token(
+            str(user.id), user.role, user.session_version
+        )
+    )
 
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
