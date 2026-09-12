@@ -126,7 +126,8 @@ class StatisticalService:
         if lottery_id is not None:
             statement = statement.where(LotteryDraw.lottery_id == lottery_id)
 
-        draws = list(db.scalars(statement).all())
+        with db.no_autoflush:
+            draws = list(db.scalars(statement).all())
         analyzable_draws = [draw for draw in draws if draw.main_numbers]
         if not analyzable_draws:
             return {
