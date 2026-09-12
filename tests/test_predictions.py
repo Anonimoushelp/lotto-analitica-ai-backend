@@ -69,7 +69,7 @@ def test_prediction_service_fails_closed_without_verified_rule_catalog():
 def test_prediction_service_rejects_malformed_historical_draw():
     class FakeSession:
         def get(self, *_args, **_kwargs):
-            return SimpleNamespace(id=1, code="MILOTO", name="MiLoto")
+            return SimpleNamespace(id=1, code="VERIFIED", name="Verified")
 
     class FakeRepository:
         @staticmethod
@@ -79,7 +79,15 @@ def test_prediction_service_rejects_malformed_historical_draw():
     from app.services import prediction_service
 
     original_repository = prediction_service.LotteryDrawRepository
+    original_rule_lookup = prediction_service.get_verified_lottery_rule
     prediction_service.LotteryDrawRepository = FakeRepository
+    prediction_service.get_verified_lottery_rule = lambda _code: SimpleNamespace(
+        main_count=5,
+        main_min=1,
+        main_max=39,
+        extra_min=None,
+        extra_max=None,
+    )
     try:
         try:
             PredictionService().generate(
@@ -100,6 +108,7 @@ def test_prediction_service_rejects_malformed_historical_draw():
             raise AssertionError("Malformed historical draws must fail closed")
     finally:
         prediction_service.LotteryDrawRepository = original_repository
+        prediction_service.get_verified_lottery_rule = original_rule_lookup
 
 
 def test_predictions_route_requires_authentication():
