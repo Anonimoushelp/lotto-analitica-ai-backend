@@ -23,18 +23,18 @@ class StatisticalService:
     @staticmethod
     def _validate_draws(draws: list[LotteryDraw]) -> None:
         if not isinstance(draws, list):
-            raise ValueError("Statistical analysis requires a list of draws")
+            raise TypeError("Statistical analysis requires a list of draws")
 
         for draw in draws:
             draw_date = getattr(draw, "draw_date", None)
             if not isinstance(draw_date, date):
-                raise ValueError("Each draw must have a valid draw_date")
+                raise TypeError("Each draw must have a valid draw_date")
 
             main_numbers = getattr(draw, "main_numbers", None)
             if main_numbers is None:
                 continue
             if not isinstance(main_numbers, list):
-                raise ValueError("main_numbers must be a list or null")
+                raise TypeError("main_numbers must be a list or null")
             if any(
                 isinstance(number, bool) or not isinstance(number, Integral) or number <= 0
                 for number in main_numbers
