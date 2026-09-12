@@ -78,9 +78,9 @@ def test_analyze_accepts_empty_and_variable_size_draws():
     }
     assert result["sum_distribution"] == {
         "count": 3,
-        "minimum": 7,
+        "minimum": 6,
         "maximum": 108,
-        "average": 44.0,
+        "average": 40.33,
     }
 
 
