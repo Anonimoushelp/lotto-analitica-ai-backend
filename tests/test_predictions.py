@@ -45,6 +45,27 @@ def test_prediction_service_requires_selected_lottery():
         raise AssertionError("Missing lottery must raise HTTPException")
 
 
+def test_prediction_service_fails_closed_without_verified_rule_catalog():
+    class FakeSession:
+        def get(self, *_args, **_kwargs):
+            return SimpleNamespace(id=1, code="UNVERIFIED", name="Unverified")
+
+    try:
+        PredictionService().generate(
+            FakeSession(),
+            SimpleNamespace(
+                lottery_id=1,
+                prediction_count=1,
+                include_extra_number=False,
+            ),
+        )
+    except HTTPException as exc:
+        assert exc.status_code == 422
+        assert exc.detail == "AI predictions require a verified lottery rule catalog"
+    else:
+        raise AssertionError("Unverified lottery rules must block AI generation")
+
+
 def test_predictions_route_requires_authentication():
     client = TestClient(app)
     response = client.post(
