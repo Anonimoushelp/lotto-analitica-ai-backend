@@ -134,3 +134,45 @@ def test_user_update_cannot_remove_last_active_admin():
             app.dependency_overrides.pop(get_db, None)
         else:
             app.dependency_overrides[get_db] = previous_db
+
+
+def test_user_update_cannot_remove_own_admin_role():
+    db = FakeDB()
+    previous_user = app.dependency_overrides.get(get_current_user)
+    previous_db = app.dependency_overrides.get(get_db)
+    app.dependency_overrides[get_current_user] = override_user("admin", user_id=1)
+    app.dependency_overrides[get_db] = lambda: db
+    try:
+        response = client.patch("/api/v1/users/1", json={"role": "viewer"})
+        assert response.status_code == 422
+    finally:
+        if previous_user is None:
+            app.dependency_overrides.pop(get_current_user, None)
+        else:
+            app.dependency_overrides[get_current_user] = previous_user
+        if previous_db is None:
+            app.dependency_overrides.pop(get_db, None)
+        else:
+            app.dependency_overrides[get_db] = previous_db
+
+
+def test_user_creation_rejects_short_password():
+    previous_user = app.dependency_overrides.get(get_current_user)
+    previous_db = app.dependency_overrides.get(get_db)
+    app.dependency_overrides[get_current_user] = override_user("admin")
+    app.dependency_overrides[get_db] = lambda: FakeDB()
+    try:
+        response = client.post(
+            "/api/v1/users",
+            json={"email": "viewer@example.com", "password": "short", "role": "viewer"},
+        )
+        assert response.status_code == 422
+    finally:
+        if previous_user is None:
+            app.dependency_overrides.pop(get_current_user, None)
+        else:
+            app.dependency_overrides[get_current_user] = previous_user
+        if previous_db is None:
+            app.dependency_overrides.pop(get_db, None)
+        else:
+            app.dependency_overrides[get_db] = previous_db
