@@ -21,6 +21,7 @@ class _ReadOnlySession:
         self.executed_statements = []
         self.autoflush_entered = 0
 
+    @property
     def no_autoflush(self):
         self.autoflush_entered += 1
         return nullcontext()
