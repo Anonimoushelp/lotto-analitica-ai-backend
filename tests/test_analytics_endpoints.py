@@ -88,6 +88,89 @@ def test_statistical_service_advanced_algorithms_are_deterministic():
     }
 
 
+def test_statistical_service_invariants_hold_for_multiple_draw_sizes():
+    draws = [
+        SimpleNamespace(id=3, draw_date=date(2026, 1, 3), main_numbers=[1, 3, 5]),
+        SimpleNamespace(id=1, draw_date=date(2026, 1, 1), main_numbers=[2, 4, 6]),
+        SimpleNamespace(id=2, draw_date=date(2026, 1, 2), main_numbers=[1, 2, 3]),
+    ]
+
+    result = StatisticalService.analyze(draws)
+    frequency = result["number_frequency"]
+    parity = result["even_odd_distribution"]
+    sums = result["sum_distribution"]
+    recency = result["number_recency"]
+    pairs = result["pair_frequency"]
+    consecutive = result["consecutive_numbers"]
+
+    assert sum(frequency.values()) == 9
+    assert sum(parity.values()) == 3
+    assert all(sum(map(int, key.split("-"))) == 3 for key in parity)
+    assert sums == {"count": 3, "minimum": 6, "maximum": 9, "average": 8.0}
+    assert len(pairs) <= 3 * 3
+    assert pairs["1-2"] == 1
+    assert pairs["1-3"] == 1
+    assert pairs["2-3"] == 1
+    assert consecutive["draws_with_consecutive"] == 1
+    assert consecutive["total_consecutive_pairs"] == 2
+    assert consecutive["maximum_consecutive_pairs"] == 2
+    assert recency[1] == {"last_seen_draw": 3, "draws_since_seen": 0}
+    assert recency[2] == {"last_seen_draw": 2, "draws_since_seen": 1}
+    assert recency[6] == {"last_seen_draw": 1, "draws_since_seen": 2}
+
+
+def test_statistical_service_is_reproducible_and_ignores_input_order():
+    draws = [
+        SimpleNamespace(id=2, draw_date=date(2026, 1, 2), main_numbers=[4, 5, 6, 7]),
+        SimpleNamespace(id=1, draw_date=date(2026, 1, 1), main_numbers=[1, 2, 3, 4]),
+    ]
+
+    first = StatisticalService.analyze(draws)
+    second = StatisticalService.analyze(list(reversed(draws)))
+
+    assert first == second
+
+
+def test_statistical_service_handles_empty_and_single_draw_boundaries():
+    empty = StatisticalService.analyze([])
+    assert empty == {
+        "number_frequency": {},
+        "number_recency": {},
+        "even_odd_distribution": {},
+        "sum_distribution": {
+            "count": 0,
+            "minimum": None,
+            "maximum": None,
+            "average": None,
+        },
+        "pair_frequency": {},
+        "consecutive_numbers": {
+            "draws_with_consecutive": 0,
+            "total_consecutive_pairs": 0,
+            "maximum_consecutive_pairs": 0,
+        },
+    }
+
+    single = StatisticalService.analyze(
+        [SimpleNamespace(id=1, draw_date=date(2026, 1, 1), main_numbers=[10])]
+    )
+    assert single["number_frequency"] == {10: 1}
+    assert single["number_recency"] == {10: {"last_seen_draw": 1, "draws_since_seen": 0}}
+    assert single["even_odd_distribution"] == {"1-0": 1}
+    assert single["sum_distribution"] == {
+        "count": 1,
+        "minimum": 10,
+        "maximum": 10,
+        "average": 10.0,
+    }
+    assert single["pair_frequency"] == {}
+    assert single["consecutive_numbers"] == {
+        "draws_with_consecutive": 0,
+        "total_consecutive_pairs": 0,
+        "maximum_consecutive_pairs": 0,
+    }
+
+
 def test_statistical_service_stays_standby_without_draws():
     class EmptyResult:
         def all(self):
