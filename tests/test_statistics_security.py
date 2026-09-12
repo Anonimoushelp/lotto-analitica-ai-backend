@@ -6,7 +6,7 @@ from app.api.dependencies.auth import get_current_user
 from app.main import app
 from app.services.statistical_service import StatisticalService
 
-client = TestClient(app)
+client = TestClient(app, raise_server_exceptions=False)
 
 
 def _set_user(role: str):
