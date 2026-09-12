@@ -55,35 +55,30 @@ class StatisticalService:
             draws = [draw for draw in draws if draw.lottery_id == lottery_id]
 
         ordered_draws = sorted(
-            draws,
+            (draw for draw in draws if draw.main_numbers),
             key=lambda draw: (draw.draw_date, draw.id or 0),
         )
         frequency = collections.Counter(
             number
             for draw in ordered_draws
-            for number in (draw.main_numbers or [])
+            for number in draw.main_numbers
         )
         parity = collections.Counter(
-            f"{sum(number % 2 == 0 for number in (draw.main_numbers or []))}-"
-            f"{sum(number % 2 != 0 for number in (draw.main_numbers or []))}"
+            f"{sum(number % 2 == 0 for number in draw.main_numbers)}-"
+            f"{sum(number % 2 != 0 for number in draw.main_numbers)}"
             for draw in ordered_draws
-            if draw.main_numbers
         )
-        sums = [
-            sum(draw.main_numbers or [])
-            for draw in ordered_draws
-            if draw.main_numbers
-        ]
+        sums = [sum(draw.main_numbers) for draw in ordered_draws]
 
         pair_frequency = collections.Counter(
             pair
             for draw in ordered_draws
-            for pair in itertools.combinations(sorted(set(draw.main_numbers or [])), 2)
+            for pair in itertools.combinations(sorted(set(draw.main_numbers)), 2)
         )
 
         consecutive_counts = []
         for draw in ordered_draws:
-            numbers = sorted(set(draw.main_numbers or []))
+            numbers = sorted(set(draw.main_numbers))
             consecutive_counts.append(
                 sum(
                     right == left + 1
@@ -94,7 +89,7 @@ class StatisticalService:
         recency: dict[int, dict[str, int]] = {}
         draw_count = len(ordered_draws)
         for index, draw in enumerate(ordered_draws, start=1):
-            for number in set(draw.main_numbers or []):
+            for number in set(draw.main_numbers):
                 recency[number] = {
                     "last_seen_draw": index,
                     "draws_since_seen": draw_count - index,
@@ -132,16 +127,17 @@ class StatisticalService:
             statement = statement.where(LotteryDraw.lottery_id == lottery_id)
 
         draws = list(db.scalars(statement).all())
-        if not draws:
+        analyzable_draws = [draw for draw in draws if draw.main_numbers]
+        if not analyzable_draws:
             return {
                 "module_status": "STANDBY",
                 "algorithms_count": 0,
                 "draws_analyzed": 0,
             }
 
-        StatisticalService.analyze(draws, lottery_id=lottery_id)
+        StatisticalService.analyze(analyzable_draws, lottery_id=lottery_id)
         return {
             "module_status": "READY",
             "algorithms_count": len(STATISTICAL_ALGORITHMS),
-            "draws_analyzed": len(draws),
+            "draws_analyzed": len(analyzable_draws),
         }
