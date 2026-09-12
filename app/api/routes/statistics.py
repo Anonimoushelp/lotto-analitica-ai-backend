@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Query
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import require_admin_or_analyst
@@ -14,7 +14,8 @@ router = APIRouter(
 
 @router.get("/overview", response_model=StatisticalOverviewResponse)
 def get_statistical_overview(
+    lottery_id: int | None = Query(default=None, gt=0),
     db: Session = Depends(get_db),
     current_user=Depends(require_admin_or_analyst),
 ):
-    return StatisticalService.overview(db=db)
+    return StatisticalService.overview(db=db, lottery_id=lottery_id)
