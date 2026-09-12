@@ -1,3 +1,4 @@
+from contextlib import nullcontext
 from datetime import date
 
 from app.models.lottery_draw import LotteryDraw
@@ -18,6 +19,11 @@ class _ReadOnlySession:
         self.commit_calls = 0
         self.flush_calls = 0
         self.executed_statements = []
+        self.autoflush_entered = 0
+
+    def no_autoflush(self):
+        self.autoflush_entered += 1
+        return nullcontext()
 
     def scalars(self, statement):
         self.executed_statements.append(statement)
@@ -59,6 +65,7 @@ def test_overview_is_read_only_and_does_not_mutate_session():
     }
     assert db.commit_calls == 0
     assert db.flush_calls == 0
+    assert db.autoflush_entered == 1
     assert len(db.executed_statements) == 1
 
 
