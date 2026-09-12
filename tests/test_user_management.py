@@ -87,6 +87,47 @@ def test_users_requires_admin():
             app.dependency_overrides[get_db] = previous_db
 
 
+def test_non_admin_cannot_create_users():
+    previous_user = app.dependency_overrides.get(get_current_user)
+    previous_db = app.dependency_overrides.get(get_db)
+    app.dependency_overrides[get_current_user] = override_user("viewer")
+    app.dependency_overrides[get_db] = lambda: FakeDB()
+    try:
+        response = client.post(
+            "/api/v1/users",
+            json={"email": "viewer@example.com", "password": "A-secure-password-123", "role": "viewer"},
+        )
+        assert response.status_code == 403
+    finally:
+        if previous_user is None:
+            app.dependency_overrides.pop(get_current_user, None)
+        else:
+            app.dependency_overrides[get_current_user] = previous_user
+        if previous_db is None:
+            app.dependency_overrides.pop(get_db, None)
+        else:
+            app.dependency_overrides[get_db] = previous_db
+
+
+def test_non_admin_cannot_update_users():
+    previous_user = app.dependency_overrides.get(get_current_user)
+    previous_db = app.dependency_overrides.get(get_db)
+    app.dependency_overrides[get_current_user] = override_user("analyst")
+    app.dependency_overrides[get_db] = lambda: FakeDB()
+    try:
+        response = client.patch("/api/v1/users/1", json={"role": "viewer"})
+        assert response.status_code == 403
+    finally:
+        if previous_user is None:
+            app.dependency_overrides.pop(get_current_user, None)
+        else:
+            app.dependency_overrides[get_current_user] = previous_user
+        if previous_db is None:
+            app.dependency_overrides.pop(get_db, None)
+        else:
+            app.dependency_overrides[get_db] = previous_db
+
+
 def test_admin_can_list_and_create_users():
     db = FakeDB()
     previous_user = app.dependency_overrides.get(get_current_user)
@@ -106,6 +147,43 @@ def test_admin_can_list_and_create_users():
         assert created.json()["email"] == "analyst@example.com"
         assert created.json()["role"] == "analyst"
         assert "password_hash" not in created.json()
+    finally:
+        if previous_user is None:
+            app.dependency_overrides.pop(get_current_user, None)
+        else:
+            app.dependency_overrides[get_current_user] = previous_user
+        if previous_db is None:
+            app.dependency_overrides.pop(get_db, None)
+        else:
+            app.dependency_overrides[get_db] = previous_db
+
+
+def test_admin_can_change_non_admin_role_and_status():
+    db = FakeDB()
+    db.users.append(
+        User(
+            id=2,
+            email="analyst@example.com",
+            password_hash="hash",
+            role="analyst",
+            is_active=True,
+            session_version=0,
+            created_at=datetime.now(UTC),
+            updated_at=datetime.now(UTC),
+        )
+    )
+    previous_user = app.dependency_overrides.get(get_current_user)
+    previous_db = app.dependency_overrides.get(get_db)
+    app.dependency_overrides[get_current_user] = override_user("admin")
+    app.dependency_overrides[get_db] = lambda: db
+    try:
+        response = client.patch(
+            "/api/v1/users/2",
+            json={"role": "viewer", "is_active": False},
+        )
+        assert response.status_code == 200
+        assert db.users[1].role == "viewer"
+        assert db.users[1].is_active is False
     finally:
         if previous_user is None:
             app.dependency_overrides.pop(get_current_user, None)
