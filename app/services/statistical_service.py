@@ -1,7 +1,7 @@
-# ruff: noqa: I001
-
 import collections
 import itertools
+from datetime import date
+from numbers import Integral
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -21,9 +21,34 @@ STATISTICAL_ALGORITHMS = (
 
 class StatisticalService:
     @staticmethod
+    def _validate_draws(draws: list[LotteryDraw]) -> None:
+        if not isinstance(draws, list):
+            raise ValueError("Statistical analysis requires a list of draws")
+
+        for draw in draws:
+            draw_date = getattr(draw, "draw_date", None)
+            if not isinstance(draw_date, date):
+                raise ValueError("Each draw must have a valid draw_date")
+
+            main_numbers = getattr(draw, "main_numbers", None)
+            if main_numbers is None:
+                continue
+            if not isinstance(main_numbers, list):
+                raise ValueError("main_numbers must be a list or null")
+            if any(
+                isinstance(number, bool) or not isinstance(number, Integral) or number <= 0
+                for number in main_numbers
+            ):
+                raise ValueError("main_numbers must contain positive integers")
+            if len(main_numbers) != len(set(main_numbers)):
+                raise ValueError("main_numbers cannot contain duplicate values")
+
+    @staticmethod
     def analyze(
         draws: list[LotteryDraw], lottery_id: int | None = None
     ) -> dict[str, object]:
+        StatisticalService._validate_draws(draws)
+
         if lottery_id is not None:
             draws = [draw for draw in draws if draw.lottery_id == lottery_id]
 
