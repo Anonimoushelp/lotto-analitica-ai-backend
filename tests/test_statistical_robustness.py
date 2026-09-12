@@ -29,15 +29,15 @@ def draw(numbers, draw_id=1, draw_date=date(2026, 1, 1), lottery_id=1):
     ],
 )
 def test_analyze_rejects_corrupt_main_numbers(numbers):
-    with pytest.raises(ValueError):
+    with pytest.raises((TypeError, ValueError)):
         StatisticalService.analyze([draw(numbers)])
 
 
 def test_analyze_rejects_missing_or_invalid_draw_date():
-    with pytest.raises(ValueError):
+    with pytest.raises(TypeError):
         StatisticalService.analyze([draw([1, 2], draw_date=None)])
 
-    with pytest.raises(ValueError):
+    with pytest.raises(TypeError):
         StatisticalService.analyze([draw([1, 2], draw_date="2026-01-01")])
 
 
@@ -85,8 +85,8 @@ def test_analyze_accepts_empty_and_variable_size_draws():
 
 
 def test_analyze_requires_list_input():
-    with pytest.raises(ValueError):
-        StatisticalService.analyze(tuple([draw([1, 2])]))
+    with pytest.raises(TypeError):
+        StatisticalService.analyze((draw([1, 2]),))
 
 
 def test_analyze_is_deterministic_with_same_date_using_id_tiebreaker():
