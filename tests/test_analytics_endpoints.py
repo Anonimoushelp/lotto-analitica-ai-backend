@@ -36,8 +36,8 @@ def test_statistical_overview_contract(monkeypatch):
         StatisticalService,
         "overview",
         lambda db: {
-            "module_status": "READY",
-            "algorithms_count": 8,
+            "module_status": "STANDBY",
+            "algorithms_count": 0,
             "draws_analyzed": 42,
         },
     )
@@ -46,8 +46,8 @@ def test_statistical_overview_contract(monkeypatch):
 
     assert response.status_code == 200
     assert response.json() == {
-        "module_status": "READY",
-        "algorithms_count": 8,
+        "module_status": "STANDBY",
+        "algorithms_count": 0,
         "draws_analyzed": 42,
     }
 
