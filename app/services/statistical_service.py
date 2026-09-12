@@ -2,6 +2,7 @@
 
 import collections
 import itertools
+from contextlib import nullcontext
 from datetime import date
 from numbers import Integral
 
@@ -126,7 +127,8 @@ class StatisticalService:
         if lottery_id is not None:
             statement = statement.where(LotteryDraw.lottery_id == lottery_id)
 
-        with db.no_autoflush:
+        autoflush_context = getattr(db, "no_autoflush", nullcontext())
+        with autoflush_context:
             draws = list(db.scalars(statement).all())
         analyzable_draws = [draw for draw in draws if draw.main_numbers]
         if not analyzable_draws:
