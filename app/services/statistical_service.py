@@ -1,4 +1,4 @@
-from collections import Counter
+from collections import Counter  # noqa: I001
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
