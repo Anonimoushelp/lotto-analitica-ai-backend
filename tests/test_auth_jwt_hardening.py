@@ -9,7 +9,7 @@ from app.db.session import get_db
 from app.main import app
 from app.models.lottery import Lottery
 from app.models.user import User
-from tests.test_auth import TestingSessionLocal, seed_user
+from tests.test_auth import TestingSessionLocal, override_get_db, seed_user
 
 
 client = TestClient(app)
@@ -25,9 +25,7 @@ def _cleanup() -> None:
 
 def setup_function():
     _cleanup()
-    app.dependency_overrides[get_db] = lambda: (
-        session for session in [TestingSessionLocal()]
-    )
+    app.dependency_overrides[get_db] = override_get_db
 
 
 def teardown_function():
