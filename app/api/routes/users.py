@@ -89,7 +89,10 @@ def update_user(
 
     if payload.password is not None:
         user.password_hash = hash_password(payload.password)
-        user.session_version = User.session_version + 1
+        if db.bind is not None and db.bind.dialect.name == "postgresql":
+            user.session_version = User.session_version + 1
+        else:
+            user.session_version += 1
 
     try:
         db.commit()
