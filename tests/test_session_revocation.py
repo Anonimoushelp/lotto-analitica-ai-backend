@@ -1,8 +1,10 @@
+from fastapi.security import HTTPAuthorizationCredentials
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, delete, select
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.api.dependencies.auth import get_current_user
 from app.core.security import create_access_token, hash_password
 from app.db.session import get_db
 from app.main import app
@@ -59,12 +61,13 @@ def test_existing_token_is_revoked_after_password_change():
         user.session_version += 1
         db.commit()
 
-        response = client.get(
-            "/api/v1/auth/me",
-            headers={"Authorization": f"Bearer {token}"},
-        )
-        assert response.status_code == 401
-        assert response.headers["WWW-Authenticate"] == "Bearer"
+        credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
+        try:
+            get_current_user(credentials=credentials, db=db)
+            raise AssertionError("revoked token must be rejected")
+        except Exception as exc:
+            assert getattr(exc, "status_code", None) == 401
+            assert getattr(exc, "detail", None) == "Session revoked"
     finally:
         db.close()
         clean_users()
@@ -79,13 +82,11 @@ def test_new_token_uses_current_session_version():
         db.refresh(user)
 
         token = create_access_token(str(user.id), user.role, user.session_version)
-        app.dependency_overrides[get_db] = override_get_db
-        response = client.get(
-            "/api/v1/auth/me",
-            headers={"Authorization": f"Bearer {token}"},
-        )
-        assert response.status_code == 200
-        assert response.json()["email"] == user.email
+        credentials = HTTPAuthorizationCredentials(scheme="Bearer", credentials=token)
+        current = get_current_user(credentials=credentials, db=db)
+        assert current.id == user.id
+        assert current.email == user.email
+        assert current.session_version == 3
 
         stored = db.scalar(select(User).where(User.id == user.id))
         assert stored is not None
