@@ -29,29 +29,20 @@ def test_prediction_request_rejects_unknown_fields():
 
 
 def test_prediction_service_requires_selected_lottery():
-    class FakeScalar:
-        def scalar_one_or_none(self):
+    class FakeSession:
+        def get(self, *_args, **_kwargs):
             return None
 
-    class FakeSession:
-        async def execute(self, *_args, **_kwargs):
-            return FakeScalar()
-
-    async def run():
-        try:
-            await PredictionService().generate(
-                FakeSession(),
-                SimpleNamespace(lottery_id=999999, prediction_count=1),
-            )
-        except HTTPException as exc:
-            assert exc.status_code == 404
-            assert exc.detail == "Lottery not found"
-        else:
-            raise AssertionError("Missing lottery must raise HTTPException")
-
-    import asyncio
-
-    asyncio.run(run())
+    try:
+        PredictionService().generate(
+            FakeSession(),
+            SimpleNamespace(lottery_id=999999, prediction_count=1),
+        )
+    except HTTPException as exc:
+        assert exc.status_code == 404
+        assert exc.detail == "Lottery not found"
+    else:
+        raise AssertionError("Missing lottery must raise HTTPException")
 
 
 def test_predictions_route_requires_authentication():
