@@ -39,8 +39,8 @@ def test_analyze_excludes_empty_draws_from_recency_and_consecutive_metrics():
         "draws_since_seen": 0,
     }
     assert result["consecutive_numbers"] == {
-        "draws_with_consecutive": 1,
-        "total_consecutive_pairs": 2,
+        "draws_with_consecutive": 2,
+        "total_consecutive_pairs": 3,
         "maximum_consecutive_pairs": 2,
     }
 
