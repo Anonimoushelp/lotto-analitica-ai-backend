@@ -1,5 +1,3 @@
-# ruff: noqa: I001
-
 import collections
 import itertools
 
@@ -21,7 +19,12 @@ STATISTICAL_ALGORITHMS = (
 
 class StatisticalService:
     @staticmethod
-    def analyze(draws: list[LotteryDraw]) -> dict[str, object]:
+    def analyze(
+        draws: list[LotteryDraw], lottery_id: int | None = None
+    ) -> dict[str, object]:
+        if lottery_id is not None:
+            draws = [draw for draw in draws if draw.lottery_id == lottery_id]
+
         ordered_draws = sorted(
             draws,
             key=lambda draw: (draw.draw_date, draw.id or 0),
@@ -92,8 +95,14 @@ class StatisticalService:
         }
 
     @staticmethod
-    def overview(db: Session) -> dict[str, int | str]:
-        draws = list(db.scalars(select(LotteryDraw)).all())
+    def overview(
+        db: Session, lottery_id: int | None = None
+    ) -> dict[str, int | str]:
+        statement = select(LotteryDraw)
+        if lottery_id is not None:
+            statement = statement.where(LotteryDraw.lottery_id == lottery_id)
+
+        draws = list(db.scalars(statement).all())
         if not draws:
             return {
                 "module_status": "STANDBY",
@@ -101,7 +110,7 @@ class StatisticalService:
                 "draws_analyzed": 0,
             }
 
-        StatisticalService.analyze(draws)
+        StatisticalService.analyze(draws, lottery_id=lottery_id)
         return {
             "module_status": "READY",
             "algorithms_count": len(STATISTICAL_ALGORITHMS),
