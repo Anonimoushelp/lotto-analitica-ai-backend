@@ -66,6 +66,42 @@ def test_prediction_service_fails_closed_without_verified_rule_catalog():
         raise AssertionError("Unverified lottery rules must block AI generation")
 
 
+def test_prediction_service_rejects_malformed_historical_draw():
+    class FakeSession:
+        def get(self, *_args, **_kwargs):
+            return SimpleNamespace(id=1, code="MILOTO", name="MiLoto")
+
+    class FakeRepository:
+        @staticmethod
+        def list(*_args, **_kwargs):
+            return [SimpleNamespace(main_numbers=[1, 2, 3, 4])]
+
+    from app.services import prediction_service
+
+    original_repository = prediction_service.LotteryDrawRepository
+    prediction_service.LotteryDrawRepository = FakeRepository
+    try:
+        try:
+            PredictionService().generate(
+                FakeSession(),
+                SimpleNamespace(
+                    lottery_id=1,
+                    prediction_count=1,
+                    include_extra_number=False,
+                    strategy="balanceado",
+                    temperature=0.7,
+                    min_confidence_threshold=50,
+                ),
+            )
+        except HTTPException as exc:
+            assert exc.status_code == 422
+            assert exc.detail == "The selected lottery contains invalid historical draw data"
+        else:
+            raise AssertionError("Malformed historical draws must fail closed")
+    finally:
+        prediction_service.LotteryDrawRepository = original_repository
+
+
 def test_predictions_route_requires_authentication():
     client = TestClient(app)
     response = client.post(
