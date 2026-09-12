@@ -30,6 +30,7 @@ class FakeDB:
                 password_hash="hash",
                 role="admin",
                 is_active=True,
+                session_version=0,
                 created_at=datetime.now(UTC),
                 updated_at=datetime.now(UTC),
             )
@@ -167,6 +168,31 @@ def test_user_creation_rejects_short_password():
             json={"email": "viewer@example.com", "password": "short", "role": "viewer"},
         )
         assert response.status_code == 422
+    finally:
+        if previous_user is None:
+            app.dependency_overrides.pop(get_current_user, None)
+        else:
+            app.dependency_overrides[get_current_user] = previous_user
+        if previous_db is None:
+            app.dependency_overrides.pop(get_db, None)
+        else:
+            app.dependency_overrides[get_db] = previous_db
+
+
+def test_user_password_update_increments_session_version():
+    db = FakeDB()
+    previous_user = app.dependency_overrides.get(get_current_user)
+    previous_db = app.dependency_overrides.get(get_db)
+    app.dependency_overrides[get_current_user] = override_user("admin")
+    app.dependency_overrides[get_db] = lambda: db
+    try:
+        response = client.patch(
+            "/api/v1/users/1",
+            json={"password": "New-strong-password-123"},
+        )
+        assert response.status_code == 200
+        assert db.users[0].session_version == 1
+        assert "password_hash" not in response.json()
     finally:
         if previous_user is None:
             app.dependency_overrides.pop(get_current_user, None)
