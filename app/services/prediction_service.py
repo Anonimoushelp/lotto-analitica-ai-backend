@@ -58,11 +58,24 @@ class PredictionService:
                 detail="The selected lottery has no historical draws available",
             )
 
-        historical_numbers = [
-            draw.main_numbers or []
-            for draw in draws
-            if draw.main_numbers
-        ]
+        historical_numbers = []
+        for draw in draws:
+            numbers = draw.main_numbers or []
+            if (
+                len(numbers) != rule.main_count
+                or any(
+                    isinstance(number, bool) or not isinstance(number, int)
+                    for number in numbers
+                )
+                or len(set(numbers)) != len(numbers)
+                or any(number < rule.main_min or number > rule.main_max for number in numbers)
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="The selected lottery contains invalid historical draw data",
+                )
+            historical_numbers.append(numbers)
+
         if not historical_numbers:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
