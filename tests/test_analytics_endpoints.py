@@ -37,7 +37,7 @@ def test_statistical_overview_contract(monkeypatch):
         "overview",
         lambda db: {
             "module_status": "READY",
-            "algorithms_count": 8,
+            "algorithms_count": 3,
             "draws_analyzed": 42,
         },
     )
@@ -47,8 +47,42 @@ def test_statistical_overview_contract(monkeypatch):
     assert response.status_code == 200
     assert response.json() == {
         "module_status": "READY",
-        "algorithms_count": 8,
+        "algorithms_count": 3,
         "draws_analyzed": 42,
+    }
+
+
+def test_statistical_service_algorithms_are_deterministic():
+    draws = [
+        SimpleNamespace(main_numbers=[1, 2, 3, 4, 5]),
+        SimpleNamespace(main_numbers=[1, 2, 3, 6, 8]),
+    ]
+
+    result = StatisticalService.analyze(draws)
+
+    assert result["number_frequency"] == {1: 2, 2: 2, 3: 2, 4: 1, 5: 1, 6: 1, 8: 1}
+    assert result["even_odd_distribution"] == {"2-3": 1, "3-2": 1}
+    assert result["sum_distribution"] == {
+        "count": 2,
+        "minimum": 15,
+        "maximum": 20,
+        "average": 17.5,
+    }
+
+
+def test_statistical_service_stays_standby_without_draws():
+    class EmptyResult:
+        def all(self):
+            return []
+
+    class EmptyDb:
+        def scalars(self, _statement):
+            return EmptyResult()
+
+    assert StatisticalService.overview(EmptyDb()) == {
+        "module_status": "STANDBY",
+        "algorithms_count": 0,
+        "draws_analyzed": 0,
     }
 
 
