@@ -24,7 +24,8 @@ def test_prediction_request_rejects_unknown_fields():
         )
 
 
-def test_prediction_service_requires_selected_lottery(monkeypatch):
+@pytest.mark.asyncio
+async def test_prediction_service_requires_selected_lottery():
     class FakeScalar:
         def scalar_one_or_none(self):
             return None
@@ -33,13 +34,12 @@ def test_prediction_service_requires_selected_lottery(monkeypatch):
         async def execute(self, *_args, **_kwargs):
             return FakeScalar()
 
-    async def run():
-        with pytest.raises(Exception) as exc:
-            await PredictionService().generate(
-                FakeSession(),
-                SimpleNamespace(lottery_id=999999, prediction_count=1),
-            )
-        assert "Lottery not found" in str(exc.value)
+    with pytest.raises(Exception) as exc:
+        await PredictionService().generate(
+            FakeSession(),
+            SimpleNamespace(lottery_id=999999, prediction_count=1),
+        )
+    assert "Lottery not found" in str(exc.value)
 
 
 def test_predictions_route_requires_authentication():
