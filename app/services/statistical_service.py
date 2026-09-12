@@ -1,5 +1,5 @@
+import itertools
 from collections import Counter
-from itertools import combinations, pairwise
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -44,14 +44,17 @@ class StatisticalService:
         pair_frequency = Counter(
             pair
             for draw in ordered_draws
-            for pair in combinations(sorted(set(draw.main_numbers or [])), 2)
+            for pair in itertools.combinations(sorted(set(draw.main_numbers or [])), 2)
         )
 
         consecutive_counts = []
         for draw in ordered_draws:
             numbers = sorted(set(draw.main_numbers or []))
             consecutive_counts.append(
-                sum(right == left + 1 for left, right in pairwise(numbers))
+                sum(
+                    right == left + 1
+                    for left, right in itertools.pairwise(numbers)
+                )
             )
 
         recency: dict[int, dict[str, int]] = {}
