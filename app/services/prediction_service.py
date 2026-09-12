@@ -10,6 +10,7 @@ from app.repositories.lottery_draw_repository import LotteryDrawRepository
 from app.services.gemini_client import GeminiClient
 from app.services.gemini_prompt import build_prediction_prompt
 from app.services.gemini_validator import validate_predictions
+from app.services.lottery_rules import get_verified_lottery_rule
 
 
 class PredictionService:
@@ -31,10 +32,19 @@ class PredictionService:
                 detail="Lottery not found",
             )
 
-        if payload.include_extra_number:
+        rule = get_verified_lottery_rule(lottery.code)
+        if rule is None:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                detail="Extra-number predictions require a verified lottery rule catalog",
+                detail="AI predictions require a verified lottery rule catalog",
+            )
+
+        if payload.include_extra_number and (
+            rule.extra_min is None or rule.extra_max is None
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Extra-number predictions are not supported for the selected lottery",
             )
 
         draws = LotteryDrawRepository.list(
@@ -71,6 +81,11 @@ class PredictionService:
             payload.prediction_count,
             min_confidence_threshold=payload.min_confidence_threshold,
             include_extra_number=payload.include_extra_number,
+            main_count=rule.main_count,
+            main_min=rule.main_min,
+            main_max=rule.main_max,
+            extra_min=rule.extra_min,
+            extra_max=rule.extra_max,
         ):
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
