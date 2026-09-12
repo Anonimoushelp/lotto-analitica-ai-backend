@@ -14,7 +14,7 @@ router = APIRouter(
 
 @router.get("/overview", response_model=StatisticalOverviewResponse)
 def get_statistical_overview(
-    lottery_id: int | None = Query(default=None, gt=0),
+    lottery_id: int | None = Query(default=None, gt=0, le=2_147_483_647),
     db: Session = Depends(get_db),
     current_user=Depends(require_admin_or_analyst),
 ):
