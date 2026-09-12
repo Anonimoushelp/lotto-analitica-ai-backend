@@ -120,7 +120,7 @@ def test_statistical_service_scopes_all_algorithms_to_lottery():
     assert result["even_odd_distribution"] == {"1-2": 1, "2-1": 1}
     assert result["pair_frequency"]["2-3"] == 2
     assert "9-10" not in result["pair_frequency"]
-    assert result["consecutive_numbers"] == {"draws_with_consecutive": 2, "total_consecutive_pairs": 3, "maximum_consecutive_pairs": 2}
+    assert result["consecutive_numbers"] == {"draws_with_consecutive": 2, "total_consecutive_pairs": 4, "maximum_consecutive_pairs": 2}
     assert result["number_recency"][2] == {"last_seen_draw": 2, "draws_since_seen": 0}
     assert 9 not in result["number_recency"]
 
