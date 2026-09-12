@@ -36,7 +36,7 @@ def decode_access_token(token: str) -> dict:
         token,
         settings.secret_key,
         algorithms=[ALGORITHM],
-        options={"require": ["sub", "role", "iat", "exp", "type", "session_version"]},
+        options={"require": ["sub", "role", "iat", "exp", "type"]},
     )
     if payload["type"] != "access":
         raise jwt.InvalidTokenError("Invalid token type")
