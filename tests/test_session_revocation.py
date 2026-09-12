@@ -79,6 +79,7 @@ def test_new_token_uses_current_session_version():
         db.refresh(user)
 
         token = create_access_token(str(user.id), user.role, user.session_version)
+        app.dependency_overrides[get_db] = override_get_db
         response = client.get(
             "/api/v1/auth/me",
             headers={"Authorization": f"Bearer {token}"},
