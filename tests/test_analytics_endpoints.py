@@ -1,3 +1,4 @@
+from datetime import date
 from types import SimpleNamespace
 
 import pytest
@@ -37,7 +38,7 @@ def test_statistical_overview_contract(monkeypatch):
         "overview",
         lambda db: {
             "module_status": "READY",
-            "algorithms_count": 3,
+            "algorithms_count": 6,
             "draws_analyzed": 42,
         },
     )
@@ -47,26 +48,43 @@ def test_statistical_overview_contract(monkeypatch):
     assert response.status_code == 200
     assert response.json() == {
         "module_status": "READY",
-        "algorithms_count": 3,
+        "algorithms_count": 6,
         "draws_analyzed": 42,
     }
 
 
-def test_statistical_service_algorithms_are_deterministic():
+def test_statistical_service_advanced_algorithms_are_deterministic():
     draws = [
-        SimpleNamespace(main_numbers=[1, 2, 3, 4, 5]),
-        SimpleNamespace(main_numbers=[1, 2, 3, 6, 8]),
+        SimpleNamespace(id=1, draw_date=date(2026, 1, 1), main_numbers=[1, 2, 3, 4, 5]),
+        SimpleNamespace(id=2, draw_date=date(2026, 1, 2), main_numbers=[1, 2, 3, 6, 8]),
     ]
 
     result = StatisticalService.analyze(draws)
 
     assert result["number_frequency"] == {1: 2, 2: 2, 3: 2, 4: 1, 5: 1, 6: 1, 8: 1}
+    assert result["number_recency"] == {
+        1: {"last_seen_draw": 2, "draws_since_seen": 0},
+        2: {"last_seen_draw": 2, "draws_since_seen": 0},
+        3: {"last_seen_draw": 2, "draws_since_seen": 0},
+        4: {"last_seen_draw": 1, "draws_since_seen": 1},
+        5: {"last_seen_draw": 1, "draws_since_seen": 1},
+        6: {"last_seen_draw": 2, "draws_since_seen": 0},
+        8: {"last_seen_draw": 2, "draws_since_seen": 0},
+    }
     assert result["even_odd_distribution"] == {"2-3": 1, "3-2": 1}
     assert result["sum_distribution"] == {
         "count": 2,
         "minimum": 15,
         "maximum": 20,
         "average": 17.5,
+    }
+    assert result["pair_frequency"]["1-2"] == 2
+    assert result["pair_frequency"]["2-3"] == 2
+    assert result["pair_frequency"]["4-5"] == 1
+    assert result["consecutive_numbers"] == {
+        "draws_with_consecutive": 2,
+        "total_consecutive_pairs": 6,
+        "maximum_consecutive_pairs": 4,
     }
 
 
