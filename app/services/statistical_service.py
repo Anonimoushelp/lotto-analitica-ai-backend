@@ -1,5 +1,5 @@
+import collections
 import itertools
-from collections import Counter  # noqa: I001
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -24,12 +24,12 @@ class StatisticalService:
             draws,
             key=lambda draw: (draw.draw_date, draw.id or 0),
         )
-        frequency = Counter(
+        frequency = collections.Counter(
             number
             for draw in ordered_draws
             for number in (draw.main_numbers or [])
         )
-        parity = Counter(
+        parity = collections.Counter(
             f"{sum(number % 2 == 0 for number in (draw.main_numbers or []))}-"
             f"{sum(number % 2 != 0 for number in (draw.main_numbers or []))}"
             for draw in ordered_draws
@@ -41,7 +41,7 @@ class StatisticalService:
             if draw.main_numbers
         ]
 
-        pair_frequency = Counter(
+        pair_frequency = collections.Counter(
             pair
             for draw in ordered_draws
             for pair in itertools.combinations(sorted(set(draw.main_numbers or [])), 2)
