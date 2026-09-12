@@ -1,8 +1,9 @@
 from collections import Counter
 
-from app.models.lottery_draw import LotteryDraw
 from sqlalchemy import select
 from sqlalchemy.orm import Session
+
+from app.models.lottery_draw import LotteryDraw
 
 
 STATISTICAL_ALGORITHMS = (
