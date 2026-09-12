@@ -4,6 +4,7 @@ from types import SimpleNamespace
 from fastapi.testclient import TestClient
 
 from app.api.dependencies.auth import get_current_user
+from app.api.routes.users import _lock_admin_invariant
 from app.db.session import get_db
 from app.main import app
 from app.models.user import User
@@ -62,6 +63,16 @@ class FakeDB:
 
     def refresh(self, user):
         return None
+
+
+class PostgresLockDB:
+    bind = SimpleNamespace(dialect=SimpleNamespace(name="postgresql"))
+
+    def __init__(self):
+        self.calls = []
+
+    def execute(self, statement, params):
+        self.calls.append((str(statement), params))
 
 
 def override_user(role="admin", user_id=1):
@@ -230,7 +241,7 @@ def test_user_update_cannot_remove_own_admin_role():
         else:
             app.dependency_overrides[get_current_user] = previous_user
         if previous_db is None:
-            app.dependency_overrides.pop(get_db, None)
+            app.dependency_overrides[get_db] = previous_db
         else:
             app.dependency_overrides[get_db] = previous_db
 
@@ -280,3 +291,12 @@ def test_user_password_update_increments_session_version():
             app.dependency_overrides.pop(get_db, None)
         else:
             app.dependency_overrides[get_db] = previous_db
+
+
+def test_admin_invariant_uses_postgres_transaction_lock():
+    db = PostgresLockDB()
+    _lock_admin_invariant(db)
+    assert len(db.calls) == 1
+    statement, params = db.calls[0]
+    assert "pg_advisory_xact_lock" in statement
+    assert params["lock_key"] == 2147483647
