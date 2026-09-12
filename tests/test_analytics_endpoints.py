@@ -36,8 +36,8 @@ def test_statistical_overview_contract(monkeypatch):
         StatisticalService,
         "overview",
         lambda db: {
-            "module_status": "READY",
-            "algorithms_count": 8,
+            "module_status": "STANDBY",
+            "algorithms_count": 0,
             "draws_analyzed": 42,
         },
     )
@@ -46,8 +46,22 @@ def test_statistical_overview_contract(monkeypatch):
 
     assert response.status_code == 200
     assert response.json() == {
-        "module_status": "READY",
-        "algorithms_count": 8,
+        "module_status": "STANDBY",
+        "algorithms_count": 0,
+        "draws_analyzed": 42,
+    }
+
+
+def test_statistical_service_is_fail_closed(monkeypatch):
+    class FakeDb:
+        def scalar(self, _statement):
+            return 42
+
+    result = StatisticalService.overview(FakeDb())
+
+    assert result == {
+        "module_status": "STANDBY",
+        "algorithms_count": 0,
         "draws_analyzed": 42,
     }
 
@@ -81,21 +95,9 @@ def test_prediction_model_status_is_idle_when_key_is_configured(monkeypatch):
 
 
 def test_gemini_validator_rejects_out_of_range_numbers():
-    valid = {
-        "predictions": [
-            {"numbers": [1, 20, 300, 700, 1000], "confidence_score": 80}
-        ]
-    }
-    invalid_low = {
-        "predictions": [
-            {"numbers": [0, 20, 300, 700, 1000], "confidence_score": 80}
-        ]
-    }
-    invalid_high = {
-        "predictions": [
-            {"numbers": [1, 20, 300, 700, 1001], "confidence_score": 80}
-        ]
-    }
+    valid = {"predictions": [{"numbers": [1, 20, 300, 700, 1000], "confidence_score": 80}]}
+    invalid_low = {"predictions": [{"numbers": [0, 20, 300, 700, 1000], "confidence_score": 80}]}
+    invalid_high = {"predictions": [{"numbers": [1, 20, 300, 700, 1001], "confidence_score": 80}]}
 
     assert validate_predictions(valid, expected_count=1) is True
     assert validate_predictions(invalid_low, expected_count=1) is False
