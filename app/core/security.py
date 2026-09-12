@@ -18,11 +18,14 @@ def verify_password(password: str, hashed_password: str) -> bool:
     return password_hash.verify(password, hashed_password)
 
 
-def create_access_token(subject: str, role: str) -> str:
+def create_access_token(
+    subject: str, role: str, session_version: int = 0
+) -> str:
     now = datetime.now(UTC)
     payload = {
         "sub": subject,
         "role": role,
+        "session_version": session_version,
         "iat": now,
         "exp": now + timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES),
         "type": "access",
@@ -35,7 +38,9 @@ def decode_access_token(token: str) -> dict:
         token,
         settings.secret_key,
         algorithms=[ALGORITHM],
-        options={"require": ["sub", "role", "iat", "exp", "type"]},
+        options={
+            "require": ["sub", "role", "session_version", "iat", "exp", "type"]
+        },
     )
     if payload["type"] != "access":
         raise jwt.InvalidTokenError("Invalid token type")

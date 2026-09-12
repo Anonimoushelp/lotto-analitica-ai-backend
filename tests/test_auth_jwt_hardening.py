@@ -51,12 +51,14 @@ def test_bearer_scheme_is_case_insensitive_and_non_bearer_is_rejected():
 
 def test_token_signed_with_wrong_algorithm_is_rejected():
     user = seed_user("jwt-algorithm@example.com", "admin")
+    now = datetime.now(UTC)
     token = jwt.encode(
         {
             "sub": str(user.id),
             "role": user.role,
-            "iat": datetime.now(UTC),
-            "exp": datetime.now(UTC) + timedelta(minutes=30),
+            "session_version": user.session_version,
+            "iat": now,
+            "exp": now + timedelta(minutes=30),
             "type": "access",
         },
         settings.secret_key,
@@ -71,12 +73,13 @@ def test_token_signed_with_wrong_algorithm_is_rejected():
 
 
 def test_token_with_non_integer_subject_is_rejected():
-    seed_user("jwt-sub@example.com", "admin")
+    user = seed_user("jwt-sub@example.com", "admin")
     now = datetime.now(UTC)
     token = jwt.encode(
         {
             "sub": "1.5",
             "role": "admin",
+            "session_version": user.session_version,
             "iat": now,
             "exp": now + timedelta(minutes=30),
             "type": "access",
@@ -99,6 +102,7 @@ def test_token_with_invalid_access_type_is_rejected():
         {
             "sub": str(user.id),
             "role": user.role,
+            "session_version": user.session_version,
             "iat": now,
             "exp": now + timedelta(minutes=30),
             "type": "refresh",
@@ -125,3 +129,50 @@ def test_token_role_cannot_elevate_a_viewer():
     )
 
     assert response.status_code == 403
+
+
+def test_session_version_revokes_existing_token():
+    user = seed_user("jwt-revocation@example.com", "viewer")
+    token = create_access_token(
+        str(user.id), user.role, session_version=user.session_version
+    )
+
+    accepted = client.get(
+        "/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"}
+    )
+    assert accepted.status_code == 200
+
+    db = TestingSessionLocal()
+    persisted = db.get(User, user.id)
+    persisted.session_version += 1
+    db.commit()
+    db.close()
+
+    revoked = client.get(
+        "/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"}
+    )
+    assert revoked.status_code == 401
+    assert revoked.headers["WWW-Authenticate"] == "Bearer"
+    assert revoked.json()["detail"] == "Session has been revoked"
+
+
+def test_token_with_negative_session_version_is_rejected():
+    user = seed_user("jwt-session-negative@example.com", "viewer")
+    now = datetime.now(UTC)
+    token = jwt.encode(
+        {
+            "sub": str(user.id),
+            "role": user.role,
+            "session_version": -1,
+            "iat": now,
+            "exp": now + timedelta(minutes=30),
+            "type": "access",
+        },
+        settings.secret_key,
+        algorithm=ALGORITHM,
+    )
+
+    response = client.get(
+        "/api/v1/auth/me", headers={"Authorization": f"Bearer {token}"}
+    )
+    assert response.status_code == 401
