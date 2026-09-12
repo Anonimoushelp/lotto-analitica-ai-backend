@@ -19,6 +19,7 @@ from app.api.routes.lottery_draws import router as lottery_draws_router
 from app.api.routes.predictions import router as predictions_router
 from app.api.routes.statistics import router as statistics_router
 from app.api.routes.tee import router as tee_router
+from app.api.routes.users import router as users_router
 from app.core.config import settings
 from app.core.rate_limit import login_rate_limiter
 from app.db.session import get_db
@@ -43,20 +44,11 @@ class RequestBodyLimitMiddleware(BaseHTTPMiddleware):
             try:
                 declared_length = int(content_length)
             except ValueError:
-                return JSONResponse(
-                    status_code=400,
-                    content={"detail": "Invalid Content-Length header"},
-                )
+                return JSONResponse(status_code=400, content={"detail": "Invalid Content-Length header"})
             if declared_length < 0:
-                return JSONResponse(
-                    status_code=400,
-                    content={"detail": "Invalid Content-Length header"},
-                )
+                return JSONResponse(status_code=400, content={"detail": "Invalid Content-Length header"})
             if declared_length > MAX_REQUEST_BODY_BYTES:
-                return JSONResponse(
-                    status_code=413,
-                    content={"detail": "Request body too large"},
-                )
+                return JSONResponse(status_code=413, content={"detail": "Request body too large"})
         return await call_next(request)
 
 
@@ -71,21 +63,14 @@ class RequestObservabilityMiddleware(BaseHTTPMiddleware):
             duration_ms = (time.perf_counter() - started) * 1000
             logger.exception(
                 "request_failed request_id=%s method=%s path=%s duration_ms=%.2f",
-                request_id,
-                request.method,
-                request.url.path,
-                duration_ms,
+                request_id, request.method, request.url.path, duration_ms,
             )
             raise
         duration_ms = (time.perf_counter() - started) * 1000
         response.headers[REQUEST_ID_HEADER] = request_id
         logger.info(
             "request_completed request_id=%s method=%s path=%s status_code=%s duration_ms=%.2f",
-            request_id,
-            request.method,
-            request.url.path,
-            response.status_code,
-            duration_ms,
+            request_id, request.method, request.url.path, response.status_code, duration_ms,
         )
         return response
 
@@ -101,9 +86,7 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
             response.headers["Cache-Control"] = "no-store, no-cache, must-revalidate"
             response.headers["Pragma"] = "no-cache"
         if settings.environment.lower() == "production":
-            response.headers["Strict-Transport-Security"] = (
-                "max-age=31536000; includeSubDomains"
-            )
+            response.headers["Strict-Transport-Security"] = "max-age=31536000; includeSubDomains"
         return response
 
 
@@ -128,7 +111,7 @@ if settings.cors_allowed_origins:
         CORSMiddleware,
         allow_origins=settings.cors_allowed_origins,
         allow_credentials=False,
-        allow_methods=["GET", "POST", "PUT", "DELETE"],
+        allow_methods=["GET", "POST", "PATCH", "PUT", "DELETE"],
         allow_headers=["Authorization", "Content-Type"],
         max_age=600,
     )
@@ -139,9 +122,7 @@ async def unhandled_exception_handler(request: Request, exc: Exception):
     request_id = getattr(request.state, "request_id", None) or _get_request_id(request)
     logger.exception(
         "Unhandled application exception request_id=%s on %s %s",
-        request_id,
-        request.method,
-        request.url.path,
+        request_id, request.method, request.url.path,
     )
     return JSONResponse(
         status_code=500,
@@ -161,25 +142,20 @@ def health(db: Session = Depends(get_db)):
         db.execute(text("SELECT 1"))
     except SQLAlchemyError:
         logger.exception("Health check failed: PostgreSQL unavailable")
-        return JSONResponse(
-            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            content={"status": "unhealthy", "service": "Lotto Analítica AI"},
-        )
+        return JSONResponse(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, content={"status": "unhealthy", "service": "Lotto Analítica AI"})
 
     if settings.environment.lower() == "production":
         try:
             login_rate_limiter.health_check()
         except Exception:
             logger.exception("Health check failed: Redis unavailable")
-            return JSONResponse(
-                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                content={"status": "unhealthy", "service": "Lotto Analítica AI"},
-            )
+            return JSONResponse(status_code=status.HTTP_503_SERVICE_UNAVAILABLE, content={"status": "unhealthy", "service": "Lotto Analítica AI"})
 
     return {"status": "healthy", "service": "Lotto Analítica AI"}
 
 
 app.include_router(auth_router)
+app.include_router(users_router)
 app.include_router(functional_encryption_router)
 app.include_router(tee_router)
 app.include_router(lotteries_router)
