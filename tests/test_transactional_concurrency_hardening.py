@@ -135,6 +135,10 @@ def test_failed_transaction_can_recover_and_persist_followup_mutation():
     db.add(recovered)
     db.commit()
 
-    rows = db.scalars(select(LotteryDraw).where(LotteryDraw.lottery_id == lottery.id).order_by(LotteryDraw.id)).all()
+    rows = db.scalars(
+        select(LotteryDraw)
+        .where(LotteryDraw.lottery_id == lottery.id)
+        .order_by(LotteryDraw.id)
+    ).all()
     assert [row.draw_number for row in rows] == ["RECOVER-1", "RECOVER-2"]
     db.close()
