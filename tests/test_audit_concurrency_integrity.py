@@ -2,6 +2,7 @@ from concurrent.futures import ThreadPoolExecutor
 from types import SimpleNamespace
 
 import pytest
+
 from app.core.audit import log_mutation
 
 
