@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 
 import pytest
+from fastapi import HTTPException
 from sqlalchemy import create_engine, select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import sessionmaker
@@ -129,14 +130,14 @@ def test_update_integrity_error_rolls_back_without_partial_mutation(monkeypatch)
 
     monkeypatch.setattr(db, "commit", fail_commit)
 
-    with pytest.raises(Exception) as exc_info:
+    with pytest.raises(HTTPException) as exc_info:
         LotteryDrawService.update_draw(
             db=db,
             draw_id=first.id,
             update_data={"draw_number": "CONFLICTING-NUMBER"},
         )
 
-    assert isinstance(exc_info.value, Exception)
+    assert exc_info.value.status_code == 409
     db.expire_all()
     rows = db.scalars(
         select(LotteryDraw)
