@@ -100,17 +100,17 @@ def test_audit_rejects_invalid_actor_identity_fields(caplog, actor):
             )
 
 
-def test_audit_sanitizes_allowed_actor_role_before_logging(caplog, actor):
-    actor.role = "admin\n"
-    with caplog.at_level(logging.INFO, logger="lotto_analitica.audit"):
-        audit.log_mutation(
-            action="create",
-            resource="lottery",
-            resource_id=7,
-            actor=actor,
-        )
+def test_audit_rejects_control_characters_in_actor_role(caplog, actor):
+    for role in ("admin\n", "analyst\rforged"):
+        actor.role = role
+        with caplog.at_level(logging.INFO, logger="lotto_analitica.audit"), pytest.raises(
+            ValueError, match="Invalid audit actor role"
+        ):
+            audit.log_mutation(
+                action="create",
+                resource="lottery",
+                resource_id=7,
+                actor=actor,
+            )
 
-    message = caplog.records[-1].getMessage()
-    assert "actor_role=admin " in message
-    assert "\n" not in message
-    assert "\r" not in message
+    assert not caplog.records
