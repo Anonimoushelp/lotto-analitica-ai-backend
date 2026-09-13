@@ -226,7 +226,7 @@ def test_unauthenticated_enumeration_attempts_do_not_reveal_resource_state():
 
     for path in (
         f"/api/v1/lotteries/{lottery.id}",
-        f"/api/v1/lotteries/2147483647",
+        "/api/v1/lotteries/2147483647",
         f"/api/v1/draws/{draw.id}",
         "/api/v1/draws/2147483647",
     ):
