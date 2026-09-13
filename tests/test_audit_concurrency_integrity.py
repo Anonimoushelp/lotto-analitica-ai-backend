@@ -9,14 +9,15 @@ from app.core.audit import log_mutation
 def test_unsupported_mutation_fails_closed_without_emitting_audit(caplog):
     actor = SimpleNamespace(id=42, role="admin")
 
-    with caplog.at_level("INFO", logger="lotto_analitica.audit"):
-        with pytest.raises(ValueError, match="Unsupported audit mutation"):
-            log_mutation(
-                action="delete",
-                resource="unsupported",
-                resource_id=17,
-                actor=actor,
-            )
+    with caplog.at_level("INFO", logger="lotto_analitica.audit"), pytest.raises(
+        ValueError, match="Unsupported audit mutation"
+    ):
+        log_mutation(
+            action="delete",
+            resource="unsupported",
+            resource_id=17,
+            actor=actor,
+        )
 
     assert caplog.records == []
 
@@ -35,9 +36,10 @@ def test_concurrent_audit_events_remain_complete_and_non_interleaved(caplog):
             actor=actor,
         )
 
-    with caplog.at_level("INFO", logger="lotto_analitica.audit"):
-        with ThreadPoolExecutor(max_workers=8) as executor:
-            list(executor.map(emit, actors))
+    with caplog.at_level("INFO", logger="lotto_analitica.audit"), ThreadPoolExecutor(
+        max_workers=8
+    ) as executor:
+        list(executor.map(emit, actors))
 
     messages = [record.getMessage() for record in caplog.records]
     assert len(messages) == len(actors)
@@ -64,9 +66,10 @@ def test_audit_identifiers_are_sanitized_before_concurrent_emission(caplog):
             actor=actor,
         )
 
-    with caplog.at_level("INFO", logger="lotto_analitica.audit"):
-        with ThreadPoolExecutor(max_workers=2) as executor:
-            list(executor.map(emit, actors))
+    with caplog.at_level("INFO", logger="lotto_analitica.audit"), ThreadPoolExecutor(
+        max_workers=2
+    ) as executor:
+        list(executor.map(emit, actors))
 
     messages = [record.getMessage() for record in caplog.records]
     assert len(messages) == 2
