@@ -104,9 +104,7 @@ def test_draw_list_default_limit_is_bounded():
     start = datetime(2026, 1, 1, tzinfo=UTC)
     for index in range(105):
         seed_draw(lottery.id, f"PAGE-{index:03d}", start + timedelta(days=index))
-
     response = client.get("/api/v1/draws", params={"lottery_id": lottery.id}, headers=auth_header(analyst))
-
     assert response.status_code == 200
     assert len(response.json()) == 100
 
@@ -120,15 +118,14 @@ def test_draw_list_limit_rejects_out_of_range_values():
     assert oversized.status_code == 422
 
 
-def test_draw_list_order_is_deterministic_with_id_tiebreaker():
+def test_draw_list_order_is_deterministic_by_draw_date():
     analyst = seed_user("analyst@example.com")
     lottery = seed_lottery("PAGE-2")
-    draw_date = datetime(2026, 2, 10, tzinfo=UTC)
-    first = seed_draw(lottery.id, "PAGE-A", draw_date)
-    second = seed_draw(lottery.id, "PAGE-B", draw_date + timedelta(seconds=1))
+    older = seed_draw(lottery.id, "PAGE-A", datetime(2026, 2, 10, tzinfo=UTC))
+    newer = seed_draw(lottery.id, "PAGE-B", datetime(2026, 2, 11, tzinfo=UTC))
     response = client.get("/api/v1/draws", params={"lottery_id": lottery.id, "limit": 2}, headers=auth_header(analyst))
     assert response.status_code == 200
-    assert [item["id"] for item in response.json()] == [second.id, first.id]
+    assert [item["id"] for item in response.json()] == [newer.id, older.id]
 
 
 def test_draw_list_filter_and_limit_compose_without_cross_resource_leakage():
