@@ -12,6 +12,7 @@ from app.core.security import ALGORITHM, hash_password
 from app.db.session import get_db
 from app.main import app
 from app.models.lottery import Lottery
+from app.models.lottery_draw import LotteryDraw
 from app.models.user import User
 
 engine = create_engine(
@@ -22,6 +23,7 @@ engine = create_engine(
 TestingSessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 User.__table__.create(bind=engine)
 Lottery.__table__.create(bind=engine)
+LotteryDraw.__table__.create(bind=engine)
 client = TestClient(app)
 
 
@@ -50,6 +52,7 @@ def isolate_test_database():
 
 def clear_database():
     db = TestingSessionLocal()
+    db.execute(delete(LotteryDraw))
     db.execute(delete(Lottery))
     db.execute(delete(User))
     db.commit()
