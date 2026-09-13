@@ -47,10 +47,20 @@ class StatisticalService:
                 raise ValueError("main_numbers cannot contain duplicate values")
 
     @staticmethod
+    def _validate_lottery_id(lottery_id: int | None) -> None:
+        if lottery_id is None:
+            return
+        if isinstance(lottery_id, bool) or not isinstance(lottery_id, Integral):
+            raise TypeError("lottery_id must be a positive integer or null")
+        if lottery_id <= 0:
+            raise ValueError("lottery_id must be a positive integer or null")
+
+    @staticmethod
     def analyze(
         draws: list[LotteryDraw], lottery_id: int | None = None
     ) -> dict[str, object]:
         StatisticalService._validate_draws(draws)
+        StatisticalService._validate_lottery_id(lottery_id)
 
         if lottery_id is not None:
             draws = [draw for draw in draws if draw.lottery_id == lottery_id]
