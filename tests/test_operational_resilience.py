@@ -3,7 +3,6 @@ from pytest import mark, raises
 
 from app.core.config import Settings
 
-
 BASE_PRODUCTION = {
     "environment": "production",
     "database_url": "postgresql+psycopg://user:password@db.example.com/app?sslmode=require",
