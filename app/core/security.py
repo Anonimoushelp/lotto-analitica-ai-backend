@@ -41,7 +41,8 @@ def decode_access_token(token: str) -> dict:
         settings.secret_key,
         algorithms=[ALGORITHM],
         options={
-            "require": ["sub", "role", "session_version", "iat", "exp", "type"]
+            "require": ["sub", "role", "session_version", "iat", "exp", "type"],
+            "verify_iat": False,
         },
     )
 
