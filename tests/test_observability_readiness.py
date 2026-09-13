@@ -22,7 +22,7 @@ def test_health_exposes_request_id_without_internal_dependencies():
 
 
 def test_observability_log_contains_correlation_and_request_outcome(caplog):
-    with caplog.at_level(logging.INFO, logger="lotto_analitica"):
+    with caplog.at_level(logging.INFO, logger="app.main"):
         response = client.get("/health", headers={"X-Request-ID": "ops.request-123"})
 
     assert response.status_code == 200
@@ -38,7 +38,7 @@ def test_observability_log_contains_correlation_and_request_outcome(caplog):
 
 def test_observability_does_not_log_query_string_or_authorization_header(caplog):
     secret = "Bearer super-secret-token"
-    with caplog.at_level(logging.INFO, logger="lotto_analitica"):
+    with caplog.at_level(logging.INFO, logger="app.main"):
         response = client.get(
             "/health?secret=do-not-log",
             headers={
@@ -55,7 +55,7 @@ def test_observability_does_not_log_query_string_or_authorization_header(caplog)
 
 
 def test_not_found_is_observable_with_request_correlation(caplog):
-    with caplog.at_level(logging.INFO, logger="lotto_analitica"):
+    with caplog.at_level(logging.INFO, logger="app.main"):
         response = client.get(
             "/operationally-missing",
             headers={"X-Request-ID": "ops.not-found-789"},
