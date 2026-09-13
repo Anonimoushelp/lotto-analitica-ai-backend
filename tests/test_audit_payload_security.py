@@ -111,5 +111,6 @@ def test_audit_sanitizes_allowed_actor_role_before_logging(caplog, actor):
         )
 
     message = caplog.records[-1].getMessage()
-    assert "actor_role=admin" in message
-    assert "actor_role=admin\n" not in message
+    assert "actor_role=admin " in message
+    assert "\n" not in message
+    assert "\r" not in message
