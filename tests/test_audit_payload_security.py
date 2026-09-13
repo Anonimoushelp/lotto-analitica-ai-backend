@@ -37,26 +37,28 @@ def test_audit_event_contains_only_non_sensitive_identity_fields(caplog, actor):
 
 
 def test_audit_control_characters_are_rejected_before_logging(caplog, actor):
-    with caplog.at_level(logging.INFO, logger="lotto_analitica.audit"):
-        with pytest.raises(ValueError, match="Unsupported audit mutation"):
-            audit.log_mutation(
-                action="create\n",
-                resource="lottery\r",
-                resource_id=9,
-                actor=actor,
-            )
+    with caplog.at_level(logging.INFO, logger="lotto_analitica.audit"), pytest.raises(
+        ValueError, match="Unsupported audit mutation"
+    ):
+        audit.log_mutation(
+            action="create\n",
+            resource="lottery\r",
+            resource_id=9,
+            actor=actor,
+        )
 
     assert not caplog.records
 
 
 def test_unsupported_resource_action_pair_is_rejected_before_logging(caplog, actor):
-    with caplog.at_level(logging.INFO, logger="lotto_analitica.audit"):
-        with pytest.raises(ValueError, match="Unsupported audit mutation"):
-            audit.log_mutation(
-                action="create",
-                resource="user",
-                resource_id=7,
-                actor=actor,
-            )
+    with caplog.at_level(logging.INFO, logger="lotto_analitica.audit"), pytest.raises(
+        ValueError, match="Unsupported audit mutation"
+    ):
+        audit.log_mutation(
+            action="create",
+            resource="user",
+            resource_id=7,
+            actor=actor,
+        )
 
     assert not caplog.records
