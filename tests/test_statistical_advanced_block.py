@@ -70,8 +70,8 @@ def test_recency_is_consistent_with_chronological_order_and_last_occurrence():
         "draws_since_seen": 0,
     }
     assert result["number_recency"][2] == {
-        "last_seen_draw": 3,
-        "draws_since_seen": 1,
+        "last_seen_draw": 2,
+        "draws_since_seen": 2,
     }
 
 
