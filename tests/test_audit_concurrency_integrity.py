@@ -2,7 +2,6 @@ from concurrent.futures import ThreadPoolExecutor
 from types import SimpleNamespace
 
 import pytest
-
 from app.core.audit import log_mutation
 
 
@@ -23,10 +22,7 @@ def test_unsupported_mutation_fails_closed_without_emitting_audit(caplog):
 
 
 def test_concurrent_audit_events_remain_complete_and_non_interleaved(caplog):
-    actors = [
-        SimpleNamespace(id=100 + index, role="admin")
-        for index in range(20)
-    ]
+    actors = [SimpleNamespace(id=100 + index, role="admin") for index in range(20)]
 
     def emit(actor):
         log_mutation(
