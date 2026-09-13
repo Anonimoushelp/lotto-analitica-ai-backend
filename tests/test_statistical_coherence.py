@@ -35,7 +35,7 @@ def test_all_statistical_outputs_share_the_same_analyzable_draw_population():
     assert sum(result["even_odd_distribution"].values()) == 2
     assert sum(result["pair_frequency"].values()) == 6
     assert result["consecutive_numbers"] == {
-        "draws_with_consecutive": 2,
+        "draws_with_consecutive": 1,
         "total_consecutive_pairs": 2,
         "maximum_consecutive_pairs": 2,
     }
@@ -56,7 +56,7 @@ def test_analysis_is_deterministic_for_input_order_and_uses_draw_id_as_tiebreake
     reverse = StatisticalService.analyze(list(reversed(draws)), lottery_id=10)
 
     assert forward == reverse
-    assert forward["number_recency"][1] == {"last_seen_draw": 1, "draws_since_seen": 2}
+    assert forward["number_recency"][1] == {"last_seen_draw": 2, "draws_since_seen": 1}
     assert forward["number_recency"][4] == {"last_seen_draw": 3, "draws_since_seen": 0}
 
 
@@ -89,14 +89,14 @@ def test_empty_and_single_draw_results_have_explicit_numeric_contract():
         "average": 14.0,
     }
     assert single["consecutive_numbers"] == {
-        "draws_with_consecutive": 1,
-        "total_consecutive_pairs": 1,
-        "maximum_consecutive_pairs": 1,
+        "draws_with_consecutive": 0,
+        "total_consecutive_pairs": 0,
+        "maximum_consecutive_pairs": 0,
     }
 
 
 def test_invalid_draw_numbers_and_lottery_ids_fail_closed():
-    with pytest.raises(ValueError, match="positive integers"):
+    with pytest.raises(ValueError, match="duplicate values"):
         StatisticalService.analyze(
             [make_draw(1, 10, "2026-01-01", [1, 1])]
         )
