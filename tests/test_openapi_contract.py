@@ -20,6 +20,13 @@ EXPECTED_PATHS = {
 }
 
 
+def _constrained_schema(parameter):
+    schema = parameter["schema"]
+    if "anyOf" in schema:
+        return next(item for item in schema["anyOf"] if item.get("type") == "integer")
+    return schema
+
+
 def test_openapi_exposes_expected_api_surface():
     schema = app.openapi()
     assert schema["info"]["title"] == "Lotto Analítica AI"
@@ -54,8 +61,9 @@ def test_openapi_documents_parameter_constraints():
         for parameter in statistics["parameters"]
         if parameter["name"] == "lottery_id"
     )
-    assert statistics_lottery_id["schema"]["exclusiveMinimum"] == 0
-    assert statistics_lottery_id["schema"]["maximum"] == 2_147_483_647
+    statistics_schema = _constrained_schema(statistics_lottery_id)
+    assert statistics_schema["exclusiveMinimum"] == 0
+    assert statistics_schema["maximum"] == 2_147_483_647
 
 
 def test_openapi_documents_success_response_models_and_status_codes():
