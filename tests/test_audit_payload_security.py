@@ -80,19 +80,36 @@ def test_audit_rejects_invalid_resource_identifiers(caplog, actor):
 
 def test_audit_rejects_invalid_actor_identity_fields(caplog, actor):
     with caplog.at_level(logging.INFO, logger="lotto_analitica.audit"):
-        for actor_id, role, message in (
-            (0, "admin", "Invalid audit actor identifier"),
-            (42, "admin\n", "Invalid audit actor role"),
-            (42, "unknown", "Invalid audit actor role"),
-        ):
-            actor.id = actor_id
-            actor.role = role
-            with pytest.raises(ValueError, match=message):
-                audit.log_mutation(
-                    action="create",
-                    resource="lottery",
-                    resource_id=7,
-                    actor=actor,
-                )
+        actor.id = 0
+        with pytest.raises(ValueError, match="Invalid audit actor identifier"):
+            audit.log_mutation(
+                action="create",
+                resource="lottery",
+                resource_id=7,
+                actor=actor,
+            )
 
-    assert not caplog.records
+        actor.id = 42
+        actor.role = "unknown"
+        with pytest.raises(ValueError, match="Invalid audit actor role"):
+            audit.log_mutation(
+                action="create",
+                resource="lottery",
+                resource_id=7,
+                actor=actor,
+            )
+
+
+def test_audit_sanitizes_allowed_actor_role_before_logging(caplog, actor):
+    actor.role = "admin\n"
+    with caplog.at_level(logging.INFO, logger="lotto_analitica.audit"):
+        audit.log_mutation(
+            action="create",
+            resource="lottery",
+            resource_id=7,
+            actor=actor,
+        )
+
+    message = caplog.records[-1].getMessage()
+    assert "actor_role=admin" in message
+    assert "actor_role=admin\n" not in message
