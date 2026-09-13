@@ -19,7 +19,6 @@ READ_ENDPOINTS = [
     ("get", "/api/v1/tee/status"),
 ]
 
-ANALYST_ALLOWED_ENDPOINTS = READ_ENDPOINTS
 ADMIN_ONLY_ENDPOINTS = [
     ("post", "/api/v1/lotteries", {"code": "RBAC", "name": "RBAC", "country": "CO"}),
     ("put", "/api/v1/lotteries/1", {"name": "RBAC"}),
@@ -37,10 +36,6 @@ ADMIN_ONLY_ENDPOINTS = [
     ("put", "/api/v1/draws/1", {"draw_number": "RBAC-2"}),
     ("delete", "/api/v1/draws/1", None),
     ("patch", "/api/v1/auth/admin/users/1", {"is_active": True}),
-]
-
-ANALYST_MUTATIONS = [
-    *ADMIN_ONLY_ENDPOINTS[:6],
 ]
 
 
@@ -64,7 +59,11 @@ def clean_user_override():
 
 
 def request(method: str, path: str, payload=None):
-    return getattr(client, method)(path, json=payload) if payload is not None else getattr(client, method)(path)
+    return (
+        getattr(client, method)(path, json=payload)
+        if payload is not None
+        else getattr(client, method)(path)
+    )
 
 
 @pytest.mark.parametrize("method,path", READ_ENDPOINTS)
@@ -100,17 +99,17 @@ def test_admin_role_is_accepted_by_role_guard():
     from app.api.dependencies.auth import require_admin, require_admin_or_analyst
 
     admin = SimpleNamespace(id=1, role="admin", is_active=True)
-    assert require_admin()(admin) is admin
-    assert require_admin_or_analyst()(admin) is admin
+    assert require_admin(admin) is admin
+    assert require_admin_or_analyst(admin) is admin
 
 
 def test_analyst_role_is_accepted_only_by_read_analytics_guard():
     from app.api.dependencies.auth import require_admin, require_admin_or_analyst
 
     analyst = SimpleNamespace(id=2, role="analyst", is_active=True)
-    assert require_admin_or_analyst()(analyst) is analyst
+    assert require_admin_or_analyst(analyst) is analyst
     with pytest.raises(Exception) as exc_info:
-        require_admin()(analyst)
+        require_admin(analyst)
     assert exc_info.value.status_code == 403
 
 
