@@ -28,6 +28,7 @@ def test_access_token_contains_required_claims():
 
     assert payload["sub"] == "123"
     assert payload["role"] == "admin"
+    assert payload["session_version"] == 0
     assert payload["type"] == "access"
     assert datetime.fromtimestamp(payload["exp"], tz=UTC) > datetime.now(UTC)
 
@@ -50,6 +51,7 @@ def _token_with_payload(**overrides: object) -> str:
     payload = {
         "sub": "123",
         "role": "admin",
+        "session_version": 0,
         "iat": now,
         "exp": now + timedelta(minutes=5),
         "type": "access",
@@ -64,6 +66,7 @@ def test_access_token_rejects_expired_token():
         {
             "sub": "123",
             "role": "admin",
+            "session_version": 0,
             "iat": now - timedelta(minutes=2),
             "exp": now - timedelta(minutes=1),
             "type": "access",
@@ -77,7 +80,7 @@ def test_access_token_rejects_expired_token():
 
 
 def test_access_token_rejects_missing_required_claims():
-    required_claims = ("sub", "role", "iat", "exp", "type")
+    required_claims = ("sub", "role", "session_version", "iat", "exp", "type")
 
     for claim in required_claims:
         token = _token_with_payload()
