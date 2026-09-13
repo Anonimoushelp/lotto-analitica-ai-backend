@@ -62,3 +62,37 @@ def test_unsupported_resource_action_pair_is_rejected_before_logging(caplog, act
         )
 
     assert not caplog.records
+
+
+def test_audit_rejects_invalid_resource_identifiers(caplog, actor):
+    with caplog.at_level(logging.INFO, logger="lotto_analitica.audit"):
+        for resource_id in (0, -1, True, "7", "7\n"):
+            with pytest.raises(ValueError, match="Invalid audit resource identifier"):
+                audit.log_mutation(
+                    action="create",
+                    resource="lottery",
+                    resource_id=resource_id,
+                    actor=actor,
+                )
+
+    assert not caplog.records
+
+
+def test_audit_rejects_invalid_actor_identity_fields(caplog, actor):
+    with caplog.at_level(logging.INFO, logger="lotto_analitica.audit"):
+        for actor_id, role, message in (
+            (0, "admin", "Invalid audit actor identifier"),
+            (42, "admin\n", "Invalid audit actor role"),
+            (42, "unknown", "Invalid audit actor role"),
+        ):
+            actor.id = actor_id
+            actor.role = role
+            with pytest.raises(ValueError, match=message):
+                audit.log_mutation(
+                    action="create",
+                    resource="lottery",
+                    resource_id=7,
+                    actor=actor,
+                )
+
+    assert not caplog.records
