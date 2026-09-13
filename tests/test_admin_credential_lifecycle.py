@@ -1,3 +1,4 @@
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, delete
 from sqlalchemy.orm import sessionmaker
@@ -28,6 +29,12 @@ def override_get_db():
 
 app.dependency_overrides[get_db] = override_get_db
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def isolate_admin_lifecycle_dependencies():
+    app.dependency_overrides[get_db] = override_get_db
+    yield
 
 
 def seed_user(email: str, role: str, active: bool = True) -> User:
