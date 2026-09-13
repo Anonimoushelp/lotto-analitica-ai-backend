@@ -1,5 +1,7 @@
 from types import SimpleNamespace
 
+import pytest
+
 from app.core.audit import log_mutation
 
 
@@ -26,10 +28,12 @@ def test_mutation_audit_log_contains_only_safe_identifiers(caplog):
     assert "@" not in message
 
 
-def test_mutation_audit_log_neutralizes_control_characters(caplog):
+def test_mutation_audit_log_rejects_control_characters_in_actor_role(caplog):
     actor = SimpleNamespace(id=42, role="analyst\nforged-entry")
 
-    with caplog.at_level("INFO", logger="lotto_analitica.audit"):
+    with caplog.at_level("INFO", logger="lotto_analitica.audit"), pytest.raises(
+        ValueError, match="Invalid audit actor role"
+    ):
         log_mutation(
             action="update",
             resource="draw",
@@ -37,10 +41,4 @@ def test_mutation_audit_log_neutralizes_control_characters(caplog):
             actor=actor,
         )
 
-    message = caplog.records[0].getMessage()
-    assert message == (
-        "audit.update resource=draw resource_id=17 "
-        "actor_user_id=42 actor_role=analyst forged-entry"
-    )
-    assert "\nforged-entry" not in message
-    assert "\rforged-entry" not in message
+    assert caplog.records == []
