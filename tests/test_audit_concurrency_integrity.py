@@ -49,29 +49,27 @@ def test_concurrent_audit_events_remain_complete_and_non_interleaved(caplog):
         assert messages.count(expected) == 1
 
 
-def test_audit_identifiers_are_sanitized_before_concurrent_emission(caplog):
+def test_audit_rejects_malformed_actor_roles_before_concurrent_emission(caplog):
     actors = [
         SimpleNamespace(id=201, role="analyst\nforged"),
         SimpleNamespace(id=202, role="viewer\rforged"),
     ]
 
     def emit(actor):
-        log_mutation(
-            action="update",
-            resource="draw",
-            resource_id=actor.id,
-            actor=actor,
-        )
+        with pytest.raises(ValueError, match="Invalid audit actor role"):
+            log_mutation(
+                action="update",
+                resource="draw",
+                resource_id=actor.id,
+                actor=actor,
+            )
 
     with caplog.at_level("INFO", logger="lotto_analitica.audit"), ThreadPoolExecutor(
         max_workers=2
     ) as executor:
         list(executor.map(emit, actors))
 
-    messages = [record.getMessage() for record in caplog.records]
-    assert len(messages) == 2
-    assert all("\n" not in message and "\r" not in message for message in messages)
-    assert all("forged" in message for message in messages)
+    assert caplog.records == []
 
 
 def test_audit_rejects_control_characters_in_action_and_resource(caplog):
