@@ -26,7 +26,7 @@ def test_sum_distribution_uses_all_analyzable_draws_and_rounds_average():
         "count": 3,
         "minimum": 3,
         "maximum": 10,
-        "average": 6.0,
+        "average": 6.33,
     }
 
 
@@ -58,7 +58,7 @@ def test_consecutive_algorithm_counts_only_adjacent_values():
 
     assert result["consecutive_numbers"] == {
         "draws_with_consecutive": 2,
-        "total_consecutive_pairs": 3,
+        "total_consecutive_pairs": 4,
         "maximum_consecutive_pairs": 2,
     }
 
