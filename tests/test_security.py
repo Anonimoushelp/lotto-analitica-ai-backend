@@ -6,6 +6,7 @@ import pytest
 from app.core.config import settings
 from app.core.security import (
     ALGORITHM,
+    JWT_CLOCK_SKEW_SECONDS,
     create_access_token,
     decode_access_token,
     hash_password,
@@ -101,6 +102,14 @@ def test_access_token_rejects_wrong_algorithm():
         decode_access_token(wrong_algorithm_token)
 
 
+def test_access_token_rejects_none_algorithm():
+    payload = jwt.decode(_token_with_payload(), settings.secret_key, algorithms=[ALGORITHM])
+    none_token = jwt.encode(payload, key="", algorithm="none")
+
+    with pytest.raises(jwt.InvalidAlgorithmError):
+        decode_access_token(none_token)
+
+
 def test_access_token_rejects_wrong_token_type():
     token = _token_with_payload(type="refresh")
 
@@ -116,3 +125,54 @@ def test_access_token_rejects_tampered_signature():
 
     with pytest.raises(jwt.InvalidSignatureError):
         decode_access_token(tampered_token)
+
+
+def test_access_token_rejects_non_string_subject():
+    token = _token_with_payload(sub=123)
+
+    with pytest.raises(jwt.InvalidTokenError):
+        decode_access_token(token)
+
+
+def test_access_token_rejects_unknown_role():
+    token = _token_with_payload(role="owner")
+
+    with pytest.raises(jwt.InvalidTokenError):
+        decode_access_token(token)
+
+
+def test_access_token_rejects_boolean_session_version():
+    token = _token_with_payload(session_version=True)
+
+    with pytest.raises(jwt.InvalidTokenError):
+        decode_access_token(token)
+
+
+def test_access_token_rejects_boolean_iat_or_exp():
+    for claim in ("iat", "exp"):
+        token = _token_with_payload(**{claim: True})
+
+        with pytest.raises(jwt.InvalidTokenError):
+            decode_access_token(token)
+
+
+def test_access_token_rejects_future_issued_at_beyond_clock_skew():
+    future_iat = datetime.now(UTC) + timedelta(seconds=JWT_CLOCK_SKEW_SECONDS + 1)
+    token = _token_with_payload(
+        iat=future_iat,
+        exp=future_iat + timedelta(minutes=30),
+    )
+
+    with pytest.raises(jwt.InvalidTokenError):
+        decode_access_token(token)
+
+
+def test_access_token_allows_small_clock_skew():
+    slightly_future_iat = datetime.now(UTC) + timedelta(seconds=1)
+    token = _token_with_payload(
+        iat=slightly_future_iat,
+        exp=slightly_future_iat + timedelta(minutes=30),
+    )
+
+    payload = decode_access_token(token)
+    assert payload["sub"] == "123"
