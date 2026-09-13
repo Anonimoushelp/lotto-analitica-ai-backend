@@ -1,3 +1,5 @@
+from datetime import UTC, datetime
+
 import pytest
 from sqlalchemy import create_engine, select
 from sqlalchemy.exc import IntegrityError
@@ -6,7 +8,6 @@ from sqlalchemy.pool import StaticPool
 
 from app.models.lottery import Lottery
 from app.models.lottery_draw import LotteryDraw
-from datetime import UTC, datetime
 
 engine = create_engine(
     "sqlite://",
