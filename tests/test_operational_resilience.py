@@ -1,5 +1,5 @@
-from pytest import mark, raises
 from pydantic import ValidationError
+from pytest import mark, raises
 
 from app.core.config import Settings
 
