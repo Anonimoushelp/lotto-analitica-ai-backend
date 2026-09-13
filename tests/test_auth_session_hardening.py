@@ -12,7 +12,6 @@ from app.db.session import get_db
 from app.main import app
 from app.models.user import User
 
-
 engine = create_engine(
     "sqlite://",
     connect_args={"check_same_thread": False},
