@@ -1,6 +1,7 @@
 from datetime import UTC, datetime, timedelta
 
 import jwt
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, delete
 from sqlalchemy.orm import sessionmaker
@@ -29,8 +30,22 @@ def override_get_db():
         db.close()
 
 
-app.dependency_overrides[get_db] = override_get_db
 client = TestClient(app)
+
+
+@pytest.fixture(autouse=True)
+def isolate_test_database():
+    previous_override = app.dependency_overrides.get(get_db)
+    app.dependency_overrides[get_db] = override_get_db
+    clear_users()
+    try:
+        yield
+    finally:
+        clear_users()
+        if previous_override is None:
+            app.dependency_overrides.pop(get_db, None)
+        else:
+            app.dependency_overrides[get_db] = previous_override
 
 
 def seed_user(email: str, role: str = "viewer", active: bool = True) -> User:
@@ -67,14 +82,6 @@ def clear_users() -> None:
     db.execute(delete(User))
     db.commit()
     db.close()
-
-
-def setup_function() -> None:
-    clear_users()
-
-
-def teardown_function() -> None:
-    clear_users()
 
 
 def test_session_version_mismatch_revokes_existing_token():
