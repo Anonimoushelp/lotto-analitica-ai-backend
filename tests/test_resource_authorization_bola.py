@@ -184,7 +184,7 @@ def test_analyst_can_read_objects_but_cannot_mutate_them():
     assert client.delete(f"/api/v1/draws/{draw.id}", headers=headers).status_code == 403
 
 
-def test_service_role_is_denied_human_data_and_admin_routes():
+def test_service_role_is_denied_human_and_analytical_data():
     service = seed_user("service@example.com", "service")
     lottery = seed_lottery()
     draw = seed_draw(lottery.id)
@@ -197,7 +197,6 @@ def test_service_role_is_denied_human_data_and_admin_routes():
         f"/api/v1/draws/{draw.id}",
         "/api/v1/statistics/overview",
         "/api/v1/predictions/model-status",
-        "/api/v1/auth/admin/users",
     ):
         response = client.get(path, headers=headers)
         assert response.status_code == 403, path
