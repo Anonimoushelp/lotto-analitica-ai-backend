@@ -74,8 +74,8 @@ def test_not_found_is_observable_with_request_correlation(caplog):
 
 
 def test_health_remains_safe_when_internal_dependency_fails(monkeypatch):
-    from app.core.rate_limit import login_rate_limiter
     from app.core.config import settings
+    from app.core.rate_limit import login_rate_limiter
 
     original_environment = settings.environment
     try:
