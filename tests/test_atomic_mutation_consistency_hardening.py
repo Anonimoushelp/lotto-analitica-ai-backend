@@ -12,7 +12,6 @@ from app.models.lottery_draw import LotteryDraw
 from app.repositories.lottery_draw_repository import LotteryDrawRepository
 from app.services.lottery_draw_service import LotteryDrawService
 
-
 engine = create_engine(
     "sqlite://",
     connect_args={"check_same_thread": False},
