@@ -100,7 +100,7 @@ def test_repository_delete_rolls_back_after_database_failure(monkeypatch):
     db.close()
 
 
-def test_update_conflict_rolls_back_without_partial_mutation():
+def test_update_integrity_error_rolls_back_without_partial_mutation(monkeypatch):
     db = SessionLocal()
     lottery = Lottery(code="ATOMIC-3", name="Atomic", country="CO")
     db.add(lottery)
@@ -124,11 +124,16 @@ def test_update_conflict_rolls_back_without_partial_mutation():
     db.refresh(first)
     db.refresh(second)
 
+    def fail_commit():
+        raise IntegrityError("forced update conflict", {}, Exception())
+
+    monkeypatch.setattr(db, "commit", fail_commit)
+
     with pytest.raises(Exception) as exc_info:
         LotteryDrawService.update_draw(
             db=db,
             draw_id=first.id,
-            update_data={"draw_number": second.draw_number},
+            update_data={"draw_number": "CONFLICTING-NUMBER"},
         )
 
     assert isinstance(exc_info.value, Exception)
