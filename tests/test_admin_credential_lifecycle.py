@@ -198,22 +198,19 @@ def test_log_mutation_records_actor_and_resource(caplog):
     clear_users()
 
 
-def test_log_mutation_sanitizes_line_breaks_in_audit_fields(caplog):
+def test_log_mutation_rejects_control_characters_in_actor_role(caplog):
     actor = seed_user("audit-injection@example.com", "admin")
     actor.role = "admin\nforged=true"
-    with caplog.at_level(logging.INFO, logger="lotto_analitica.audit"):
+    with caplog.at_level(logging.INFO, logger="lotto_analitica.audit"), pytest.raises(
+        ValueError, match="Invalid audit actor role"
+    ):
         log_mutation(
             action="update_credentials",
             resource="user",
             resource_id=7,
             actor=actor,
         )
-    message = caplog.records[-1].getMessage()
-    assert "\n" not in message
-    assert "\r" not in message
-    assert "audit.update_credentials" in message
-    assert "resource=user" in message
-    assert "actor_role=admin forged=true" in message
+    assert not caplog.records
     clear_users()
 
 
