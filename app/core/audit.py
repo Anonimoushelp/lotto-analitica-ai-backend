@@ -37,8 +37,7 @@ def log_mutation(
         raise ValueError("Invalid audit resource identifier")
     if actor.id is None or not isinstance(actor.id, int) or isinstance(actor.id, bool) or actor.id <= 0:
         raise ValueError("Invalid audit actor identifier")
-    role_name = safe_role.split(" ", 1)[0]
-    if role_name not in _ALLOWED_ROLES:
+    if safe_role != actor.role or safe_role not in _ALLOWED_ROLES:
         raise ValueError("Invalid audit actor role")
 
     logger.info(
