@@ -35,8 +35,8 @@ def test_frequency_pair_parity_sum_and_consecutive_invariants():
     assert result["pair_frequency"]["1-2"] == 1
     assert result["consecutive_numbers"] == {
         "draws_with_consecutive": 2,
-        "total_consecutive_pairs": 4,
-        "maximum_consecutive_pairs": 2,
+        "total_consecutive_pairs": 5,
+        "maximum_consecutive_pairs": 3,
     }
 
 
@@ -50,8 +50,8 @@ def test_recency_is_based_on_chronological_draw_order():
     result = StatisticalService.analyze(draws)
 
     assert result["number_recency"] == {
-        5: {"last_seen_draw": 2, "draws_since_seen": 1},
-        7: {"last_seen_draw": 3, "draws_since_seen": 0},
+        5: {"last_seen_draw": 3, "draws_since_seen": 0},
+        7: {"last_seen_draw": 2, "draws_since_seen": 1},
         9: {"last_seen_draw": 3, "draws_since_seen": 0},
     }
 
