@@ -145,5 +145,8 @@ def test_update_integrity_error_rolls_back_without_partial_mutation(monkeypatch)
         .order_by(LotteryDraw.id)
     ).all()
     assert [row.draw_number for row in rows] == ["UPDATE-1", "UPDATE-2"]
-    assert [row.main_numbers for row in rows] == [[1, 2, 3, 4, 5], [6, 7, 8, 9, 10]]
+    assert [row.main_numbers for row in rows] == [
+        [1, 2, 3, 4, 5],
+        [6, 7, 8, 9, 10],
+    ]
     db.close()
