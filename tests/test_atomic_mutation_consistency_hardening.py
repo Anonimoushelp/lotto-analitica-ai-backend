@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
 
-import pytest
 from fastapi import HTTPException
+import pytest
 from sqlalchemy import create_engine, select
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import sessionmaker
