@@ -7,6 +7,8 @@ from app.core.config import settings
 
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
+JWT_CLOCK_SKEW_SECONDS = 5
+ALLOWED_ROLES = frozenset({"admin", "analyst", "viewer", "service"})
 password_hash = PasswordHash.recommended()
 
 
@@ -42,6 +44,23 @@ def decode_access_token(token: str) -> dict:
             "require": ["sub", "role", "session_version", "iat", "exp", "type"]
         },
     )
+
+    if not isinstance(payload["sub"], str) or not payload["sub"].strip():
+        raise jwt.InvalidTokenError("Invalid subject")
+    if not isinstance(payload["role"], str) or payload["role"] not in ALLOWED_ROLES:
+        raise jwt.InvalidTokenError("Invalid role")
+    if not isinstance(payload["session_version"], int) or isinstance(
+        payload["session_version"], bool
+    ) or payload["session_version"] < 0:
+        raise jwt.InvalidTokenError("Invalid session version")
+    if not isinstance(payload["iat"], int) or isinstance(payload["iat"], bool):
+        raise jwt.InvalidTokenError("Invalid issued-at claim")
+    if not isinstance(payload["exp"], int) or isinstance(payload["exp"], bool):
+        raise jwt.InvalidTokenError("Invalid expiration claim")
+    now = datetime.now(UTC)
+    issued_at = datetime.fromtimestamp(payload["iat"], tz=UTC)
+    if issued_at > now + timedelta(seconds=JWT_CLOCK_SKEW_SECONDS):
+        raise jwt.InvalidTokenError("Token issued in the future")
     if payload["type"] != "access":
         raise jwt.InvalidTokenError("Invalid token type")
     return payload
