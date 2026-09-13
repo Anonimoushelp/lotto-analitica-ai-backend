@@ -84,9 +84,11 @@ def test_wrong_method_on_lotteries_returns_json_error():
     assert response.headers["X-Request-ID"]
 
 
-def test_internal_path_details_are_not_exposed_on_not_found():
+def test_internal_path_details_are_not_exposed_on_not_found(analyst_context):
     response = client.get("/api/v1/lotteries/2147483647")
-    assert response.status_code in {404, 422}
+    assert response.status_code == 404
+    assert response.headers["Content-Type"].startswith("application/json")
+    assert response.headers["X-Request-ID"]
     assert "traceback" not in response.text.lower()
     assert "sqlalchemy" not in response.text.lower()
     assert "password" not in response.text.lower()
