@@ -51,8 +51,8 @@ def create_lottery(
 
 @router.put("/{lottery_id}", response_model=LotteryResponse)
 def update_lottery(
+    payload: LotteryUpdate,
     lottery_id: int = Path(gt=0),
-    payload: LotteryUpdate = None,
     db: Session = Depends(get_db),
     current_user=Depends(require_admin),
 ):
