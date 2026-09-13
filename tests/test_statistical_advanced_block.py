@@ -1,6 +1,8 @@
 from datetime import date, timedelta
 from types import SimpleNamespace
 
+import pytest
+
 from app.services.statistical_service import StatisticalService
 
 
@@ -23,7 +25,9 @@ def test_all_algorithm_outputs_preserve_core_count_invariants():
     result = StatisticalService.analyze(draws)
     draw_count = len(draws)
     number_count = sum(len(draw.main_numbers) for draw in draws)
-    pair_count = sum(len(draw.main_numbers) * (len(draw.main_numbers) - 1) // 2 for draw in draws)
+    pair_count = sum(
+        len(draw.main_numbers) * (len(draw.main_numbers) - 1) // 2 for draw in draws
+    )
 
     assert sum(result["number_frequency"].values()) == number_count
     assert sum(result["even_odd_distribution"].values()) == draw_count
@@ -106,23 +110,19 @@ def test_lottery_filter_keeps_algorithm_counts_isolated():
 def test_invalid_draw_collection_and_identifiers_fail_closed():
     valid_draws = [make_draw(1, [1, 2, 3])]
 
-    try:
+    with pytest.raises(TypeError, match="list of draws"):
         StatisticalService.analyze(None)
-    except TypeError as exc:
-        assert "list of draws" in str(exc)
-    else:
-        raise AssertionError("Expected TypeError for a non-list draw collection")
 
-    try:
+    with pytest.raises(TypeError, match="positive integer"):
         StatisticalService.analyze(valid_draws, lottery_id=True)
-    except TypeError as exc:
-        assert "positive integer" in str(exc)
-    else:
-        raise AssertionError("Expected TypeError for boolean lottery_id")
 
-    try:
+    with pytest.raises(ValueError, match="positive integer"):
         StatisticalService.analyze(valid_draws, lottery_id=0)
-    except ValueError as exc:
-        assert "positive integer" in str(exc)
-    else:
-        raise AssertionError("Expected ValueError for non-positive lottery_id")
+
+
+def test_overview_rejects_invalid_scope_before_returning_standby():
+    with pytest.raises(TypeError, match="positive integer"):
+        StatisticalService.overview(SimpleNamespace(), lottery_id=True)
+
+    with pytest.raises(ValueError, match="positive integer"):
+        StatisticalService.overview(SimpleNamespace(), lottery_id=0)
