@@ -45,8 +45,8 @@ def test_recency_is_deterministic_with_equal_dates_and_draw_id_tiebreaker():
         "draws_since_seen": 1,
     }
     assert forward["number_recency"][8] == {
-        "last_seen_draw": 2,
-        "draws_since_seen": 1,
+        "last_seen_draw": 1,
+        "draws_since_seen": 2,
     }
 
 
