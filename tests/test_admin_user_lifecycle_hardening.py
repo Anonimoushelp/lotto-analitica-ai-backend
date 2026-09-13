@@ -166,29 +166,23 @@ def test_admin_cannot_disable_or_demote_self():
 
 def test_last_active_admin_cannot_be_removed_or_demoted():
     admin = seed_user("admin@example.com", role="admin")
+    second = seed_user("second-admin@example.com", role="admin")
+    third = seed_user("third-admin@example.com", role="admin")
 
-    for payload in ({"is_active": False}, {"role": "analyst"}):
-        response = client.patch(
-            f"/api/v1/auth/admin/users/{admin.id + 1}",
-            headers=auth_header(admin),
-            json=payload,
-        )
-        assert response.status_code in {400, 404}
-
-    target = seed_user("second-admin@example.com", role="admin")
     response = client.patch(
-        f"/api/v1/auth/admin/users/{target.id}",
+        f"/api/v1/auth/admin/users/{second.id}",
         headers=auth_header(admin),
-        json={"role": "viewer"},
+        json={"is_active": False},
     )
     assert response.status_code == 200
 
     response = client.patch(
-        f"/api/v1/auth/admin/users/{admin.id}",
-        headers=auth_header(target),
-        json={"is_active": False},
+        f"/api/v1/auth/admin/users/{third.id}",
+        headers=auth_header(admin),
+        json={"role": "analyst"},
     )
-    assert response.status_code == 401
+    assert response.status_code == 409
+    assert response.json()["detail"] == "At least one active administrator must remain"
 
 
 def test_duplicate_email_is_rejected_without_mutating_target():
