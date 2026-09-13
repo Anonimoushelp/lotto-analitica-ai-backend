@@ -9,7 +9,6 @@ from sqlalchemy.orm import Session
 
 from app.models.lottery_draw import LotteryDraw
 
-
 STATISTICAL_ALGORITHMS = (
     "number_frequency",
     "number_recency",
