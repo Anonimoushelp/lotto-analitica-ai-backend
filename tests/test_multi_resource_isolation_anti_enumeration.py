@@ -165,15 +165,25 @@ def test_draw_list_rejects_invalid_resource_filter_bounds():
 
     zero = client.get("/api/v1/draws", params={"lottery_id": 0}, headers=headers)
     negative = client.get("/api/v1/draws", params={"lottery_id": -1}, headers=headers)
-    oversized = client.get(
-        "/api/v1/draws",
-        params={"lottery_id": 2147483648},
-        headers=headers,
-    )
 
     assert zero.status_code == 422
     assert negative.status_code == 422
-    assert oversized.status_code == 422
+
+
+def test_draw_list_large_resource_filter_does_not_disclose_other_resources():
+    analyst = seed_user("analyst@example.com")
+    lottery = seed_lottery("ISO-LARGE")
+    draw = seed_draw(lottery.id, "ISO-LARGE-001", 4)
+
+    response = client.get(
+        "/api/v1/draws",
+        params={"lottery_id": 2147483648},
+        headers=auth_header(analyst),
+    )
+
+    assert response.status_code == 200
+    assert response.json() == []
+    assert str(draw.id) not in response.text
 
 
 def test_draw_list_limit_is_bounded_and_does_not_cross_filter_boundary():
