@@ -30,13 +30,14 @@ def log_mutation(
 ) -> None:
     safe_action = _safe_log_value(action)
     safe_resource = _safe_log_value(resource)
+    safe_role = _safe_log_value(actor.role)
     if (safe_action, safe_resource) not in _ALLOWED_MUTATIONS:
         raise ValueError("Unsupported audit mutation")
     if not isinstance(resource_id, int) or isinstance(resource_id, bool) or resource_id <= 0:
         raise ValueError("Invalid audit resource identifier")
     if actor.id is None or not isinstance(actor.id, int) or isinstance(actor.id, bool) or actor.id <= 0:
         raise ValueError("Invalid audit actor identifier")
-    if actor.role not in _ALLOWED_ROLES:
+    if safe_role not in _ALLOWED_ROLES:
         raise ValueError("Invalid audit actor role")
 
     logger.info(
@@ -45,5 +46,5 @@ def log_mutation(
         safe_resource,
         resource_id,
         actor.id,
-        actor.role,
+        safe_role,
     )
