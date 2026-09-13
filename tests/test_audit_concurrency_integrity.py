@@ -72,3 +72,19 @@ def test_audit_identifiers_are_sanitized_before_concurrent_emission(caplog):
     assert len(messages) == 2
     assert all("\n" not in message and "\r" not in message for message in messages)
     assert all("forged" in message for message in messages)
+
+
+def test_audit_rejects_control_characters_in_action_and_resource(caplog):
+    actor = SimpleNamespace(id=203, role="admin")
+
+    with caplog.at_level("INFO", logger="lotto_analitica.audit"), pytest.raises(
+        ValueError, match="Unsupported audit mutation"
+    ):
+        log_mutation(
+            action="update\nforged",
+            resource="draw\rforged",
+            resource_id=203,
+            actor=actor,
+        )
+
+    assert caplog.records == []
