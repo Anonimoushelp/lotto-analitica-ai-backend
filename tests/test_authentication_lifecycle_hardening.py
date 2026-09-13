@@ -4,7 +4,12 @@ import jwt
 from fastapi.testclient import TestClient
 
 from app.core.config import settings
-from app.core.security import ALGORITHM, create_access_token, hash_password, verify_password
+from app.core.security import (
+    ALGORITHM,
+    create_access_token,
+    hash_password,
+    verify_password,
+)
 from app.main import app
 
 client = TestClient(app)
