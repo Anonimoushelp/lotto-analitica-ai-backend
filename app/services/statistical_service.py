@@ -1,5 +1,3 @@
-# ruff: noqa: I001
-
 import collections
 import itertools
 from contextlib import nullcontext
@@ -133,6 +131,7 @@ class StatisticalService:
     def overview(
         db: Session, lottery_id: int | None = None
     ) -> dict[str, int | str]:
+        StatisticalService._validate_lottery_id(lottery_id)
         statement = select(LotteryDraw)
         if lottery_id is not None:
             statement = statement.where(LotteryDraw.lottery_id == lottery_id)
