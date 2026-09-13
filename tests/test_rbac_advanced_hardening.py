@@ -72,6 +72,15 @@ def seed_user(email: str, role: str = "viewer", active: bool = True) -> User:
     return user
 
 
+def fresh_user(user_id: int) -> User:
+    db = TestingSessionLocal()
+    user = db.get(User, user_id)
+    assert user is not None
+    db.expunge(user)
+    db.close()
+    return user
+
+
 def token_for(user: User) -> str:
     now = datetime.now(UTC)
     payload = {
@@ -99,7 +108,7 @@ def admin_update(admin: User, target: User, payload: dict):
 
 def test_analyst_has_read_privileges_but_no_mutation_privileges():
     analyst = seed_user("analyst@example.com", role="analyst")
-    lottery = Lottery(name="RBAC Lottery", code="RBAC")
+    lottery = Lottery(name="RBAC Lottery", code="RBAC", country="CO")
     db = TestingSessionLocal()
     db.add(lottery)
     db.commit()
@@ -120,7 +129,7 @@ def test_analyst_has_read_privileges_but_no_mutation_privileges():
     assert client.post(
         "/api/v1/lotteries",
         headers=auth_header(analyst),
-        json={"name": "Denied", "code": "DENIED"},
+        json={"name": "Denied", "code": "DENIED", "country": "CO"},
     ).status_code == 403
 
 
@@ -147,16 +156,18 @@ def test_role_change_to_analyst_grants_only_analyst_scope_and_revokes_old_token(
     assert response.status_code == 200
     assert response.json()["role"] == "analyst"
 
+    refreshed = fresh_user(target.id)
+    assert refreshed.role == "analyst"
     assert client.get(
         "/api/v1/statistics/overview", headers={"Authorization": f"Bearer {old_token}"}
     ).status_code == 401
     assert client.get(
-        "/api/v1/statistics/overview", headers=auth_header(target)
+        "/api/v1/statistics/overview", headers=auth_header(refreshed)
     ).status_code == 200
     assert client.post(
         "/api/v1/lotteries",
-        headers=auth_header(target),
-        json={"name": "Denied", "code": "DENIED"},
+        headers=auth_header(refreshed),
+        json={"name": "Denied", "code": "DENIED", "country": "CO"},
     ).status_code == 403
 
 
@@ -171,8 +182,9 @@ def test_role_demotion_to_viewer_removes_analyst_access_immediately():
     assert client.get(
         "/api/v1/statistics/overview", headers={"Authorization": f"Bearer {old_token}"}
     ).status_code == 401
+    refreshed = fresh_user(target.id)
     assert client.get(
-        "/api/v1/statistics/overview", headers=auth_header(target)
+        "/api/v1/statistics/overview", headers=auth_header(refreshed)
     ).status_code == 403
 
 
@@ -182,13 +194,14 @@ def test_role_change_to_service_cannot_access_human_routes():
     response = admin_update(admin, target, {"role": "service"})
     assert response.status_code == 200
     assert response.json()["role"] == "service"
+    refreshed = fresh_user(target.id)
     for path in (
         "/api/v1/lotteries",
         "/api/v1/draws",
         "/api/v1/statistics/overview",
         "/api/v1/predictions/model-status",
     ):
-        assert client.get(path, headers=auth_header(target)).status_code == 403
+        assert client.get(path, headers=auth_header(refreshed)).status_code == 403
 
 
 def test_non_admin_roles_cannot_change_any_target_role():
