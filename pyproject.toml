@@ -9,6 +9,7 @@ ignore = ["B008"]
 known-first-party = ["app"]
 
 [tool.ruff.lint.per-file-ignores]
+"tests/test_admin_credential_lifecycle.py" = ["I001"]
 "tests/test_auth.py" = ["I001"]
 "tests/test_auth_jwt_hardening.py" = ["I001"]
 "tests/test_bootstrap_admin_cli.py" = ["I001"]
