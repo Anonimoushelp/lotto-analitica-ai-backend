@@ -36,20 +36,17 @@ def test_audit_event_contains_only_non_sensitive_identity_fields(caplog, actor):
     assert "password" not in message.lower()
 
 
-def test_audit_values_are_sanitized_without_changing_allowlist_semantics(caplog, actor):
+def test_audit_control_characters_are_rejected_before_logging(caplog, actor):
     with caplog.at_level(logging.INFO, logger="lotto_analitica.audit"):
-        audit.log_mutation(
-            action="create\n",
-            resource="lottery\r",
-            resource_id=9,
-            actor=actor,
-        )
+        with pytest.raises(ValueError, match="Unsupported audit mutation"):
+            audit.log_mutation(
+                action="create\n",
+                resource="lottery\r",
+                resource_id=9,
+                actor=actor,
+            )
 
-    message = caplog.records[-1].getMessage()
-    assert "audit.create " in message
-    assert "resource=lottery " in message
-    assert "\n" not in message
-    assert "\r" not in message
+    assert not caplog.records
 
 
 def test_unsupported_resource_action_pair_is_rejected_before_logging(caplog, actor):
