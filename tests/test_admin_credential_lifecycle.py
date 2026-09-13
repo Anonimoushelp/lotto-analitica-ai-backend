@@ -1,9 +1,12 @@
+import logging
+
 import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import create_engine, delete
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.core.audit import log_mutation
 from app.core.security import create_access_token, hash_password
 from app.db.session import get_db
 from app.main import app
@@ -174,4 +177,55 @@ def test_admin_user_update_validates_password_policy_and_unknown_user():
         json={"is_active": False},
     )
     assert response.status_code == 404
+    clear_users()
+
+
+def test_log_mutation_records_actor_and_resource(caplog):
+    actor = seed_user("audit-log-admin@example.com", "admin")
+    with caplog.at_level(logging.INFO, logger="lotto_analitica.audit"):
+        log_mutation(
+            action="update_credentials",
+            resource="user",
+            resource_id=7,
+            actor=actor,
+        )
+    message = caplog.records[-1].getMessage()
+    assert "audit.update_credentials" in message
+    assert "resource=user" in message
+    assert "resource_id=7" in message
+    assert f"actor_user_id={actor.id}" in message
+    assert "actor_role=admin" in message
+    clear_users()
+
+
+def test_log_mutation_sanitizes_line_breaks_in_audit_fields(caplog):
+    actor = seed_user("audit-injection@example.com", "admin")
+    actor.role = "admin\nforged=true"
+    with caplog.at_level(logging.INFO, logger="lotto_analitica.audit"):
+        log_mutation(
+            action="update\nforged=true",
+            resource="user\r\nforged=true",
+            resource_id=7,
+            actor=actor,
+        )
+    message = caplog.records[-1].getMessage()
+    assert "\n" not in message
+    assert "\r" not in message
+    assert "update forged=true" in message
+    assert "actor_role=admin forged=true" in message
+    clear_users()
+
+
+def test_log_mutation_does_not_log_password_hash_or_email(caplog):
+    actor = seed_user("audit-sensitive@example.com", "admin")
+    with caplog.at_level(logging.INFO, logger="lotto_analitica.audit"):
+        log_mutation(
+            action="update_credentials",
+            resource="user",
+            resource_id=7,
+            actor=actor,
+        )
+    message = caplog.records[-1].getMessage()
+    assert actor.password_hash not in message
+    assert actor.email not in message
     clear_users()
