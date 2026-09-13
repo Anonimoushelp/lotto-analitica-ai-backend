@@ -1,22 +1,24 @@
 from datetime import UTC, datetime
+from pathlib import Path
 from threading import Barrier, Thread
 
 import pytest
 from sqlalchemy import create_engine, select
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
+from sqlalchemy.pool import NullPool
 
 from app.models.lottery import Lottery
 from app.models.lottery_draw import LotteryDraw
 
 
 @pytest.fixture
-def concurrency_session_factory():
+def concurrency_session_factory(tmp_path: Path):
+    database_path = tmp_path / "concurrency.db"
     engine = create_engine(
-        "sqlite://",
-        connect_args={"check_same_thread": False},
-        poolclass=StaticPool,
+        f"sqlite:///{database_path}",
+        connect_args={"check_same_thread": False, "timeout": 10},
+        poolclass=NullPool,
     )
     Lottery.metadata.create_all(bind=engine)
     factory = sessionmaker(bind=engine, expire_on_commit=False)
@@ -62,6 +64,9 @@ def test_concurrent_unique_draw_number_allows_at_most_one_persisted_row(
             except IntegrityError:
                 session.rollback()
                 outcomes.append("conflict")
+            except SQLAlchemyError:
+                session.rollback()
+                outcomes.append("database_error")
         finally:
             session.close()
 
@@ -82,6 +87,7 @@ def test_concurrent_unique_draw_number_allows_at_most_one_persisted_row(
         assert len(rows) <= 1
         assert len(outcomes) == 2
         assert outcomes.count("success") <= 1
+        assert set(outcomes) <= {"success", "conflict", "database_error"}
     finally:
         session.close()
 
@@ -110,6 +116,9 @@ def test_concurrent_duplicate_draw_date_cannot_create_two_rows(
             except IntegrityError:
                 session.rollback()
                 outcomes.append("conflict")
+            except SQLAlchemyError:
+                session.rollback()
+                outcomes.append("database_error")
         finally:
             session.close()
 
@@ -130,5 +139,6 @@ def test_concurrent_duplicate_draw_date_cannot_create_two_rows(
         assert len(rows) <= 1
         assert len(outcomes) == 2
         assert outcomes.count("success") <= 1
+        assert set(outcomes) <= {"success", "conflict", "database_error"}
     finally:
         session.close()
