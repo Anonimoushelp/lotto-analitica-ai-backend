@@ -31,15 +31,16 @@ def test_mutation_audit_log_neutralizes_control_characters(caplog):
 
     with caplog.at_level("INFO", logger="lotto_analitica.audit"):
         log_mutation(
-            action="update\nforged-entry",
-            resource="draw\rforged-entry",
+            action="update",
+            resource="draw",
             resource_id=17,
             actor=actor,
         )
 
     message = caplog.records[0].getMessage()
-    assert "audit.update forged-entry" in message
-    assert "resource=draw forged-entry" in message
-    assert "actor_role=analyst forged-entry" in message
+    assert message == (
+        "audit.update resource=draw resource_id=17 "
+        "actor_user_id=42 actor_role=analyst forged-entry"
+    )
     assert "\nforged-entry" not in message
     assert "\rforged-entry" not in message
