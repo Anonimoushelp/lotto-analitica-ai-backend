@@ -64,9 +64,36 @@ def test_json_adapter_rejects_invalid_canonical_numbers():
         adapter.parse_draw(payload)
 
 
+def test_json_adapter_rejects_duplicate_numbers():
+    adapter = JsonLotterySourceAdapter("provider-example")
+    payload = valid_payload()
+    payload["main_numbers"] = [5, 12, 12, 31, 42]
+
+    with pytest.raises(ValueError, match="Invalid provider draw payload"):
+        adapter.parse_draw(payload)
+
+
+def test_json_adapter_rejects_duplicate_bonus_numbers():
+    adapter = JsonLotterySourceAdapter("provider-example")
+    payload = valid_payload()
+    payload["bonus_numbers"] = [7, 7]
+
+    with pytest.raises(ValueError, match="Invalid provider draw payload"):
+        adapter.parse_draw(payload)
+
+
 def test_json_adapter_rejects_control_characters_in_source_name():
     with pytest.raises(ValueError, match="Invalid source name"):
         JsonLotterySourceAdapter("provider\nexample")
+
+
+def test_json_adapter_rejects_control_characters_in_payload_identifiers():
+    adapter = JsonLotterySourceAdapter("provider-example")
+    payload = valid_payload()
+    payload["draw_number"] = "2026-001\t"
+
+    with pytest.raises(ValueError, match="Invalid provider draw payload"):
+        adapter.parse_draw(payload)
 
 
 def test_registry_requires_unique_explicit_sources():
