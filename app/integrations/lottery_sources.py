@@ -1,7 +1,7 @@
 from datetime import date, datetime
 from typing import Any, ClassVar, Protocol
 
-from pydantic import BaseModel, ConfigDict, Field, StrictInt, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr, field_validator
 
 
 class LotteryDrawPayload(BaseModel):
@@ -15,11 +15,11 @@ class LotteryDrawPayload(BaseModel):
 
     model_config = ConfigDict(extra="forbid")
 
-    draw_number: str = Field(min_length=1, max_length=50)
+    draw_number: StrictStr = Field(min_length=1, max_length=50)
     draw_date: date
     main_numbers: list[StrictInt] = Field(min_length=1, max_length=20)
     bonus_numbers: list[StrictInt] | None = Field(default=None, max_length=10)
-    source: str = Field(min_length=1, max_length=255)
+    source: StrictStr = Field(min_length=1, max_length=255)
     metadata: dict[str, Any] | None = None
 
     @field_validator("draw_number", "source")
