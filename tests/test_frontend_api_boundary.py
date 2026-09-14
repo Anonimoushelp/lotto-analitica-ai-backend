@@ -35,7 +35,7 @@ def test_frontend_boundary_rejects_unconfigured_origin():
         },
     )
 
-    assert response.status_code == 200
+    assert response.status_code == 400
     assert "access-control-allow-origin" not in response.headers
 
 
