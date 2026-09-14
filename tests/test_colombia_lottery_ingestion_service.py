@@ -5,7 +5,9 @@ from unittest.mock import Mock
 import pytest
 
 from app.integrations.lottery_source_adapters import JsonLotterySourceAdapter
-from app.services.colombia_lottery_ingestion_service import ColombiaLotteryIngestionService
+from app.services.colombia_lottery_ingestion_service import (
+    ColombiaLotteryIngestionService,
+)
 
 
 def payload(**overrides):
@@ -103,7 +105,9 @@ def test_facade_is_idempotent_for_existing_exact_draw(monkeypatch):
 
 def test_facade_rejects_unknown_source_before_persistence():
     with pytest.raises(KeyError, match="Unknown lottery source"):
-        ColombiaLotteryIngestionService().ingest(Mock(), 10, "untrusted-source", payload())
+        ColombiaLotteryIngestionService().ingest(
+            Mock(), 10, "untrusted-source", payload()
+        )
 
 
 def test_facade_rejects_non_string_source_before_persistence():
