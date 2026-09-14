@@ -28,6 +28,7 @@ def existing(**overrides):
         "main_numbers": [4, 11, 22, 35, 41],
         "bonus_numbers": [7],
         "source": "provider-example",
+        "metadata_json": {"provider": "fixture"},
     }
     value.update(overrides)
     return SimpleNamespace(**value)
@@ -94,6 +95,27 @@ def test_ingestion_rejects_conflicting_duplicate(monkeypatch):
     monkeypatch.setattr(
         "app.services.lottery_draw_ingestion_service.LotteryDrawRepository.get_by_date",
         Mock(return_value=None),
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        service.ingest(db, 10, payload())
+
+    assert exc_info.value.status_code == 409
+    assert exc_info.value.detail == "Lottery draw conflicts with an existing record"
+
+
+def test_ingestion_rejects_metadata_conflict(monkeypatch):
+    db = Mock()
+    adapter = JsonLotterySourceAdapter("provider-example")
+    service = LotteryDrawIngestionService(adapter, create_draw=Mock())
+    existing_draw = existing(metadata_json={"provider": "different-fixture"})
+    monkeypatch.setattr(
+        "app.services.lottery_draw_ingestion_service.LotteryDrawRepository.get_by_number",
+        Mock(return_value=existing_draw),
+    )
+    monkeypatch.setattr(
+        "app.services.lottery_draw_ingestion_service.LotteryDrawRepository.get_by_date",
+        Mock(return_value=existing_draw),
     )
 
     with pytest.raises(HTTPException) as exc_info:
