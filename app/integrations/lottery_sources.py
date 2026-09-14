@@ -1,5 +1,5 @@
 from datetime import date
-from typing import Any, Protocol
+from typing import Any, ClassVar, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
 
@@ -7,10 +7,10 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 class LotteryDrawPayload(BaseModel):
     """Canonical, source-neutral representation of an imported draw."""
 
-    _MAX_METADATA_DEPTH = 5
-    _MAX_METADATA_NODES = 256
-    _MAX_METADATA_STRING_LENGTH = 512
-    _MAX_METADATA_KEY_LENGTH = 128
+    _MAX_METADATA_DEPTH: ClassVar[int] = 5
+    _MAX_METADATA_NODES: ClassVar[int] = 256
+    _MAX_METADATA_STRING_LENGTH: ClassVar[int] = 512
+    _MAX_METADATA_KEY_LENGTH: ClassVar[int] = 128
 
     model_config = ConfigDict(extra="forbid")
 
