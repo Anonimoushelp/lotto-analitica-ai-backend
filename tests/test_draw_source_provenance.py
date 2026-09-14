@@ -42,13 +42,16 @@ def test_create_draw_rejects_empty_source():
     assert exc_info.value.detail == "Lottery draw source is required"
 
 
-def test_update_draw_rejects_null_source():
-    draw = Mock(id=1, lottery_id=1, draw_number="1001", draw_date=date(2026, 9, 14), source="provider")
+def test_update_draw_rejects_null_source(monkeypatch):
+    draw = Mock(
+        id=1,
+        lottery_id=1,
+        draw_number="1001",
+        draw_date=date(2026, 9, 14),
+        source="provider",
+    )
+    monkeypatch.setattr(LotteryDrawService, "get_draw", Mock(return_value=draw))
     db = Mock()
-    db.get.return_value = Mock()
-
-    service = Mock()
-    service.get_draw.return_value = draw
 
     with pytest.raises(HTTPException) as exc_info:
         LotteryDrawService.update_draw(
