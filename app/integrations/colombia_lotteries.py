@@ -87,7 +87,7 @@ class _ColombiaLotteryAdapter:
         if isinstance(value, date) and not isinstance(value, datetime):
             return value
         if not isinstance(value, str):
-            raise ValueError("Invalid provider draw payload")
+            raise TypeError("Invalid provider draw date type")
         normalized = " ".join(value.strip().lower().split())
         iso_match = re.fullmatch(r"(\d{4})-(\d{2})-(\d{2})", normalized)
         if iso_match:
@@ -117,12 +117,14 @@ class _ColombiaLotteryAdapter:
         ):
             numbers = value
         elif isinstance(value, str):
-            tokens = [token for token in re.split(r"\s*-\s*", value.strip()) if token]
+            tokens = [
+                token for token in re.split(r"\s*-\s*", value.strip()) if token
+            ]
             if not tokens or any(not token.isdigit() for token in tokens):
                 raise ValueError("Invalid provider draw payload")
             numbers = [int(token) for token in tokens]
         else:
-            raise ValueError("Invalid provider draw payload")
+            raise TypeError("Invalid provider draw numbers type")
         if any(number <= 0 for number in numbers) or len(numbers) != len(set(numbers)):
             raise ValueError("Invalid provider draw payload")
         return numbers
