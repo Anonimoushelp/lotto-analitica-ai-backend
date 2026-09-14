@@ -1,4 +1,5 @@
 from datetime import date, datetime
+from math import isfinite
 from typing import Any, ClassVar, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field, StrictInt, StrictStr, field_validator
@@ -102,8 +103,17 @@ class LotteryDrawPayload(BaseModel):
                 raise ValueError("Metadata strings are too long")
             if any(char.isprintable() is False for char in value):
                 raise ValueError("Metadata contains invalid characters")
+            return 1
 
-        return 1
+        if value is None or isinstance(value, bool) or isinstance(value, int):
+            return 1
+
+        if isinstance(value, float):
+            if not isfinite(value):
+                raise ValueError("Metadata contains non-finite numbers")
+            return 1
+
+        raise ValueError("Metadata contains unsupported value types")
 
 
 class LotterySourceAdapter(Protocol):
