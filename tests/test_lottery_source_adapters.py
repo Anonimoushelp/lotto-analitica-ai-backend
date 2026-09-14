@@ -6,6 +6,7 @@ from app.integrations.lottery_source_adapters import (
     JsonLotterySourceAdapter,
     LotterySourceAdapterRegistry,
 )
+from app.integrations.lottery_sources import LotteryDrawPayload
 
 
 def valid_payload() -> dict:
@@ -204,6 +205,42 @@ def test_registry_rejects_non_string_lookup():
     registry = LotterySourceAdapterRegistry([JsonLotterySourceAdapter("provider-a")])
     with pytest.raises(TypeError, match="Invalid source name"):
         registry.get(123)  # type: ignore[arg-type]
+
+
+def test_registry_parse_draw_enforces_canonical_output():
+    registry = LotterySourceAdapterRegistry([JsonLotterySourceAdapter("provider-a")])
+    result = registry.parse_draw("provider-a", valid_payload())
+    assert isinstance(result, LotteryDrawPayload)
+    assert result.source == "provider-a"
+
+
+def test_registry_parse_draw_rejects_invalid_adapter_output():
+    adapter = type(
+        "Adapter",
+        (),
+        {
+            "source_name": "provider-a",
+            "parse_draw": lambda self, payload: payload,
+        },
+    )()
+    registry = LotterySourceAdapterRegistry([adapter])
+    with pytest.raises(ValueError, match="invalid draw payload"):
+        registry.parse_draw("provider-a", valid_payload())
+
+
+def test_registry_parse_draw_rejects_mismatched_adapter_output():
+    other = JsonLotterySourceAdapter("provider-b")
+    adapter = type(
+        "Adapter",
+        (),
+        {
+            "source_name": "provider-a",
+            "parse_draw": lambda self, payload: other.parse_draw(payload),
+        },
+    )()
+    registry = LotterySourceAdapterRegistry([adapter])
+    with pytest.raises(ValueError, match="mismatched source"):
+        registry.parse_draw("provider-a", valid_payload())
 
 
 def test_canonical_validation_error_is_not_exposed():
