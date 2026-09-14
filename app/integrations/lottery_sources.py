@@ -34,7 +34,7 @@ class LotteryDrawPayload(BaseModel):
     @classmethod
     def validate_draw_date(cls, value: Any) -> Any:
         if isinstance(value, datetime):
-            raise ValueError("Draw date must be a calendar date")
+            raise TypeError("Draw date must be a calendar date")
         return value
 
     @field_validator("main_numbers", "bonus_numbers")
