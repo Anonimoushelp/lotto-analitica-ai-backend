@@ -98,7 +98,7 @@ class LotterySourceAdapterRegistry:
         except (TypeError, ValueError) as exc:
             raise ValueError("Invalid provider draw payload") from exc
         if not isinstance(result, LotteryDrawPayload):
-            raise ValueError("Adapter returned invalid draw payload")
+            raise TypeError("Adapter returned invalid draw payload")
         if result.source != adapter.source_name:
             raise ValueError("Adapter returned mismatched source")
         return result
