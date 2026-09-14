@@ -16,7 +16,7 @@ class JsonLotterySourceAdapter:
         normalized = source_name.strip()
         if not normalized or len(normalized) > 255:
             raise ValueError("Invalid source name")
-        if any(char in normalized for char in "\r\n"):
+        if any(not char.isprintable() for char in normalized):
             raise ValueError("Invalid source name")
         self.source_name = normalized
 
@@ -49,6 +49,8 @@ class LotterySourceAdapterRegistry:
         if not isinstance(source_name, str) or not source_name.strip():
             raise ValueError("Adapter source name is required")
         key = source_name.strip()
+        if any(not char.isprintable() for char in key):
+            raise ValueError("Invalid source name")
         if key in self._adapters:
             raise ValueError("Adapter source already registered")
         self._adapters[key] = adapter
