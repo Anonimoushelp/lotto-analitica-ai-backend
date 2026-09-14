@@ -90,7 +90,7 @@ class LotteryDrawPayload(BaseModel):
                     raise ValueError("Metadata contains too many nodes")
             return nodes
 
-        if isinstance(value, (list, tuple)):
+        if isinstance(value, list):
             nodes = 1
             for child in value:
                 nodes += cls._validate_metadata_node(child, depth + 1)
