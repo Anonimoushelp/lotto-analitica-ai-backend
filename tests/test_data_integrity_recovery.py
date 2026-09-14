@@ -66,13 +66,13 @@ def test_delete_rolls_back_after_database_write_failure():
     assert db.deleted is draw
 
 
-def test_draw_schema_keeps_unique_identity_constraints():
+def test_draw_schema_keeps_provider_scoped_unique_identity_constraints():
     constraints = {
         constraint.name for constraint in LotteryDraw.__table__.constraints
     }
 
-    assert "uq_lottery_draw_number" in constraints
-    assert "uq_lottery_draw_date" in constraints
+    assert "uq_lottery_draw_source_number" in constraints
+    assert "uq_lottery_draw_source_date" in constraints
 
 
 def test_draw_schema_keeps_cascade_delete_foreign_key():
