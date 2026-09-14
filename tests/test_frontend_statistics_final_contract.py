@@ -74,7 +74,7 @@ def test_statistics_frontend_contract_preserves_request_id(monkeypatch):
             "draws_analyzed": 0,
         },
     )
-    request_id = "frontend-statistics-final-252"
+    request_id = "frontend-statistics-final-253"
     try:
         response = client.get(
             "/api/v1/statistics/overview",
