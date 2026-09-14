@@ -13,6 +13,8 @@ class JsonLotterySourceAdapter:
     """
 
     def __init__(self, source_name: str) -> None:
+        if not isinstance(source_name, str):
+            raise TypeError("Invalid source name")
         normalized = source_name.strip()
         if not normalized or len(normalized) > 255:
             raise ValueError("Invalid source name")
