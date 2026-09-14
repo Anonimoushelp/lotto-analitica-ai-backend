@@ -35,6 +35,35 @@ class LotteryDrawPayload(BaseModel):
             raise ValueError("Numbers must be unique")
         return value
 
+    @field_validator("metadata")
+    @classmethod
+    def validate_metadata(cls, value: dict[str, Any] | None) -> dict[str, Any] | None:
+        if value is None:
+            return None
+        cls._validate_metadata_node(value, depth=0)
+        return value
+
+    @classmethod
+    def _validate_metadata_node(cls, value: Any, depth: int) -> None:
+        if depth > 5:
+            raise ValueError("Metadata nesting is too deep")
+        if isinstance(value, dict):
+            for key, child in value.items():
+                if not isinstance(key, str) or not key.strip():
+                    raise ValueError("Metadata keys must be non-empty strings")
+                if any(char.isprintable() is False for char in key):
+                    raise ValueError("Metadata contains invalid characters")
+                cls._validate_metadata_node(child, depth + 1)
+            return
+        if isinstance(value, (list, tuple)):
+            for child in value:
+                cls._validate_metadata_node(child, depth + 1)
+            return
+        if isinstance(value, str) and any(
+            char.isprintable() is False for char in value
+        ):
+            raise ValueError("Metadata contains invalid characters")
+
 
 class LotterySourceAdapter(Protocol):
     """Contract implemented by each external lottery source adapter."""
