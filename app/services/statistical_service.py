@@ -1,7 +1,7 @@
 import collections
 import itertools
 from contextlib import nullcontext
-from datetime import date
+from datetime import date, datetime
 from numbers import Integral
 
 from sqlalchemy import select
@@ -27,7 +27,7 @@ class StatisticalService:
 
         for draw in draws:
             draw_date = getattr(draw, "draw_date", None)
-            if not isinstance(draw_date, date):
+            if isinstance(draw_date, datetime) or not isinstance(draw_date, date):
                 raise TypeError("Each draw must have a valid draw_date")
 
             main_numbers = getattr(draw, "main_numbers", None)
