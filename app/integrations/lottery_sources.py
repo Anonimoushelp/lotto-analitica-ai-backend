@@ -1,7 +1,7 @@
 from datetime import date
 from typing import Any, ClassVar, Protocol
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, StrictInt, field_validator
 
 
 class LotteryDrawPayload(BaseModel):
@@ -16,8 +16,8 @@ class LotteryDrawPayload(BaseModel):
 
     draw_number: str = Field(min_length=1, max_length=50)
     draw_date: date
-    main_numbers: list[int] = Field(min_length=1, max_length=20)
-    bonus_numbers: list[int] | None = Field(default=None, max_length=10)
+    main_numbers: list[StrictInt] = Field(min_length=1, max_length=20)
+    bonus_numbers: list[StrictInt] | None = Field(default=None, max_length=10)
     source: str = Field(min_length=1, max_length=255)
     metadata: dict[str, Any] | None = None
 
@@ -31,10 +31,10 @@ class LotteryDrawPayload(BaseModel):
 
     @field_validator("main_numbers", "bonus_numbers")
     @classmethod
-    def validate_numbers(cls, value: list[int] | None) -> list[int] | None:
+    def validate_numbers(cls, value: list[StrictInt] | None) -> list[StrictInt] | None:
         if value is None:
             return None
-        if any(isinstance(number, bool) or number <= 0 for number in value):
+        if any(number <= 0 for number in value):
             raise ValueError("Numbers must be positive integers")
         if len(value) != len(set(value)):
             raise ValueError("Numbers must be unique")
