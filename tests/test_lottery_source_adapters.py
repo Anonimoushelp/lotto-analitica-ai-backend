@@ -1,4 +1,4 @@
-from datetime import date, datetime
+from datetime import date, datetime, timezone
 
 import pytest
 
@@ -95,7 +95,7 @@ def test_json_adapter_rejects_oversized_bonus_number():
 def test_json_adapter_rejects_datetime_draw_date():
     adapter = JsonLotterySourceAdapter("provider-example")
     payload = valid_payload()
-    payload["draw_date"] = datetime(2026, 9, 13, 12, 30)
+    payload["draw_date"] = datetime(2026, 9, 13, 12, 30, tzinfo=timezone.utc)
     with pytest.raises(ValueError, match="Invalid provider draw payload"):
         adapter.parse_draw(payload)
 
