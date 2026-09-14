@@ -94,7 +94,10 @@ class LotteryDrawBase(BaseModel):
 
 
 class LotteryDrawCreate(LotteryDrawBase):
-    pass
+    source: str = Field(
+        min_length=1,
+        max_length=255,
+    )
 
 
 class LotteryDrawUpdate(BaseModel):
