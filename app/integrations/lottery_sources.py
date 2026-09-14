@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 from typing import Any, ClassVar, Protocol
 
 from pydantic import BaseModel, ConfigDict, Field, StrictInt, field_validator
@@ -30,6 +30,13 @@ class LotteryDrawPayload(BaseModel):
             raise ValueError("Invalid identifier")
         return normalized
 
+    @field_validator("draw_date", mode="before")
+    @classmethod
+    def validate_draw_date(cls, value: Any) -> Any:
+        if isinstance(value, datetime):
+            raise ValueError("Draw date must be a calendar date")
+        return value
+
     @field_validator("main_numbers", "bonus_numbers")
     @classmethod
     def validate_numbers(cls, value: list[StrictInt] | None) -> list[StrictInt] | None:
@@ -41,6 +48,18 @@ class LotteryDrawPayload(BaseModel):
             raise ValueError("Numbers exceed canonical maximum")
         if len(value) != len(set(value)):
             raise ValueError("Numbers must be unique")
+        return value
+
+    @field_validator("bonus_numbers")
+    @classmethod
+    def validate_bonus_disjointness(
+        cls, value: list[StrictInt] | None, info: Any
+    ) -> list[StrictInt] | None:
+        if value is None:
+            return None
+        main_numbers = info.data.get("main_numbers")
+        if main_numbers is not None and set(value) & set(main_numbers):
+            raise ValueError("Bonus numbers must not overlap main numbers")
         return value
 
     @field_validator("metadata")
