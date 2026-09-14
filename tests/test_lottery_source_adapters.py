@@ -224,7 +224,7 @@ def test_registry_parse_draw_rejects_invalid_adapter_output():
         },
     )()
     registry = LotterySourceAdapterRegistry([adapter])
-    with pytest.raises(ValueError, match="invalid draw payload"):
+    with pytest.raises(TypeError, match="invalid draw payload"):
         registry.parse_draw("provider-a", valid_payload())
 
 
