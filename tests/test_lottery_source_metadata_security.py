@@ -28,7 +28,7 @@ def test_metadata_rejects_control_characters_in_keys():
 
 def test_metadata_rejects_excessive_nesting():
     nested = value = {}
-    for index in range(7):
+    for _ in range(7):
         value["level"] = {}
         value = value["level"]
 
