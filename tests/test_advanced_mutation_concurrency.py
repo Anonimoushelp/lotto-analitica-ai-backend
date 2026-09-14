@@ -56,6 +56,7 @@ def test_concurrent_unique_draw_number_allows_at_most_one_persisted_row(
                 draw_number="RACE-001",
                 draw_date=datetime(2026, 1, 1, tzinfo=UTC),
                 main_numbers=[1, 2, 3, 4, 5],
+                source="concurrency-provider",
             )
             session.add(draw)
             try:
@@ -81,6 +82,7 @@ def test_concurrent_unique_draw_number_allows_at_most_one_persisted_row(
         rows = session.scalars(
             select(LotteryDraw).where(
                 LotteryDraw.lottery_id == lottery_id,
+                LotteryDraw.source == "concurrency-provider",
                 LotteryDraw.draw_number == "RACE-001",
             )
         ).all()
@@ -108,6 +110,7 @@ def test_concurrent_duplicate_draw_date_cannot_create_two_rows(
                 draw_number=f"RACE-DATE-{index}",
                 draw_date=datetime(2026, 1, 2, tzinfo=UTC),
                 main_numbers=[6, 7, 8, 9, 10],
+                source="concurrency-provider",
             )
             session.add(draw)
             try:
@@ -133,6 +136,7 @@ def test_concurrent_duplicate_draw_date_cannot_create_two_rows(
         rows = session.scalars(
             select(LotteryDraw).where(
                 LotteryDraw.lottery_id == lottery_id,
+                LotteryDraw.source == "concurrency-provider",
                 LotteryDraw.draw_date == datetime(2026, 1, 2, tzinfo=UTC),
             )
         ).all()
