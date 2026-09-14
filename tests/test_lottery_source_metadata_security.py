@@ -36,6 +36,24 @@ def test_metadata_rejects_excessive_nesting():
         LotteryDrawPayload.model_validate(_payload(nested))
 
 
+def test_metadata_rejects_oversized_string_values():
+    with pytest.raises(ValidationError, match="Metadata strings are too long"):
+        LotteryDrawPayload.model_validate(
+            _payload({"provider_response": "x" * 513})
+        )
+
+
+def test_metadata_rejects_oversized_keys():
+    with pytest.raises(ValidationError, match="Metadata keys are too long"):
+        LotteryDrawPayload.model_validate(_payload({"k" * 129: "value"}))
+
+
+def test_metadata_rejects_too_many_nodes():
+    metadata = {f"item_{index}": index for index in range(256)}
+    with pytest.raises(ValidationError, match="Metadata contains too many nodes"):
+        LotteryDrawPayload.model_validate(_payload(metadata))
+
+
 def test_metadata_allows_safe_nested_provider_context():
     result = LotteryDrawPayload.model_validate(
         _payload(
