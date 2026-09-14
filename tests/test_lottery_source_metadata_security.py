@@ -54,6 +54,31 @@ def test_metadata_rejects_too_many_nodes():
         LotteryDrawPayload.model_validate(_payload(metadata))
 
 
+def test_metadata_rejects_unsupported_value_types():
+    with pytest.raises(ValidationError, match="Metadata contains unsupported value types"):
+        LotteryDrawPayload.model_validate(_payload({"payload": {"binary": b"secret"}}))
+
+
+def test_metadata_rejects_non_finite_numbers():
+    with pytest.raises(ValidationError, match="Metadata contains non-finite numbers"):
+        LotteryDrawPayload.model_validate(_payload({"score": float("nan")}))
+
+
+def test_metadata_allows_safe_json_scalar_types():
+    result = LotteryDrawPayload.model_validate(
+        _payload(
+            {
+                "provider": "official",
+                "request": {"page": 1, "enabled": True, "score": 0.5},
+                "empty": None,
+            }
+        )
+    )
+
+    assert result.metadata["request"]["enabled"] is True
+    assert result.metadata["request"]["score"] == 0.5
+
+
 def test_metadata_allows_safe_nested_provider_context():
     result = LotteryDrawPayload.model_validate(
         _payload(
