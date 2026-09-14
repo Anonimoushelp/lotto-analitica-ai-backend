@@ -34,25 +34,66 @@ class LotteryDrawIngestionService:
             source=canonical.source,
         )
 
-        if existing_number is not None or existing_date is not None:
-            if self._matches(existing_number, canonical) and self._matches(
-                existing_date, canonical
-            ):
-                return existing_number or existing_date
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Lottery draw conflicts with an existing record",
-            )
+        existing = self._resolve_existing(existing_number, existing_date, canonical)
+        if existing is not None:
+            return existing
 
-        return self._create_draw(
+        try:
+            return self._create_draw(
+                db=db,
+                lottery_id=lottery_id,
+                draw_number=canonical.draw_number,
+                draw_date=canonical.draw_date,
+                main_numbers=canonical.main_numbers,
+                bonus_numbers=canonical.bonus_numbers,
+                source=canonical.source,
+                metadata_json=canonical.metadata,
+            )
+        except HTTPException as exc:
+            if exc.status_code != status.HTTP_409_CONFLICT:
+                raise
+            return self._resolve_race_after_conflict(db, lottery_id, canonical, exc)
+
+    @classmethod
+    def _resolve_race_after_conflict(
+        cls,
+        db: Session,
+        lottery_id: int,
+        canonical: LotteryDrawPayload,
+        conflict: HTTPException,
+    ) -> object:
+        existing_number = LotteryDrawRepository.get_by_number(
             db=db,
             lottery_id=lottery_id,
             draw_number=canonical.draw_number,
-            draw_date=canonical.draw_date,
-            main_numbers=canonical.main_numbers,
-            bonus_numbers=canonical.bonus_numbers,
             source=canonical.source,
-            metadata_json=canonical.metadata,
+        )
+        existing_date = LotteryDrawRepository.get_by_date(
+            db=db,
+            lottery_id=lottery_id,
+            draw_date=canonical.draw_date,
+            source=canonical.source,
+        )
+        existing = cls._resolve_existing(existing_number, existing_date, canonical)
+        if existing is not None:
+            return existing
+        raise conflict
+
+    @staticmethod
+    def _resolve_existing(
+        existing_number: object | None,
+        existing_date: object | None,
+        canonical: LotteryDrawPayload,
+    ) -> object | None:
+        if existing_number is None and existing_date is None:
+            return None
+        if LotteryDrawIngestionService._matches(existing_number, canonical) and LotteryDrawIngestionService._matches(
+            existing_date, canonical
+        ):
+            return existing_number or existing_date
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail="Lottery draw conflicts with an existing record",
         )
 
     @staticmethod
