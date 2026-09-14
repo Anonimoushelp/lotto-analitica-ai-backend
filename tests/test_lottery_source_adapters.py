@@ -153,6 +153,39 @@ def test_registry_rejects_control_characters_in_adapter_source():
         ).register(type("Adapter", (), {"source_name": "bad\nsource"})())
 
 
+def test_registry_rejects_non_adapter_objects():
+    with pytest.raises(TypeError, match="must implement parse_draw"):
+        LotterySourceAdapterRegistry().register(
+            type("Adapter", (), {"source_name": "provider-example"})()
+        )
+
+
+def test_registry_rejects_non_normalized_adapter_source():
+    adapter = type(
+        "Adapter",
+        (),
+        {
+            "source_name": " provider-example ",
+            "parse_draw": lambda self, payload: payload,
+        },
+    )()
+    with pytest.raises(ValueError, match="must be normalized"):
+        LotterySourceAdapterRegistry().register(adapter)
+
+
+def test_registry_rejects_oversized_adapter_source():
+    adapter = type(
+        "Adapter",
+        (),
+        {
+            "source_name": "a" * 256,
+            "parse_draw": lambda self, payload: payload,
+        },
+    )()
+    with pytest.raises(ValueError, match="Invalid source name"):
+        LotterySourceAdapterRegistry().register(adapter)
+
+
 def test_registry_requires_unique_explicit_sources():
     first = JsonLotterySourceAdapter("provider-a")
     second = JsonLotterySourceAdapter("provider-a")
