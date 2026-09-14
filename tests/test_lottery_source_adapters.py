@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import date, datetime
 
 import pytest
 
@@ -76,12 +76,35 @@ def test_json_adapter_rejects_duplicate_bonus_numbers():
         adapter.parse_draw(payload)
 
 
+def test_json_adapter_rejects_bonus_overlap_with_main_numbers():
+    adapter = JsonLotterySourceAdapter("provider-example")
+    payload = valid_payload()
+    payload["bonus_numbers"] = [12]
+    with pytest.raises(ValueError, match="Invalid provider draw payload"):
+        adapter.parse_draw(payload)
+
+
 def test_json_adapter_rejects_oversized_bonus_number():
     adapter = JsonLotterySourceAdapter("provider-example")
     payload = valid_payload()
     payload["bonus_numbers"] = [1_000_001]
     with pytest.raises(ValueError, match="Invalid provider draw payload"):
         adapter.parse_draw(payload)
+
+
+def test_json_adapter_rejects_datetime_draw_date():
+    adapter = JsonLotterySourceAdapter("provider-example")
+    payload = valid_payload()
+    payload["draw_date"] = datetime(2026, 9, 13, 12, 30)
+    with pytest.raises(ValueError, match="Invalid provider draw payload"):
+        adapter.parse_draw(payload)
+
+
+def test_json_adapter_accepts_calendar_date():
+    adapter = JsonLotterySourceAdapter("provider-example")
+    payload = valid_payload()
+    result = adapter.parse_draw(payload)
+    assert result.draw_date == date(2026, 9, 13)
 
 
 def test_json_adapter_rejects_control_characters_in_source_name():
