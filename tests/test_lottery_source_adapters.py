@@ -19,12 +19,38 @@ def valid_payload() -> dict:
 
 
 def test_json_adapter_normalizes_source_and_preserves_data():
-    adapter = JsonLotterySourceAdapter("provider-example")
+    adapter = JsonLotterySourceAdapter(" provider-example ")
     result = adapter.parse_draw(valid_payload())
     assert result.source == "provider-example"
     assert result.draw_number == "2026-001"
     assert result.main_numbers == [5, 12, 23, 31, 42]
     assert result.metadata == {"provider_draw_id": "abc-123"}
+
+
+def test_json_adapter_normalizes_identifier_whitespace():
+    adapter = JsonLotterySourceAdapter("provider-example")
+    payload = valid_payload()
+    payload["draw_number"] = " 2026-001 "
+    result = adapter.parse_draw(payload)
+    assert result.draw_number == "2026-001"
+
+
+@pytest.mark.parametrize("value", [123, 7.5, True, None, ["2026-001"]])
+def test_json_adapter_rejects_non_string_draw_number(value):
+    adapter = JsonLotterySourceAdapter("provider-example")
+    payload = valid_payload()
+    payload["draw_number"] = value
+    with pytest.raises(ValueError, match="Invalid provider draw payload"):
+        adapter.parse_draw(payload)
+
+
+@pytest.mark.parametrize("value", [123, 7.5, True, None, ["provider-example"]])
+def test_json_adapter_rejects_non_string_source(value):
+    adapter = JsonLotterySourceAdapter("provider-example")
+    payload = valid_payload()
+    payload["source"] = value
+    with pytest.raises(ValueError, match="Invalid provider draw payload"):
+        adapter.parse_draw(payload)
 
 
 def test_json_adapter_rejects_mismatched_source():
