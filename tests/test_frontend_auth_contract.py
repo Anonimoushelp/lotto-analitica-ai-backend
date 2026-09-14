@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from types import SimpleNamespace
 
 from fastapi.testclient import TestClient
@@ -52,8 +52,8 @@ def test_frontend_auth_me_preserves_user_contract():
         email="analyst@example.com",
         role="analyst",
         is_active=True,
-        created_at=datetime(2026, 1, 1, tzinfo=timezone.utc),
-        updated_at=datetime(2026, 1, 2, tzinfo=timezone.utc),
+        created_at=datetime(2026, 1, 1, tzinfo=UTC),
+        updated_at=datetime(2026, 1, 2, tzinfo=UTC),
     )
     try:
         response = client.get("/api/v1/auth/me", headers={"Accept": "application/json"})
