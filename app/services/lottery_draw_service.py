@@ -76,7 +76,7 @@ class LotteryDrawService:
         if existing_number is not None:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="Draw number already exists for this lottery and source",
+                detail="Draw number already exists for this lottery",
             )
 
         existing_date = LotteryDrawRepository.get_by_date(
@@ -89,7 +89,7 @@ class LotteryDrawService:
         if existing_date is not None:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="Draw date already exists for this lottery and source",
+                detail="Draw date already exists for this lottery",
             )
 
         draw = LotteryDraw(
@@ -154,7 +154,7 @@ class LotteryDrawService:
         if existing_number is not None and existing_number.id != draw_id:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="Draw number already exists for this lottery and source",
+                detail="Draw number already exists for this lottery",
             )
 
         existing_date = LotteryDrawRepository.get_by_date(
@@ -167,7 +167,7 @@ class LotteryDrawService:
         if existing_date is not None and existing_date.id != draw_id:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="Draw date already exists for this lottery and source",
+                detail="Draw date already exists for this lottery",
             )
 
         for field, value in update_data.items():
