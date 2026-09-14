@@ -67,9 +67,9 @@ class LotteryDraw(Base):
         nullable=True,
     )
 
-    source: Mapped[str | None] = mapped_column(
+    source: Mapped[str] = mapped_column(
         String(255),
-        nullable=True,
+        nullable=False,
     )
 
     metadata_json: Mapped[dict[str, Any] | None] = mapped_column(
