@@ -25,11 +25,13 @@ class LotteryDrawIngestionService:
             db=db,
             lottery_id=lottery_id,
             draw_number=canonical.draw_number,
+            source=canonical.source,
         )
         existing_date = LotteryDrawRepository.get_by_date(
             db=db,
             lottery_id=lottery_id,
             draw_date=canonical.draw_date,
+            source=canonical.source,
         )
 
         if existing_number is not None or existing_date is not None:
