@@ -46,12 +46,14 @@ def test_unique_draw_number_is_enforced_per_lottery_transactionally():
         draw_number="DUP-1",
         draw_date=datetime(2026, 2, 1, tzinfo=UTC),
         main_numbers=[1, 2, 3, 4, 5],
+        source="transactional-provider",
     )
     draw_b = LotteryDraw(
         lottery_id=lottery.id,
         draw_number="DUP-1",
         draw_date=datetime(2026, 2, 2, tzinfo=UTC),
         main_numbers=[6, 7, 8, 9, 10],
+        source="transactional-provider",
     )
     db.add(draw_a)
     db.commit()
@@ -61,7 +63,15 @@ def test_unique_draw_number_is_enforced_per_lottery_transactionally():
         db.commit()
 
     db.rollback()
-    assert db.scalar(select(LotteryDraw).where(LotteryDraw.draw_number == "DUP-1")).id == draw_a.id
+    assert (
+        db.scalar(
+            select(LotteryDraw).where(
+                LotteryDraw.draw_number == "DUP-1",
+                LotteryDraw.source == "transactional-provider",
+            )
+        ).id
+        == draw_a.id
+    )
     db.close()
 
 
@@ -77,12 +87,14 @@ def test_unique_draw_date_is_enforced_per_lottery_transactionally():
         draw_number="DATE-1",
         draw_date=draw_date,
         main_numbers=[1, 2, 3, 4, 5],
+        source="transactional-provider",
     )
     second = LotteryDraw(
         lottery_id=lottery.id,
         draw_number="DATE-2",
         draw_date=draw_date,
         main_numbers=[6, 7, 8, 9, 10],
+        source="transactional-provider",
     )
     db.add(first)
     db.commit()
@@ -92,7 +104,12 @@ def test_unique_draw_date_is_enforced_per_lottery_transactionally():
         db.commit()
 
     db.rollback()
-    rows = db.scalars(select(LotteryDraw).where(LotteryDraw.lottery_id == lottery.id)).all()
+    rows = db.scalars(
+        select(LotteryDraw).where(
+            LotteryDraw.lottery_id == lottery.id,
+            LotteryDraw.source == "transactional-provider",
+        )
+    ).all()
     assert len(rows) == 1
     assert rows[0].draw_number == "DATE-1"
     db.close()
@@ -110,6 +127,7 @@ def test_failed_transaction_can_recover_and_persist_followup_mutation():
         draw_number="RECOVER-1",
         draw_date=datetime(2026, 4, 1, tzinfo=UTC),
         main_numbers=[1, 2, 3, 4, 5],
+        source="transactional-provider",
     )
     db.add(existing)
     db.commit()
@@ -119,6 +137,7 @@ def test_failed_transaction_can_recover_and_persist_followup_mutation():
         draw_number="RECOVER-1",
         draw_date=datetime(2026, 4, 2, tzinfo=UTC),
         main_numbers=[6, 7, 8, 9, 10],
+        source="transactional-provider",
     )
     db.add(duplicate)
     with pytest.raises(IntegrityError):
@@ -130,13 +149,17 @@ def test_failed_transaction_can_recover_and_persist_followup_mutation():
         draw_number="RECOVER-2",
         draw_date=datetime(2026, 4, 2, tzinfo=UTC),
         main_numbers=[6, 7, 8, 9, 10],
+        source="transactional-provider",
     )
     db.add(recovered)
     db.commit()
 
     rows = db.scalars(
         select(LotteryDraw)
-        .where(LotteryDraw.lottery_id == lottery.id)
+        .where(
+            LotteryDraw.lottery_id == lottery.id,
+            LotteryDraw.source == "transactional-provider",
+        )
         .order_by(LotteryDraw.id)
     ).all()
     assert [row.draw_number for row in rows] == ["RECOVER-1", "RECOVER-2"]
