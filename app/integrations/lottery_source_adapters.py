@@ -46,7 +46,7 @@ class JsonLotterySourceAdapter:
 
         try:
             return LotteryDrawPayload.model_validate(candidate)
-        except ValidationError as exc:
+        except (ValidationError, TypeError) as exc:
             raise ValueError("Invalid provider draw payload") from exc
 
 
