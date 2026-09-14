@@ -1,7 +1,6 @@
 from datetime import date
 
 import pytest
-from pydantic import ValidationError
 
 from app.integrations.lottery_source_adapters import (
     JsonLotterySourceAdapter,
@@ -94,6 +93,13 @@ def test_json_adapter_rejects_control_characters_in_payload_identifiers():
 
     with pytest.raises(ValueError, match="Invalid provider draw payload"):
         adapter.parse_draw(payload)
+
+
+def test_registry_rejects_control_characters_in_adapter_source():
+    with pytest.raises(ValueError, match="Invalid source name"):
+        LotterySourceAdapterRegistry(
+            [JsonLotterySourceAdapter("provider-example")]
+        ).register(type("Adapter", (), {"source_name": "bad\nsource"})())
 
 
 def test_registry_requires_unique_explicit_sources():
