@@ -9,14 +9,14 @@ from app.schemas.lottery_draw import LotteryDrawCreate, LotteryDrawUpdate
 from app.services.lottery_draw_service import LotteryDrawService
 
 
-def test_draw_create_requires_source():
-    with pytest.raises(ValidationError):
-        LotteryDrawCreate(
-            lottery_id=1,
-            draw_number="1001",
-            draw_date=date(2026, 9, 14),
-            main_numbers=[1, 2, 3, 4, 5],
-        )
+def test_draw_create_defaults_legacy_source():
+    payload = LotteryDrawCreate(
+        lottery_id=1,
+        draw_number="1001",
+        draw_date=date(2026, 9, 14),
+        main_numbers=[1, 2, 3, 4, 5],
+    )
+    assert payload.source == "legacy-import"
 
 
 def test_draw_update_rejects_empty_source():
