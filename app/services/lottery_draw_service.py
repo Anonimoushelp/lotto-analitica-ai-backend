@@ -8,7 +8,6 @@ from app.repositories.lottery_draw_repository import LotteryDrawRepository
 
 
 class LotteryDrawService:
-
     @staticmethod
     def list_draws(
         db: Session,
@@ -50,7 +49,6 @@ class LotteryDrawService:
         source: str | None = None,
         metadata_json: dict | None = None,
     ) -> LotteryDraw:
-
         lottery = db.get(Lottery, lottery_id)
 
         if lottery is None:
@@ -63,24 +61,26 @@ class LotteryDrawService:
             db=db,
             lottery_id=lottery_id,
             draw_number=draw_number,
+            source=source,
         )
 
         if existing_number is not None:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="Draw number already exists for this lottery",
+                detail="Draw number already exists for this lottery and source",
             )
 
         existing_date = LotteryDrawRepository.get_by_date(
             db=db,
             lottery_id=lottery_id,
             draw_date=draw_date,
+            source=source,
         )
 
         if existing_date is not None:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="Draw date already exists for this lottery",
+                detail="Draw date already exists for this lottery and source",
             )
 
         draw = LotteryDraw(
@@ -110,26 +110,15 @@ class LotteryDrawService:
         draw_id: int,
         update_data: dict,
     ) -> LotteryDraw:
-
         draw = LotteryDrawService.get_draw(
             db=db,
             draw_id=draw_id,
         )
 
-        new_lottery_id = update_data.get(
-            "lottery_id",
-            draw.lottery_id,
-        )
-
-        new_draw_number = update_data.get(
-            "draw_number",
-            draw.draw_number,
-        )
-
-        new_draw_date = update_data.get(
-            "draw_date",
-            draw.draw_date,
-        )
+        new_lottery_id = update_data.get("lottery_id", draw.lottery_id)
+        new_draw_number = update_data.get("draw_number", draw.draw_number)
+        new_draw_date = update_data.get("draw_date", draw.draw_date)
+        new_source = update_data.get("source", draw.source)
 
         lottery = db.get(Lottery, new_lottery_id)
 
@@ -143,30 +132,26 @@ class LotteryDrawService:
             db=db,
             lottery_id=new_lottery_id,
             draw_number=new_draw_number,
+            source=new_source,
         )
 
-        if (
-            existing_number is not None
-            and existing_number.id != draw_id
-        ):
+        if existing_number is not None and existing_number.id != draw_id:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="Draw number already exists for this lottery",
+                detail="Draw number already exists for this lottery and source",
             )
 
         existing_date = LotteryDrawRepository.get_by_date(
             db=db,
             lottery_id=new_lottery_id,
             draw_date=new_draw_date,
+            source=new_source,
         )
 
-        if (
-            existing_date is not None
-            and existing_date.id != draw_id
-        ):
+        if existing_date is not None and existing_date.id != draw_id:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="Draw date already exists for this lottery",
+                detail="Draw date already exists for this lottery and source",
             )
 
         for field, value in update_data.items():
@@ -185,23 +170,12 @@ class LotteryDrawService:
         return draw
 
     @staticmethod
-    def delete_draw(
-        db: Session,
-        draw_id: int,
-    ) -> None:
-
-        draw = LotteryDrawService.get_draw(
-            db=db,
-            draw_id=draw_id,
-        )
-
+    def delete_draw(db: Session, draw_id: int) -> None:
+        draw = LotteryDrawService.get_draw(db=db, draw_id=draw_id)
         try:
-            LotteryDrawRepository.delete(
-                db=db,
-                draw=draw,
-            )
+            LotteryDrawRepository.delete(db=db, draw=draw)
         except IntegrityError as exc:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="Lottery draw conflicts with an existing record",
+                detail="Lottery draw cannot be deleted",
             ) from exc
