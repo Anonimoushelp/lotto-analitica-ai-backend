@@ -65,11 +65,18 @@ class LotterySourceAdapterRegistry:
 
     def register(self, adapter: LotterySourceAdapter) -> None:
         source_name = getattr(adapter, "source_name", "")
+        parse_draw = getattr(adapter, "parse_draw", None)
         if not isinstance(source_name, str) or not source_name.strip():
             raise ValueError("Adapter source name is required")
-        key = source_name.strip()
-        if any(not char.isprintable() for char in key):
+        if len(source_name.strip()) > 255:
             raise ValueError("Invalid source name")
+        if any(not char.isprintable() for char in source_name):
+            raise ValueError("Invalid source name")
+        if source_name != source_name.strip():
+            raise ValueError("Adapter source name must be normalized")
+        if not callable(parse_draw):
+            raise TypeError("Adapter must implement parse_draw")
+        key = source_name
         if key in self._adapters:
             raise ValueError("Adapter source already registered")
         self._adapters[key] = adapter
