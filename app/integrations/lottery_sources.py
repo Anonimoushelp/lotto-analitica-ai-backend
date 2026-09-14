@@ -7,6 +7,11 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 class LotteryDrawPayload(BaseModel):
     """Canonical, source-neutral representation of an imported draw."""
 
+    _MAX_METADATA_DEPTH = 5
+    _MAX_METADATA_NODES = 256
+    _MAX_METADATA_STRING_LENGTH = 512
+    _MAX_METADATA_KEY_LENGTH = 128
+
     model_config = ConfigDict(extra="forbid")
 
     draw_number: str = Field(min_length=1, max_length=50)
@@ -44,25 +49,39 @@ class LotteryDrawPayload(BaseModel):
         return value
 
     @classmethod
-    def _validate_metadata_node(cls, value: Any, depth: int) -> None:
-        if depth > 5:
+    def _validate_metadata_node(cls, value: Any, depth: int) -> int:
+        if depth > cls._MAX_METADATA_DEPTH:
             raise ValueError("Metadata nesting is too deep")
+
         if isinstance(value, dict):
+            nodes = 1
             for key, child in value.items():
                 if not isinstance(key, str) or not key.strip():
                     raise ValueError("Metadata keys must be non-empty strings")
+                if len(key) > cls._MAX_METADATA_KEY_LENGTH:
+                    raise ValueError("Metadata keys are too long")
                 if any(char.isprintable() is False for char in key):
                     raise ValueError("Metadata contains invalid characters")
-                cls._validate_metadata_node(child, depth + 1)
-            return
+                nodes += cls._validate_metadata_node(child, depth + 1)
+                if nodes > cls._MAX_METADATA_NODES:
+                    raise ValueError("Metadata contains too many nodes")
+            return nodes
+
         if isinstance(value, (list, tuple)):
+            nodes = 1
             for child in value:
-                cls._validate_metadata_node(child, depth + 1)
-            return
-        if isinstance(value, str) and any(
-            char.isprintable() is False for char in value
-        ):
-            raise ValueError("Metadata contains invalid characters")
+                nodes += cls._validate_metadata_node(child, depth + 1)
+                if nodes > cls._MAX_METADATA_NODES:
+                    raise ValueError("Metadata contains too many nodes")
+            return nodes
+
+        if isinstance(value, str):
+            if len(value) > cls._MAX_METADATA_STRING_LENGTH:
+                raise ValueError("Metadata strings are too long")
+            if any(char.isprintable() is False for char in value):
+                raise ValueError("Metadata contains invalid characters")
+
+        return 1
 
 
 class LotterySourceAdapter(Protocol):
