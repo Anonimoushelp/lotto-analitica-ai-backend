@@ -64,6 +64,11 @@ def test_metadata_rejects_non_finite_numbers():
         LotteryDrawPayload.model_validate(_payload({"score": float("nan")}))
 
 
+def test_metadata_rejects_non_json_collections():
+    with pytest.raises(ValidationError, match="Metadata contains unsupported value types"):
+        LotteryDrawPayload.model_validate(_payload({"tags": ("result", "draw")}))
+
+
 def test_metadata_allows_safe_json_scalar_types():
     result = LotteryDrawPayload.model_validate(
         _payload(
