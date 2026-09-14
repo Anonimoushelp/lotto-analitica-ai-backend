@@ -89,3 +89,16 @@ class LotterySourceAdapterRegistry:
         if adapter is None:
             raise KeyError("Unknown lottery source")
         return adapter
+
+    def parse_draw(self, source_name: str, payload: Any) -> LotteryDrawPayload:
+        """Parse through a registered adapter and enforce the canonical output."""
+        adapter = self.get(source_name)
+        try:
+            result = adapter.parse_draw(payload)
+        except (TypeError, ValueError) as exc:
+            raise ValueError("Invalid provider draw payload") from exc
+        if not isinstance(result, LotteryDrawPayload):
+            raise ValueError("Adapter returned invalid draw payload")
+        if result.source != adapter.source_name:
+            raise ValueError("Adapter returned mismatched source")
+        return result
