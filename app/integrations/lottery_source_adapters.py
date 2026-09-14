@@ -30,6 +30,20 @@ class JsonLotterySourceAdapter:
             raise ValueError("Provider source does not match adapter")
         candidate["source"] = self.source_name
 
+        draw_number = candidate.get("draw_number")
+        if isinstance(draw_number, str) and any(
+            not char.isprintable() for char in draw_number
+        ):
+            raise ValueError("Invalid provider draw payload")
+
+        metadata = candidate.get("metadata")
+        if isinstance(metadata, dict):
+            for value in metadata.values():
+                if isinstance(value, str) and any(
+                    not char.isprintable() for char in value
+                ):
+                    raise ValueError("Invalid provider draw payload")
+
         try:
             return LotteryDrawPayload.model_validate(candidate)
         except ValidationError as exc:
