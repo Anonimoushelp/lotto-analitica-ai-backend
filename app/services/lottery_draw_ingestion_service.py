@@ -63,4 +63,5 @@ class LotteryDrawIngestionService:
             and getattr(existing, "main_numbers", None) == canonical.main_numbers
             and getattr(existing, "bonus_numbers", None) == canonical.bonus_numbers
             and getattr(existing, "source", None) == canonical.source
+            and getattr(existing, "metadata_json", None) == canonical.metadata
         )
