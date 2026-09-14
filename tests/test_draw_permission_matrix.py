@@ -153,7 +153,7 @@ def test_non_admin_roles_cannot_mutate_draws(role, method, path, json_body, monk
 @pytest.mark.parametrize(
     "method,path,json_body,expected_status",
     [
-        ("post", "/api/v1/draws", {"lottery_id": 1, "draw_number": "D-001", "draw_date": "2026-09-02", "main_numbers": [1, 2, 3, 4, 5]}, 201),
+        ("post", "/api/v1/draws", {"lottery_id": 1, "draw_number": "D-001", "draw_date": "2026-09-02", "main_numbers": [1, 2, 3, 4, 5], "source": "test"}, 201),
         ("put", "/api/v1/draws/1", {"draw_number": "D-002"}, 200),
         ("delete", "/api/v1/draws/1", None, 204),
     ],
@@ -209,7 +209,7 @@ def test_anonymous_draw_reads_require_authentication(path, monkeypatch):
 @pytest.mark.parametrize(
     "method,path,json_body,expected_action,expected_status",
     [
-        ("post", "/api/v1/draws", {"lottery_id": 1, "draw_number": "D-001", "draw_date": "2026-09-02", "main_numbers": [1, 2, 3, 4, 5]}, "create", 201),
+        ("post", "/api/v1/draws", {"lottery_id": 1, "draw_number": "D-001", "draw_date": "2026-09-02", "main_numbers": [1, 2, 3, 4, 5], "source": "test"}, "create", 201),
         ("put", "/api/v1/draws/1", {"draw_number": "D-002"}, "update", 200),
         ("delete", "/api/v1/draws/1", None, "delete", 204),
     ],
