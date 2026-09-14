@@ -138,7 +138,6 @@ def test_ingestion_scopes_idempotency_by_source(monkeypatch):
     adapter = JsonLotterySourceAdapter("provider-b")
     create_draw = Mock(return_value="created")
     service = LotteryDrawIngestionService(adapter, create_draw=create_draw)
-    existing_from_other_source = existing(source="provider-a")
     get_number = Mock(return_value=None)
     get_date = Mock(return_value=None)
     monkeypatch.setattr(
@@ -153,7 +152,6 @@ def test_ingestion_scopes_idempotency_by_source(monkeypatch):
     result = service.ingest(db, 10, payload())
 
     assert result == "created"
-    assert existing_from_other_source.source == "provider-a"
     get_number.assert_called_once_with(
         db=db, lottery_id=10, draw_number="1001", source="provider-b"
     )
@@ -186,6 +184,87 @@ def test_ingestion_retries_are_idempotent(monkeypatch):
     assert first is created
     assert second is created
     create_draw.assert_called_once()
+
+
+def test_ingestion_resolves_concurrent_exact_duplicate_after_integrity_conflict(
+    monkeypatch,
+):
+    db = Mock()
+    adapter = JsonLotterySourceAdapter("provider-example")
+    created = existing()
+    conflict = HTTPException(
+        status_code=409,
+        detail="Lottery draw conflicts with an existing record",
+    )
+    create_draw = Mock(side_effect=conflict)
+    service = LotteryDrawIngestionService(adapter, create_draw=create_draw)
+    get_number = Mock(side_effect=[None, created])
+    get_date = Mock(side_effect=[None, created])
+    monkeypatch.setattr(
+        "app.services.lottery_draw_ingestion_service.LotteryDrawRepository.get_by_number",
+        get_number,
+    )
+    monkeypatch.setattr(
+        "app.services.lottery_draw_ingestion_service.LotteryDrawRepository.get_by_date",
+        get_date,
+    )
+
+    result = service.ingest(db, 10, payload())
+
+    assert result is created
+    create_draw.assert_called_once()
+    assert get_number.call_count == 2
+    assert get_date.call_count == 2
+
+
+def test_ingestion_keeps_conflict_after_concurrent_mismatched_insert(monkeypatch):
+    db = Mock()
+    adapter = JsonLotterySourceAdapter("provider-example")
+    conflicting = existing(main_numbers=[1, 2, 3, 4, 5])
+    conflict = HTTPException(
+        status_code=409,
+        detail="Lottery draw conflicts with an existing record",
+    )
+    create_draw = Mock(side_effect=conflict)
+    service = LotteryDrawIngestionService(adapter, create_draw=create_draw)
+    get_number = Mock(side_effect=[None, conflicting])
+    get_date = Mock(side_effect=[None, conflicting])
+    monkeypatch.setattr(
+        "app.services.lottery_draw_ingestion_service.LotteryDrawRepository.get_by_number",
+        get_number,
+    )
+    monkeypatch.setattr(
+        "app.services.lottery_draw_ingestion_service.LotteryDrawRepository.get_by_date",
+        get_date,
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        service.ingest(db, 10, payload())
+
+    assert exc_info.value.status_code == 409
+    assert exc_info.value.detail == "Lottery draw conflicts with an existing record"
+
+
+def test_ingestion_propagates_non_conflict_create_errors(monkeypatch):
+    db = Mock()
+    adapter = JsonLotterySourceAdapter("provider-example")
+    failure = HTTPException(status_code=503, detail="temporary failure")
+    create_draw = Mock(side_effect=failure)
+    service = LotteryDrawIngestionService(adapter, create_draw=create_draw)
+    monkeypatch.setattr(
+        "app.services.lottery_draw_ingestion_service.LotteryDrawRepository.get_by_number",
+        Mock(return_value=None),
+    )
+    monkeypatch.setattr(
+        "app.services.lottery_draw_ingestion_service.LotteryDrawRepository.get_by_date",
+        Mock(return_value=None),
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        service.ingest(db, 10, payload())
+
+    assert exc_info.value.status_code == 503
+    assert exc_info.value.detail == "temporary failure"
 
 
 def test_ingestion_rejects_ambiguous_number_or_date_conflict(monkeypatch):
