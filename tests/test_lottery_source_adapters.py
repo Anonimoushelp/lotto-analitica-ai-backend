@@ -50,7 +50,7 @@ def test_json_adapter_rejects_unknown_provider_fields():
 def test_json_adapter_rejects_non_object_payload():
     adapter = JsonLotterySourceAdapter("provider-example")
 
-    with pytest.raises(ValueError, match="payload must be an object"):
+    with pytest.raises(TypeError, match="payload must be an object"):
         adapter.parse_draw([1, 2, 3])
 
 
@@ -125,7 +125,7 @@ def test_registry_rejects_non_string_lookup():
         [JsonLotterySourceAdapter("provider-a")]
     )
 
-    with pytest.raises(ValueError, match="Invalid source name"):
+    with pytest.raises(TypeError, match="Invalid source name"):
         registry.get(123)  # type: ignore[arg-type]
 
 
