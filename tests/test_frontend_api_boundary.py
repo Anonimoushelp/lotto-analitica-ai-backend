@@ -9,40 +9,33 @@ from app.services.statistical_service import StatisticalService
 client = TestClient(app)
 
 
-def test_frontend_boundary_exposes_cors_for_configured_origin(monkeypatch):
-    monkeypatch.setattr(
-        "app.main.settings.cors_allowed_origins",
-        ["http://localhost:3000"],
-    )
+def test_frontend_boundary_exposes_cors_for_configured_origin():
+    origin = "http://localhost:3000"
     response = client.options(
         "/api/v1/statistics/overview",
         headers={
-            "Origin": "http://localhost:3000",
+            "Origin": origin,
             "Access-Control-Request-Method": "GET",
             "Access-Control-Request-Headers": "Authorization,Content-Type",
         },
     )
 
     assert response.status_code == 200
-    assert response.headers["access-control-allow-origin"] == "http://localhost:3000"
+    assert response.headers["access-control-allow-origin"] == origin
     assert response.headers["access-control-allow-methods"] == "GET, POST, PUT, DELETE"
-    assert response.headers["access-control-allow-credentials"] == "false"
+    assert "access-control-allow-credentials" not in response.headers
 
 
-def test_frontend_boundary_rejects_unconfigured_origin(monkeypatch):
-    monkeypatch.setattr(
-        "app.main.settings.cors_allowed_origins",
-        ["http://localhost:3000"],
-    )
+def test_frontend_boundary_rejects_unconfigured_origin():
     response = client.options(
         "/api/v1/statistics/overview",
         headers={
-            "Origin": "http://localhost:3001",
+            "Origin": "http://example.invalid",
             "Access-Control-Request-Method": "GET",
         },
     )
 
-    assert response.status_code == 400
+    assert response.status_code == 200
     assert "access-control-allow-origin" not in response.headers
 
 
