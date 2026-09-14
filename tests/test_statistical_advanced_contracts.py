@@ -1,5 +1,7 @@
-from datetime import date, timedelta
+from datetime import date, datetime, timedelta
 from types import SimpleNamespace
+
+import pytest
 
 from app.services.statistical_service import StatisticalService
 
@@ -97,3 +99,11 @@ def test_empty_analyzable_dataset_returns_null_sum_bounds_and_zero_consecutive_m
         "total_consecutive_pairs": 0,
         "maximum_consecutive_pairs": 0,
     }
+
+
+def test_datetime_draw_date_is_rejected_by_the_statistical_contract():
+    draw = make_draw(1, [1, 2])
+    draw.draw_date = datetime(2026, 1, 1, 12, 30)
+
+    with pytest.raises(TypeError, match="valid draw_date"):
+        StatisticalService.analyze([draw])
