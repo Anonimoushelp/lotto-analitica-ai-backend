@@ -105,12 +105,12 @@ class LotteryDrawPayload(BaseModel):
                 raise ValueError("Metadata contains invalid characters")
             return 1
 
-        if value is None or isinstance(value, bool) or isinstance(value, int):
+        if isinstance(value, (bool, int, float)):
+            if isinstance(value, float) and not isfinite(value):
+                raise ValueError("Metadata contains non-finite numbers")
             return 1
 
-        if isinstance(value, float):
-            if not isfinite(value):
-                raise ValueError("Metadata contains non-finite numbers")
+        if value is None:
             return 1
 
         raise ValueError("Metadata contains unsupported value types")
