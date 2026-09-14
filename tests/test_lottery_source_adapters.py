@@ -81,6 +81,33 @@ def test_json_adapter_rejects_duplicate_bonus_numbers():
         adapter.parse_draw(payload)
 
 
+def test_json_adapter_rejects_non_integer_main_numbers():
+    adapter = JsonLotterySourceAdapter("provider-example")
+    payload = valid_payload()
+    payload["main_numbers"] = ["5", 12, 23, 31, 42]
+
+    with pytest.raises(ValueError, match="Invalid provider draw payload"):
+        adapter.parse_draw(payload)
+
+
+def test_json_adapter_rejects_non_integer_bonus_numbers():
+    adapter = JsonLotterySourceAdapter("provider-example")
+    payload = valid_payload()
+    payload["bonus_numbers"] = [7.0]
+
+    with pytest.raises(ValueError, match="Invalid provider draw payload"):
+        adapter.parse_draw(payload)
+
+
+def test_json_adapter_rejects_boolean_numbers():
+    adapter = JsonLotterySourceAdapter("provider-example")
+    payload = valid_payload()
+    payload["main_numbers"] = [True, 12, 23, 31, 42]
+
+    with pytest.raises(ValueError, match="Invalid provider draw payload"):
+        adapter.parse_draw(payload)
+
+
 def test_json_adapter_rejects_control_characters_in_source_name():
     with pytest.raises(ValueError, match="Invalid source name"):
         JsonLotterySourceAdapter("provider\nexample")
