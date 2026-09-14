@@ -25,9 +25,12 @@ class JsonLotterySourceAdapter:
             raise TypeError("Provider payload must be an object")
 
         candidate = dict(payload)
-        payload_source = candidate.get("source")
-        if payload_source is not None and payload_source != self.source_name:
-            raise ValueError("Provider source does not match adapter")
+        if "source" in candidate:
+            payload_source = candidate["source"]
+            if not isinstance(payload_source, str):
+                raise ValueError("Invalid provider draw payload")
+            if payload_source != self.source_name:
+                raise ValueError("Provider source does not match adapter")
         candidate["source"] = self.source_name
 
         draw_number = candidate.get("draw_number")
