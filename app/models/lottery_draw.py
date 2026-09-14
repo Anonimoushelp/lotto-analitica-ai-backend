@@ -20,13 +20,15 @@ class LotteryDraw(Base):
     __table_args__ = (
         UniqueConstraint(
             "lottery_id",
+            "source",
             "draw_number",
-            name="uq_lottery_draw_number",
+            name="uq_lottery_draw_source_number",
         ),
         UniqueConstraint(
             "lottery_id",
+            "source",
             "draw_date",
-            name="uq_lottery_draw_date",
+            name="uq_lottery_draw_source_date",
         ),
         Index(
             "ix_lottery_draws_lottery_date_id",
