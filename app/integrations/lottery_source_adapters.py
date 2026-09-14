@@ -22,7 +22,7 @@ class JsonLotterySourceAdapter:
 
     def parse_draw(self, payload: Any) -> LotteryDrawPayload:
         if not isinstance(payload, dict):
-            raise ValueError("Provider payload must be an object")
+            raise TypeError("Provider payload must be an object")
 
         candidate = dict(payload)
         payload_source = candidate.get("source")
@@ -57,7 +57,7 @@ class LotterySourceAdapterRegistry:
 
     def get(self, source_name: str) -> LotterySourceAdapter:
         if not isinstance(source_name, str):
-            raise ValueError("Invalid source name")
+            raise TypeError("Invalid source name")
         key = source_name.strip()
         adapter = self._adapters.get(key)
         if adapter is None:
