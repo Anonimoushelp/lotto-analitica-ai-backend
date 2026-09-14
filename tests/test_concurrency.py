@@ -58,6 +58,7 @@ def test_create_draw_maps_concurrent_unique_conflict(monkeypatch):
             draw_number="100",
             draw_date="2026-09-04",
             main_numbers=[1, 2, 3, 4, 5],
+            source="test-source",
         )
 
     assert exc_info.value.status_code == 409
@@ -70,6 +71,7 @@ def test_update_draw_rolls_back_on_concurrent_unique_conflict(monkeypatch):
         lottery_id=1,
         draw_number="100",
         draw_date="2026-09-04",
+        source="test-source",
     )
     db = FakeSession(lottery=object(), draw=draw)
 
