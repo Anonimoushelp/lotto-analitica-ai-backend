@@ -60,7 +60,7 @@ class LotteryDrawBase(BaseModel):
         default=None,
         max_length=MAX_BONUS_NUMBERS,
     )
-    source: str | None = Field(default=None, max_length=255)
+    source: str = Field(min_length=1, max_length=255)
     metadata_json: dict[str, Any] | None = None
 
     _validate_main_numbers = field_validator("main_numbers")(
@@ -97,7 +97,7 @@ class LotteryDrawUpdate(BaseModel):
         default=None,
         max_length=MAX_BONUS_NUMBERS,
     )
-    source: str | None = Field(default=None, max_length=255)
+    source: str | None = Field(default=None, min_length=1, max_length=255)
     metadata_json: dict[str, Any] | None = None
 
     _validate_main_numbers = field_validator("main_numbers")(
