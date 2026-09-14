@@ -11,6 +11,8 @@ import re
 from datetime import date, datetime
 from typing import Any
 
+from pydantic import ValidationError
+
 from app.integrations.lottery_sources import LotteryDrawPayload
 
 _ALLOWED_FIELDS = {"sorteo", "fecha", "resultado", "metadata"}
@@ -61,14 +63,17 @@ class _ColombiaLotteryAdapter:
         if metadata is not None and not isinstance(metadata, dict):
             raise ValueError("Invalid provider draw payload")
 
-        return LotteryDrawPayload(
-            draw_number=draw_number,
-            draw_date=draw_date,
-            main_numbers=main_numbers,
-            bonus_numbers=bonus_numbers,
-            source=self.source_name,
-            metadata=metadata,
-        )
+        try:
+            return LotteryDrawPayload(
+                draw_number=draw_number,
+                draw_date=draw_date,
+                main_numbers=main_numbers,
+                bonus_numbers=bonus_numbers,
+                source=self.source_name,
+                metadata=metadata,
+            )
+        except (ValidationError, TypeError) as exc:
+            raise ValueError("Invalid provider draw payload") from exc
 
     @staticmethod
     def _draw_number(value: Any) -> str:
