@@ -11,6 +11,7 @@ class LotteryDrawPayload(BaseModel):
     _MAX_METADATA_NODES: ClassVar[int] = 256
     _MAX_METADATA_STRING_LENGTH: ClassVar[int] = 512
     _MAX_METADATA_KEY_LENGTH: ClassVar[int] = 128
+    _MAX_LOTTERY_NUMBER: ClassVar[int] = 1_000_000
 
     model_config = ConfigDict(extra="forbid")
 
@@ -36,6 +37,8 @@ class LotteryDrawPayload(BaseModel):
             return None
         if any(number <= 0 for number in value):
             raise ValueError("Numbers must be positive integers")
+        if any(number > cls._MAX_LOTTERY_NUMBER for number in value):
+            raise ValueError("Numbers exceed canonical maximum")
         if len(value) != len(set(value)):
             raise ValueError("Numbers must be unique")
         return value
