@@ -31,7 +31,7 @@ def test_statistical_engine_exposes_complete_v1_contract():
     }
     assert result["number_frequency"][2] == 2
     assert result["sum_distribution"]["count"] == 2
-    assert result["pair_frequency"][(2, 4)] == 2
+    assert result["pair_frequency"]["2-4"] == 2
     assert result["consecutive_numbers"]["draws_with_consecutive"] == 2
 
 
@@ -50,7 +50,7 @@ def test_statistical_engine_filters_lottery_without_cross_resource_leakage():
         "maximum": 3,
         "average": 3.0,
     }
-    assert (2, 3) not in result["pair_frequency"]
+    assert "2-3" not in result["pair_frequency"]
 
 
 def test_statistical_engine_returns_stable_empty_contract():
@@ -64,7 +64,7 @@ def test_statistical_engine_returns_stable_empty_contract():
             "count": 0,
             "minimum": None,
             "maximum": None,
-            "average": 0.0,
+            "average": None,
         },
         "pair_frequency": {},
         "consecutive_numbers": {
