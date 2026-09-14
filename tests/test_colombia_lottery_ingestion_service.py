@@ -28,6 +28,7 @@ def existing(**overrides):
         "main_numbers": [4, 11, 22, 35, 41],
         "bonus_numbers": [7],
         "source": "baloto-colombia",
+        "metadata_json": {"provider": "fixture"},
     }
     value.update(overrides)
     return SimpleNamespace(**value)
