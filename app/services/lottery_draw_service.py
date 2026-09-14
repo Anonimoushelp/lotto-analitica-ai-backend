@@ -1,3 +1,5 @@
+from datetime import date
+
 from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -43,10 +45,10 @@ class LotteryDrawService:
         db: Session,
         lottery_id: int,
         draw_number: str,
-        draw_date,
+        draw_date: date,
         main_numbers: list[int],
         bonus_numbers: list[int] | None = None,
-        source: str | None = None,
+        source: str = "legacy-import",
         metadata_json: dict | None = None,
     ) -> LotteryDraw:
         lottery = db.get(Lottery, lottery_id)
@@ -56,6 +58,13 @@ class LotteryDrawService:
                 status_code=status.HTTP_404_NOT_FOUND,
                 detail="Lottery not found",
             )
+
+        if not isinstance(source, str) or not source.strip():
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Lottery draw source is required",
+            )
+        source = source.strip()
 
         existing_number = LotteryDrawRepository.get_by_number(
             db=db,
@@ -67,7 +76,7 @@ class LotteryDrawService:
         if existing_number is not None:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="Draw number already exists for this lottery",
+                detail="Draw number already exists for this lottery and source",
             )
 
         existing_date = LotteryDrawRepository.get_by_date(
@@ -80,7 +89,7 @@ class LotteryDrawService:
         if existing_date is not None:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="Draw date already exists for this lottery",
+                detail="Draw date already exists for this lottery and source",
             )
 
         draw = LotteryDraw(
@@ -120,6 +129,13 @@ class LotteryDrawService:
         new_draw_date = update_data.get("draw_date", draw.draw_date)
         new_source = update_data.get("source", draw.source)
 
+        if not isinstance(new_source, str) or not new_source.strip():
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Lottery draw source is required",
+            )
+        new_source = new_source.strip()
+
         lottery = db.get(Lottery, new_lottery_id)
 
         if lottery is None:
@@ -138,7 +154,7 @@ class LotteryDrawService:
         if existing_number is not None and existing_number.id != draw_id:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="Draw number already exists for this lottery",
+                detail="Draw number already exists for this lottery and source",
             )
 
         existing_date = LotteryDrawRepository.get_by_date(
@@ -151,11 +167,11 @@ class LotteryDrawService:
         if existing_date is not None and existing_date.id != draw_id:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="Draw date already exists for this lottery",
+                detail="Draw date already exists for this lottery and source",
             )
 
         for field, value in update_data.items():
-            setattr(draw, field, value)
+            setattr(draw, field, new_source if field == "source" else value)
 
         try:
             db.commit()
