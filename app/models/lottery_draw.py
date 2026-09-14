@@ -12,6 +12,7 @@ if TYPE_CHECKING:
 
 
 DRAW_JSON_TYPE = JSON().with_variant(JSONB, "postgresql")
+DEFAULT_DRAW_SOURCE = "legacy-import"
 
 
 class LotteryDraw(Base):
@@ -70,6 +71,7 @@ class LotteryDraw(Base):
     source: Mapped[str] = mapped_column(
         String(255),
         nullable=False,
+        default=DEFAULT_DRAW_SOURCE,
     )
 
     metadata_json: Mapped[dict[str, Any] | None] = mapped_column(
