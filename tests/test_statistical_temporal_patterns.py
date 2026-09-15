@@ -66,11 +66,34 @@ def test_frequency_and_recency_are_isolated_by_lottery_id():
         ),
     ]
 
-    # This fixture intentionally uses a duplicate to ensure validation happens
-    # before lottery filtering and cannot hide malformed input.
+    result = StatisticalService.analyze(draws, lottery_id=20)
+
+    assert result["number_frequency"] == {1: 1, 3: 1}
+    assert result["number_recency"] == {
+        1: {"last_seen_draw": 1, "draws_since_seen": 0},
+        3: {"last_seen_draw": 1, "draws_since_seen": 0},
+    }
+
+
+def test_selected_lottery_still_rejects_malformed_draws_within_scope():
+    draws = [
+        SimpleNamespace(
+            id=1,
+            draw_date=date(2026, 1, 1),
+            lottery_id=20,
+            main_numbers=[1, 2, 2],
+        ),
+        SimpleNamespace(
+            id=2,
+            draw_date=date(2026, 1, 2),
+            lottery_id=10,
+            main_numbers=[1, 3],
+        ),
+    ]
+
     try:
         StatisticalService.analyze(draws, lottery_id=20)
     except ValueError as exc:
         assert "duplicate values" in str(exc)
     else:
-        raise AssertionError("Malformed input must be rejected before filtering")
+        raise AssertionError("Malformed input within the selected scope must be rejected")
