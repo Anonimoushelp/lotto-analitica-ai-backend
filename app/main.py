@@ -81,7 +81,7 @@ class RequestObservabilityMiddleware(BaseHTTPMiddleware):
         duration_ms = (time.perf_counter() - started) * 1000
         response.headers[REQUEST_ID_HEADER] = request_id
         logger.info(
-            "request_completed request_id=%s method=%s path=%s duration_ms=%.2f",
+            "request_completed request_id=%s method=%s path=%s status_code=%s duration_ms=%.2f",
             request_id,
             request.method,
             request.url.path,
