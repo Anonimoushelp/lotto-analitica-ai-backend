@@ -20,8 +20,8 @@ def draw(numbers, draw_id, day_offset=0):
 
 def test_unique_number_cardinality_limit_prevents_unbounded_result_maps():
     draws = [
-        draw(list(range(start, start + 100)), index, index)
-        for index, start in enumerate(range(1, 10_102, 100), start=1)
+        draw([start, start + 1], index, index)
+        for index, start in enumerate(range(1, 10_003, 2), start=1)
     ]
 
     with pytest.raises(StatisticalInputLimitError, match="number cardinality is too large"):
