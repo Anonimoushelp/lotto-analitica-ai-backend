@@ -148,3 +148,35 @@ def test_validate_draws_rejects_unique_pair_cardinality_before_unbounded_growth(
         match="pair cardinality is too large",
     ):
         StatisticalService._validate_draws(draws)
+
+
+def test_validate_draws_accepts_exact_pair_operation_limit():
+    draw = make_draw(list(range(1, 101)), draw_id=1, lottery_id=1)
+    draws = [draw for _ in range(202)]
+
+    StatisticalService._validate_draws(draws)
+
+
+def test_validate_draws_rejects_pair_operation_limit_plus_one():
+    draw = make_draw(list(range(1, 101)), draw_id=1, lottery_id=1)
+    draws = [draw for _ in range(203)]
+
+    with pytest.raises(
+        StatisticalInputLimitError,
+        match="pair analysis input is too large",
+    ):
+        StatisticalService._validate_draws(draws)
+
+
+def test_validate_draws_accepts_unique_pair_cardinality_below_limit():
+    draws = [
+        make_draw(
+            list(range(start, start + 100)),
+            draw_id=start,
+            lottery_id=1,
+            day_offset=start,
+        )
+        for start in range(1, 2_001, 100)
+    ]
+
+    StatisticalService._validate_draws(draws)
