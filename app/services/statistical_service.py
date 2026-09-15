@@ -100,8 +100,8 @@ class StatisticalService:
         StatisticalService._validate_draws(draws)
 
         ordered_draws = sorted(
-            (draw for draw in draws if draw.main_numbers),
-            key=lambda draw: (draw.draw_date, draw.id or 0),
+            (draw for draw in draws if getattr(draw, "main_numbers", None)),
+            key=lambda draw: (draw.draw_date, getattr(draw, "id", None) or 0),
         )
         frequency = collections.Counter(
             number
@@ -179,7 +179,9 @@ class StatisticalService:
         if len(draws) > _MAX_ANALYZABLE_DRAWS:
             raise StatisticalInputLimitError("Statistical analysis input is too large")
 
-        analyzable_draws = [draw for draw in draws if draw.main_numbers]
+        analyzable_draws = [
+            draw for draw in draws if getattr(draw, "main_numbers", None)
+        ]
         if not analyzable_draws:
             return {
                 "module_status": "STANDBY",
