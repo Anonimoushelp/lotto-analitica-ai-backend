@@ -1,6 +1,7 @@
+from unittest.mock import patch
+
 import pytest
 from fastapi import HTTPException
-from unittest.mock import patch
 
 from app.api.routes.auth import update_user
 from app.models.user import User
