@@ -172,6 +172,9 @@ class StatisticalService:
         autoflush_context = getattr(db, "no_autoflush", nullcontext())
         with autoflush_context:
             draws = list(db.scalars(statement).all())
+        if len(draws) > _MAX_ANALYZABLE_DRAWS:
+            raise StatisticalInputLimitError("Statistical analysis input is too large")
+
         analyzable_draws = [draw for draw in draws if draw.main_numbers]
         if not analyzable_draws:
             return {
