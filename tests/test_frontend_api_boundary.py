@@ -22,7 +22,7 @@ def test_frontend_boundary_exposes_cors_for_configured_origin():
 
     assert response.status_code == 200
     assert response.headers["access-control-allow-origin"] == origin
-    assert response.headers["access-control-allow-methods"] == "GET, POST, PUT, DELETE"
+    assert response.headers["access-control-allow-methods"] == "GET, POST, PUT, PATCH, DELETE"
     assert "access-control-allow-credentials" not in response.headers
 
 
