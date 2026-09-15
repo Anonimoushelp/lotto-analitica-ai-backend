@@ -47,3 +47,19 @@ def test_analyze_keeps_numeric_draw_number_order_deterministic_for_zero_padding(
         "last_seen_draw": 2,
         "draws_since_seen": 0,
     }
+
+
+def test_analyze_handles_extremely_long_numeric_draw_number_without_integer_conversion():
+    draw_2 = make_draw([2], draw_number="2")
+    huge_number = make_draw([3], draw_number="9" * 5000)
+
+    result = StatisticalService.analyze([huge_number, draw_2], lottery_id=1)
+
+    assert result["number_recency"][2] == {
+        "last_seen_draw": 1,
+        "draws_since_seen": 1,
+    }
+    assert result["number_recency"][3] == {
+        "last_seen_draw": 2,
+        "draws_since_seen": 0,
+    }
