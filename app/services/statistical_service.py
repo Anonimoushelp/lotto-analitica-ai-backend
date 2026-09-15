@@ -86,11 +86,14 @@ class StatisticalService:
     def analyze(
         draws: list[LotteryDraw], lottery_id: int | None = None
     ) -> dict[str, object]:
-        StatisticalService._validate_draws(draws)
+        if not isinstance(draws, list):
+            raise TypeError("Statistical analysis requires a list of draws")
         StatisticalService._validate_lottery_id(lottery_id)
 
         if lottery_id is not None:
             draws = [draw for draw in draws if draw.lottery_id == lottery_id]
+
+        StatisticalService._validate_draws(draws)
 
         ordered_draws = sorted(
             (draw for draw in draws if draw.main_numbers),
