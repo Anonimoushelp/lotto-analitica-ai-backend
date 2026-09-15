@@ -63,3 +63,33 @@ def test_analyze_handles_extremely_long_numeric_draw_number_without_integer_conv
         "last_seen_draw": 2,
         "draws_since_seen": 0,
     }
+
+
+def test_analyze_orders_alphanumeric_draw_numbers_after_numeric_draw_numbers():
+    numeric = make_draw([1], draw_number="12")
+    alphanumeric = make_draw([2], draw_number="12A")
+
+    result = StatisticalService.analyze([alphanumeric, numeric], lottery_id=1)
+
+    assert result["number_recency"][1] == {
+        "last_seen_draw": 1,
+        "draws_since_seen": 1,
+    }
+    assert result["number_recency"][2] == {
+        "last_seen_draw": 2,
+        "draws_since_seen": 0,
+    }
+
+
+def test_draw_number_sort_key_is_deterministic_for_numeric_and_text_values():
+    values = ["001", "1", "10", "2", "10A", "A10"]
+    keys = [StatisticalService._draw_number_sort_key(value) for value in values]
+
+    assert keys == [
+        (0, 1, "1", "001"),
+        (0, 1, "1", "1"),
+        (0, 2, "10", "10"),
+        (0, 1, "2", "2"),
+        (1, 0, "", "10A"),
+        (1, 0, "", "A10"),
+    ]
