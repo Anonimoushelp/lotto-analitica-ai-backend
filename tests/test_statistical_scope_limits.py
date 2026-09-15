@@ -65,7 +65,7 @@ def test_analyze_ignores_invalid_draws_outside_selected_lottery_scope():
 
 def test_overview_accepts_exactly_maximum_analyzable_draws():
     draws = [
-        make_draw([1, 2], index, lottery_id=1, day_offset=index)
+        make_draw([1, 2], index + 1, lottery_id=1, day_offset=index)
         for index in range(10_000)
     ]
 
@@ -85,7 +85,7 @@ def test_overview_accepts_exactly_maximum_analyzable_draws():
 
 def test_overview_fails_closed_when_database_read_is_truncated():
     draws = [
-        make_draw([1, 2], index, lottery_id=1, day_offset=index)
+        make_draw([1, 2], index + 1, lottery_id=1, day_offset=index)
         for index in range(10_001)
     ]
 
