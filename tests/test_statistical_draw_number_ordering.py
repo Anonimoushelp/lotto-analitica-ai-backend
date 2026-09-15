@@ -93,3 +93,21 @@ def test_draw_number_sort_key_is_deterministic_for_numeric_and_text_values():
         (1, 0, "", "10A"),
         (1, 0, "", "A10"),
     ]
+
+
+def test_draw_number_sort_key_treats_unicode_decimal_digits_as_text():
+    unicode_decimal = "١٢"
+    ascii_numeric = "12"
+
+    assert StatisticalService._draw_number_sort_key(unicode_decimal) == (
+        1,
+        0,
+        "",
+        unicode_decimal,
+    )
+    assert StatisticalService._draw_number_sort_key(ascii_numeric) == (
+        0,
+        2,
+        "12",
+        ascii_numeric,
+    )
