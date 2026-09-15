@@ -1,5 +1,3 @@
-from unittest.mock import Mock
-
 import pytest
 from fastapi import HTTPException
 
@@ -59,7 +57,7 @@ def test_last_active_admin_guard_locks_active_admin_rows():
 
 def test_last_active_admin_guard_fails_closed_when_only_admin_is_active():
     target = make_user(1, "admin")
-    actor = target
+    actor = make_user(2, "admin", active=False)
     db = _FakeDb(target, [1])
 
     with pytest.raises(HTTPException) as exc_info:
@@ -70,4 +68,4 @@ def test_last_active_admin_guard_fails_closed_when_only_admin_is_active():
             db=db,
         )
 
-    assert exc_info.value.status_code == 400
+    assert exc_info.value.status_code == 409
