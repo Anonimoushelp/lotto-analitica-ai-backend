@@ -111,3 +111,7 @@ def test_draw_number_sort_key_treats_unicode_decimal_digits_as_text():
         "12",
         ascii_numeric,
     )
+
+
+def test_draw_number_sort_key_handles_missing_draw_number_as_text():
+    assert StatisticalService._draw_number_sort_key("") == (1, 0, "", "")
