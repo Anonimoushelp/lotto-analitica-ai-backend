@@ -167,6 +167,7 @@ class StatisticalService:
         statement = select(LotteryDraw)
         if lottery_id is not None:
             statement = statement.where(LotteryDraw.lottery_id == lottery_id)
+        statement = statement.limit(_MAX_ANALYZABLE_DRAWS + 1)
 
         autoflush_context = getattr(db, "no_autoflush", nullcontext())
         with autoflush_context:
