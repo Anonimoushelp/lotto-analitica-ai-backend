@@ -45,6 +45,13 @@ class StatisticalService:
             if isinstance(draw_date, datetime) or not isinstance(draw_date, date):
                 raise TypeError("Each draw must have a valid draw_date")
 
+            draw_id = getattr(draw, "id", None)
+            if draw_id is not None:
+                if isinstance(draw_id, bool) or not isinstance(draw_id, Integral):
+                    raise TypeError("draw id must be a positive integer or null")
+                if draw_id <= 0:
+                    raise ValueError("draw id must be a positive integer or null")
+
             main_numbers = getattr(draw, "main_numbers", None)
             if main_numbers is None:
                 continue
