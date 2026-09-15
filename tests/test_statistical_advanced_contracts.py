@@ -1,4 +1,4 @@
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, timedelta, timezone
 from types import SimpleNamespace
 
 import pytest
@@ -103,7 +103,7 @@ def test_empty_analyzable_dataset_returns_null_sum_bounds_and_zero_consecutive_m
 
 def test_datetime_draw_date_is_rejected_by_the_statistical_contract():
     draw = make_draw(1, [1, 2])
-    draw.draw_date = datetime(2026, 1, 1, 12, 30)
+    draw.draw_date = datetime(2026, 1, 1, 12, 30, tzinfo=timezone.utc)
 
     with pytest.raises(TypeError, match="valid draw_date"):
         StatisticalService.analyze([draw])
