@@ -1,0 +1,58 @@
+from datetime import date, timedelta
+from types import SimpleNamespace
+
+from app.services.statistical_service import StatisticalService
+
+
+def make_draw(numbers, draw_id, lottery_id, day_offset=0, draw_date=None):
+    return SimpleNamespace(
+        id=draw_id,
+        draw_date=(
+            date(2026, 1, 1) + timedelta(days=day_offset)
+            if draw_date is None
+            else draw_date
+        ),
+        lottery_id=lottery_id,
+        main_numbers=numbers,
+    )
+
+
+def test_analyze_applies_lottery_scope_before_resource_limits():
+    unrelated_draws = [
+        make_draw([start, start + 1], index, lottery_id=2, day_offset=index)
+        for index, start in enumerate(range(1, 10_003, 2), start=1)
+    ]
+    target_draw = make_draw([5, 12, 23, 31, 42], 20_000, lottery_id=1)
+
+    result = StatisticalService.analyze(
+        unrelated_draws + [target_draw], lottery_id=1
+    )
+
+    assert result["number_frequency"] == {
+        5: 1,
+        12: 1,
+        23: 1,
+        31: 1,
+        42: 1,
+    }
+
+
+def test_analyze_ignores_invalid_draws_outside_selected_lottery_scope():
+    unrelated_draw = make_draw(
+        [1, 2, 3],
+        1,
+        lottery_id=2,
+        draw_date=None,
+    )
+    target_draw = make_draw([5, 12, 23, 31, 42], 2, lottery_id=1)
+
+    result = StatisticalService.analyze(
+        [unrelated_draw, target_draw], lottery_id=1
+    )
+
+    assert result["sum_distribution"] == {
+        "count": 1,
+        "minimum": 113,
+        "maximum": 113,
+        "average": 113.0,
+    }
