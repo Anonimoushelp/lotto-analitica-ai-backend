@@ -65,13 +65,13 @@ class StatisticalService:
                 raise StatisticalInputLimitError("Statistical number cardinality is too large")
 
             normalized_numbers = sorted(main_numbers)
-            unique_pairs.update(itertools.combinations(normalized_numbers, 2))
-            if len(unique_pairs) > _MAX_UNIQUE_PAIRS:
-                raise StatisticalInputLimitError("Statistical pair cardinality is too large")
-
             pair_operations += len(main_numbers) * (len(main_numbers) - 1) // 2
             if pair_operations > _MAX_PAIR_OPERATIONS:
                 raise StatisticalInputLimitError("Statistical pair analysis input is too large")
+            for pair in itertools.combinations(normalized_numbers, 2):
+                unique_pairs.add(pair)
+                if len(unique_pairs) > _MAX_UNIQUE_PAIRS:
+                    raise StatisticalInputLimitError("Statistical pair cardinality is too large")
 
     @staticmethod
     def _validate_lottery_id(lottery_id: int | None) -> None:
