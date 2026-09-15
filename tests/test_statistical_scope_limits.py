@@ -121,12 +121,12 @@ def test_overview_query_is_hard_limited_to_one_over_service_maximum():
 def test_validate_draws_accepts_exact_unique_number_cardinality_limit():
     draws = [
         make_draw(
-            list(range(start, start + 100)),
-            draw_id=start,
+            [number, number + 1],
+            draw_id=number,
             lottery_id=1,
-            day_offset=start,
+            day_offset=number,
         )
-        for start in range(1, 10_001, 100)
+        for number in range(1, 10_000, 2)
     ]
 
     StatisticalService._validate_draws(draws)
