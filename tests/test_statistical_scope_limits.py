@@ -1,7 +1,9 @@
 from datetime import date, timedelta
 from types import SimpleNamespace
 
-from app.services.statistical_service import StatisticalService
+import pytest
+
+from app.services.statistical_service import StatisticalInputLimitError, StatisticalService
 
 
 def make_draw(numbers, draw_id, lottery_id, day_offset=0, draw_date=None):
@@ -56,3 +58,22 @@ def test_analyze_ignores_invalid_draws_outside_selected_lottery_scope():
         "maximum": 113,
         "average": 113.0,
     }
+
+
+def test_overview_fails_closed_when_database_read_is_truncated(monkeypatch):
+    draws = [make_draw([1, 2], index, lottery_id=1, day_offset=index) for index in range(10_001)]
+
+    class ScalarResult:
+        def all(self):
+            return draws
+
+    class FakeScalars:
+        def all(self):
+            return draws
+
+    class FakeDb:
+        def scalars(self, statement):
+            return FakeScalars()
+
+    with pytest.raises(StatisticalInputLimitError, match="input is too large"):
+        StatisticalService.overview(FakeDb(), lottery_id=1)
