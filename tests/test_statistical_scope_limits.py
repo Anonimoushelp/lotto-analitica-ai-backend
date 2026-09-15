@@ -99,3 +99,20 @@ def test_overview_fails_closed_when_database_read_is_truncated():
 
     with pytest.raises(StatisticalInputLimitError, match="input is too large"):
         StatisticalService.overview(FakeDb(), lottery_id=1)
+
+
+def test_overview_query_is_hard_limited_to_one_over_service_maximum():
+    captured = {}
+
+    class FakeScalars:
+        def all(self):
+            return []
+
+    class FakeDb:
+        def scalars(self, statement):
+            captured["limit"] = statement._limit_clause.value
+            return FakeScalars()
+
+    StatisticalService.overview(FakeDb(), lottery_id=1)
+
+    assert captured["limit"] == 10_001
