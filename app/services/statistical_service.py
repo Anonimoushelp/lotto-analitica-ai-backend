@@ -21,6 +21,8 @@ STATISTICAL_ALGORITHMS = (
 _MAX_ANALYZABLE_DRAWS = 10_000
 _MAX_NUMBERS_PER_DRAW = 100
 _MAX_PAIR_OPERATIONS = 1_000_000
+_MAX_UNIQUE_NUMBERS = 10_000
+_MAX_UNIQUE_PAIRS = 100_000
 
 
 class StatisticalInputLimitError(ValueError):
@@ -36,6 +38,8 @@ class StatisticalService:
             raise StatisticalInputLimitError("Statistical analysis input is too large")
 
         pair_operations = 0
+        unique_numbers: set[int] = set()
+        unique_pairs: set[tuple[int, int]] = set()
         for draw in draws:
             draw_date = getattr(draw, "draw_date", None)
             if isinstance(draw_date, datetime) or not isinstance(draw_date, date):
@@ -55,6 +59,16 @@ class StatisticalService:
                 raise ValueError("main_numbers must contain positive integers")
             if len(main_numbers) != len(set(main_numbers)):
                 raise ValueError("main_numbers cannot contain duplicate values")
+
+            unique_numbers.update(main_numbers)
+            if len(unique_numbers) > _MAX_UNIQUE_NUMBERS:
+                raise StatisticalInputLimitError("Statistical number cardinality is too large")
+
+            normalized_numbers = sorted(main_numbers)
+            unique_pairs.update(itertools.combinations(normalized_numbers, 2))
+            if len(unique_pairs) > _MAX_UNIQUE_PAIRS:
+                raise StatisticalInputLimitError("Statistical pair cardinality is too large")
+
             pair_operations += len(main_numbers) * (len(main_numbers) - 1) // 2
             if pair_operations > _MAX_PAIR_OPERATIONS:
                 raise StatisticalInputLimitError("Statistical pair analysis input is too large")
