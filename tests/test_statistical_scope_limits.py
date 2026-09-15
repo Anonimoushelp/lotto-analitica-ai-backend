@@ -116,3 +116,21 @@ def test_overview_query_is_hard_limited_to_one_over_service_maximum():
     StatisticalService.overview(FakeDb(), lottery_id=1)
 
     assert captured["limit"] == 10_001
+
+
+def test_validate_draws_rejects_unique_pair_cardinality_before_unbounded_growth():
+    draws = [
+        make_draw(
+            list(range(start, start + 100)),
+            draw_id=start,
+            lottery_id=1,
+            day_offset=start,
+        )
+        for start in range(1, 2_101, 100)
+    ]
+
+    with pytest.raises(
+        StatisticalInputLimitError,
+        match="pair cardinality is too large",
+    ):
+        StatisticalService._validate_draws(draws)
