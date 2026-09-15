@@ -91,7 +91,7 @@ def test_per_draw_number_limit_rejects_unbounded_pair_generation():
 
 
 def test_pair_operation_budget_rejects_large_combination_workload():
-    draws = [draw(list(range(1, 46)), index, index) for index in range(1, 1001)]
+    draws = [draw(list(range(1, 47)), index, index) for index in range(1, 1001)]
 
     with pytest.raises(StatisticalInputLimitError, match="pair analysis input is too large"):
         StatisticalService.analyze(draws)
