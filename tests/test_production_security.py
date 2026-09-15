@@ -66,3 +66,8 @@ def test_production_rejects_non_postgresql_database():
 def test_secret_key_requires_minimum_length():
     with raises(ValidationError):
         Settings(**{**BASE_PRODUCTION, "secret_key": "short"})
+
+
+def test_secret_key_rejects_blank_value():
+    with raises(ValidationError, match="SECRET_KEY must not be blank"):
+        Settings(**{**BASE_PRODUCTION, "secret_key": " " * 32})

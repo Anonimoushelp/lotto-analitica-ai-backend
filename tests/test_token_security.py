@@ -13,6 +13,7 @@ def test_access_token_contains_required_security_claims():
 
     assert payload["sub"] == "123"
     assert payload["role"] == "analyst"
+    assert payload["session_version"] == 0
     assert payload["type"] == "access"
     assert payload["iat"] <= datetime.now(UTC).timestamp()
     assert payload["exp"] > datetime.now(UTC).timestamp()
@@ -32,6 +33,7 @@ def test_expired_access_token_is_rejected():
         {
             "sub": "123",
             "role": "analyst",
+            "session_version": 0,
             "iat": now - timedelta(minutes=31),
             "exp": now - timedelta(minutes=1),
             "type": "access",
@@ -50,6 +52,7 @@ def test_token_with_wrong_type_is_rejected():
         {
             "sub": "123",
             "role": "analyst",
+            "session_version": 0,
             "iat": now,
             "exp": now + timedelta(minutes=30),
             "type": "refresh",
@@ -68,6 +71,7 @@ def test_token_missing_required_claim_is_rejected():
         {
             "sub": "123",
             "role": "analyst",
+            "session_version": 0,
             "iat": now,
             "exp": now + timedelta(minutes=30),
         },
@@ -85,6 +89,7 @@ def test_token_signed_with_different_secret_is_rejected():
         {
             "sub": "123",
             "role": "admin",
+            "session_version": 0,
             "iat": now,
             "exp": now + timedelta(minutes=30),
             "type": "access",
@@ -103,6 +108,7 @@ def test_token_using_unapproved_algorithm_is_rejected():
         {
             "sub": "123",
             "role": "admin",
+            "session_version": 0,
             "iat": now,
             "exp": now + timedelta(minutes=30),
             "type": "access",

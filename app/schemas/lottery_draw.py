@@ -8,6 +8,7 @@ MAX_NUMBER_VALUE = 1000
 MAX_MAIN_NUMBERS = 20
 MAX_BONUS_NUMBERS = 10
 MAX_METADATA_BYTES = 16 * 1024
+DEFAULT_DRAW_SOURCE = "legacy-import"
 
 
 def _validate_numbers(
@@ -48,6 +49,13 @@ def _validate_metadata(value: dict[str, Any] | None) -> dict[str, Any] | None:
     return value
 
 
+def _validate_source(value: str) -> str:
+    normalized = value.strip()
+    if not normalized:
+        raise ValueError("source must not be blank")
+    return normalized
+
+
 class LotteryDrawBase(BaseModel):
     lottery_id: int = Field(gt=0)
     draw_number: str = Field(min_length=1, max_length=50)
@@ -60,7 +68,11 @@ class LotteryDrawBase(BaseModel):
         default=None,
         max_length=MAX_BONUS_NUMBERS,
     )
-    source: str | None = Field(default=None, max_length=255)
+    source: str = Field(
+        default=DEFAULT_DRAW_SOURCE,
+        min_length=1,
+        max_length=255,
+    )
     metadata_json: dict[str, Any] | None = None
 
     _validate_main_numbers = field_validator("main_numbers")(
@@ -77,11 +89,15 @@ class LotteryDrawBase(BaseModel):
             max_items=MAX_BONUS_NUMBERS,
         )
     )
+    _validate_source = field_validator("source")(_validate_source)
     _validate_metadata_json = field_validator("metadata_json")(_validate_metadata)
 
 
 class LotteryDrawCreate(LotteryDrawBase):
-    pass
+    source: str = Field(
+        min_length=1,
+        max_length=255,
+    )
 
 
 class LotteryDrawUpdate(BaseModel):
@@ -97,7 +113,7 @@ class LotteryDrawUpdate(BaseModel):
         default=None,
         max_length=MAX_BONUS_NUMBERS,
     )
-    source: str | None = Field(default=None, max_length=255)
+    source: str | None = Field(default=None, min_length=1, max_length=255)
     metadata_json: dict[str, Any] | None = None
 
     _validate_main_numbers = field_validator("main_numbers")(
@@ -114,6 +130,7 @@ class LotteryDrawUpdate(BaseModel):
             max_items=MAX_BONUS_NUMBERS,
         )
     )
+    _validate_source = field_validator("source")(_validate_source)
     _validate_metadata_json = field_validator("metadata_json")(_validate_metadata)
 
 

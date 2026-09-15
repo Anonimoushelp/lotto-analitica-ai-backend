@@ -38,6 +38,9 @@ class Settings(BaseSettings):
                 "ENVIRONMENT must be one of: development, test, production"
             )
 
+        if not self.secret_key.strip():
+            raise ValueError("SECRET_KEY must not be blank")
+
         if self.functional_encryption_provider not in {"none"}:
             raise ValueError(
                 "FUNCTIONAL_ENCRYPTION_PROVIDER is not supported by the installed backend"

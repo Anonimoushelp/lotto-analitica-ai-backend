@@ -22,6 +22,7 @@ from app.api.routes.tee import router as tee_router
 from app.core.config import settings
 from app.core.rate_limit import login_rate_limiter
 from app.db.session import get_db
+from app.services.statistical_service import StatisticalInputLimitError
 
 logger = logging.getLogger(__name__)
 MAX_REQUEST_BODY_BYTES = 1_048_576
@@ -128,9 +129,19 @@ if settings.cors_allowed_origins:
         CORSMiddleware,
         allow_origins=settings.cors_allowed_origins,
         allow_credentials=False,
-        allow_methods=["GET", "POST", "PUT", "DELETE"],
+        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
         allow_headers=["Authorization", "Content-Type"],
         max_age=600,
+    )
+
+
+@app.exception_handler(StatisticalInputLimitError)
+async def statistical_input_limit_handler(request: Request, exc: StatisticalInputLimitError):
+    request_id = getattr(request.state, "request_id", None) or _get_request_id(request)
+    return JSONResponse(
+        status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+        content={"detail": str(exc)},
+        headers={REQUEST_ID_HEADER: request_id},
     )
 
 

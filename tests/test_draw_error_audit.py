@@ -99,6 +99,7 @@ def seed_draw(lottery_id: int, draw_number: str = "D-001") -> LotteryDraw:
         draw_number=draw_number,
         draw_date=date(2026, 9, 2),
         main_numbers=[1, 2, 3, 4, 5],
+        source="test",
     )
     db.add(draw)
     db.commit()
@@ -116,6 +117,7 @@ DRAW_CREATE = {
     "draw_number": "D-001",
     "draw_date": date(2026, 9, 2).isoformat(),
     "main_numbers": [1, 2, 3, 4, 5],
+    "source": "test",
 }
 
 
@@ -123,7 +125,13 @@ DRAW_CREATE = {
     "method,path,json_body,service_method,detail",
     [
         ("post", "/api/v1/draws", DRAW_CREATE, "create_draw", "Lottery not found"),
-        ("put", "/api/v1/draws/1", {"draw_number": "D-002"}, "update_draw", "Lottery draw not found"),
+        (
+            "put",
+            "/api/v1/draws/1",
+            {"draw_number": "D-002"},
+            "update_draw",
+            "Lottery draw not found",
+        ),
         ("delete", "/api/v1/draws/1", None, "delete_draw", "Lottery draw not found"),
     ],
 )
