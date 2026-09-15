@@ -1,5 +1,6 @@
 import pytest
 from fastapi import HTTPException
+from unittest.mock import patch
 
 from app.api.routes.auth import update_user
 from app.models.user import User
@@ -27,6 +28,12 @@ class _FakeDb:
         self.locked_query = statement
         return _ScalarResult(self.active_admin_ids)
 
+    def commit(self):
+        return None
+
+    def refresh(self, target):
+        return None
+
 
 def make_user(user_id: int, role: str, active: bool = True) -> User:
     return User(
@@ -44,12 +51,13 @@ def test_last_active_admin_guard_locks_active_admin_rows():
     actor = make_user(1, "admin")
     db = _FakeDb(target, [1, 2])
 
-    update_user(
-        user_id=2,
-        payload=UserAdminUpdate(is_active=False),
-        actor=actor,
-        db=db,
-    )
+    with patch("app.api.routes.auth.log_mutation"):
+        update_user(
+            user_id=2,
+            payload=UserAdminUpdate(is_active=False),
+            actor=actor,
+            db=db,
+        )
 
     assert db.locked_query is not None
     assert db.locked_query._for_update_arg is not None
