@@ -126,7 +126,7 @@ def test_validate_draws_accepts_exact_unique_number_cardinality_limit():
             lottery_id=1,
             day_offset=number,
         )
-        for number in range(1, 10_000, 2)
+        for number in range(1, 10_001, 2)
     ]
 
     StatisticalService._validate_draws(draws)
