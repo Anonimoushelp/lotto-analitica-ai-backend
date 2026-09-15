@@ -3,7 +3,10 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.services.statistical_service import StatisticalInputLimitError, StatisticalService
+from app.services.statistical_service import (
+    StatisticalInputLimitError,
+    StatisticalService,
+)
 
 
 def make_draw(numbers, draw_id, lottery_id, day_offset=0, draw_date=None):
