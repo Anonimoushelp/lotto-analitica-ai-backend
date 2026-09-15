@@ -18,13 +18,24 @@ STATISTICAL_ALGORITHMS = (
     "consecutive_numbers",
 )
 
+_MAX_ANALYZABLE_DRAWS = 10_000
+_MAX_NUMBERS_PER_DRAW = 100
+_MAX_PAIR_OPERATIONS = 1_000_000
+
+
+class StatisticalInputLimitError(ValueError):
+    """Raised when statistical input exceeds safe computational bounds."""
+
 
 class StatisticalService:
     @staticmethod
     def _validate_draws(draws: list[LotteryDraw]) -> None:
         if not isinstance(draws, list):
             raise TypeError("Statistical analysis requires a list of draws")
+        if len(draws) > _MAX_ANALYZABLE_DRAWS:
+            raise StatisticalInputLimitError("Statistical analysis input is too large")
 
+        pair_operations = 0
         for draw in draws:
             draw_date = getattr(draw, "draw_date", None)
             if isinstance(draw_date, datetime) or not isinstance(draw_date, date):
@@ -35,6 +46,8 @@ class StatisticalService:
                 continue
             if not isinstance(main_numbers, list):
                 raise TypeError("main_numbers must be a list or null")
+            if len(main_numbers) > _MAX_NUMBERS_PER_DRAW:
+                raise StatisticalInputLimitError("A draw contains too many numbers")
             if any(
                 isinstance(number, bool) or not isinstance(number, Integral) or number <= 0
                 for number in main_numbers
@@ -42,6 +55,9 @@ class StatisticalService:
                 raise ValueError("main_numbers must contain positive integers")
             if len(main_numbers) != len(set(main_numbers)):
                 raise ValueError("main_numbers cannot contain duplicate values")
+            pair_operations += len(main_numbers) * (len(main_numbers) - 1) // 2
+            if pair_operations > _MAX_PAIR_OPERATIONS:
+                raise StatisticalInputLimitError("Statistical pair analysis input is too large")
 
     @staticmethod
     def _validate_lottery_id(lottery_id: int | None) -> None:
