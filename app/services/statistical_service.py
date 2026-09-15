@@ -81,12 +81,22 @@ class StatisticalService:
                     raise StatisticalInputLimitError("Statistical pair cardinality is too large")
 
     @staticmethod
-    def _draw_sort_key(draw: LotteryDraw) -> tuple[date, int, str, str, tuple[int, ...]]:
+    def _draw_number_sort_key(draw_number: object) -> tuple[int, int, str]:
+        """Sort numeric draw numbers naturally while preserving text determinism."""
+        value = str(draw_number)
+        if value.isdecimal():
+            return 0, int(value), value
+        return 1, 0, value
+
+    @staticmethod
+    def _draw_sort_key(draw: LotteryDraw) -> tuple[date, int, str, tuple[int, int, str], tuple[int, ...]]:
         """Return a deterministic chronological key, including duck-typed draws."""
         draw_date = draw.draw_date
         draw_id = getattr(draw, "id", None) or 0
         source = str(getattr(draw, "source", ""))
-        draw_number = str(getattr(draw, "draw_number", ""))
+        draw_number = StatisticalService._draw_number_sort_key(
+            getattr(draw, "draw_number", "")
+        )
         numbers = tuple(sorted(getattr(draw, "main_numbers", None) or ()))
         return draw_date, draw_id, source, draw_number, numbers
 
