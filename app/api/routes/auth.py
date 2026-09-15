@@ -2,7 +2,7 @@ import logging
 
 import redis
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlalchemy import func, select, text
+from sqlalchemy import select, text
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -160,12 +160,12 @@ def update_user(
     new_role = payload.role if payload.role is not None else target.role
     new_active = payload.is_active if payload.is_active is not None else target.is_active
     if target.role == "admin" and (new_role != "admin" or not new_active):
-        active_admins = db.scalar(
-            select(func.count(User.id)).where(
-                User.role == "admin", User.is_active.is_(True)
-            )
-        )
-        if active_admins is not None and active_admins <= 1:
+        active_admin_ids = db.scalars(
+            select(User.id)
+            .where(User.role == "admin", User.is_active.is_(True))
+            .with_for_update()
+        ).all()
+        if len(active_admin_ids) <= 1:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="At least one active administrator must remain",
