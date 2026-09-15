@@ -91,7 +91,11 @@ class StatisticalService:
         StatisticalService._validate_lottery_id(lottery_id)
 
         if lottery_id is not None:
-            draws = [draw for draw in draws if draw.lottery_id == lottery_id]
+            draws = [
+                draw
+                for draw in draws
+                if getattr(draw, "lottery_id", None) == lottery_id
+            ]
 
         StatisticalService._validate_draws(draws)
 
