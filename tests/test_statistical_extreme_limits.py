@@ -2,7 +2,12 @@ import json
 from datetime import date, timedelta
 from types import SimpleNamespace
 
-from app.services.statistical_service import StatisticalService
+import pytest
+
+from app.services.statistical_service import (
+    StatisticalInputLimitError,
+    StatisticalService,
+)
 
 
 def draw(numbers, draw_id, day_offset=0):
@@ -69,3 +74,24 @@ def test_same_date_and_permuted_input_remain_byte_equivalent_after_json_encoding
     first = json.dumps(StatisticalService.analyze(draws), sort_keys=True, separators=(",", ":"), allow_nan=False)
     second = json.dumps(StatisticalService.analyze(list(reversed(draws))), sort_keys=True, separators=(",", ":"), allow_nan=False)
     assert first == second
+
+
+def test_draw_count_limit_rejects_unbounded_statistical_input():
+    draws = [draw([1], index, index) for index in range(10_001)]
+
+    with pytest.raises(StatisticalInputLimitError, match="input is too large"):
+        StatisticalService.analyze(draws)
+
+
+def test_per_draw_number_limit_rejects_unbounded_pair_generation():
+    numbers = list(range(1, 102))
+
+    with pytest.raises(StatisticalInputLimitError, match="too many numbers"):
+        StatisticalService.analyze([draw(numbers, 1)])
+
+
+def test_pair_operation_budget_rejects_large_combination_workload():
+    draws = [draw(list(range(1, 46)), index, index) for index in range(1, 1001)]
+
+    with pytest.raises(StatisticalInputLimitError, match="pair analysis input is too large"):
+        StatisticalService.analyze(draws)
