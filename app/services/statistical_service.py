@@ -82,9 +82,9 @@ class StatisticalService:
 
     @staticmethod
     def _draw_number_sort_key(draw_number: object) -> tuple[int, int, str, str]:
-        """Sort numeric draw numbers naturally without integer conversion risk."""
+        """Sort ASCII-numeric draw numbers naturally without integer conversion risk."""
         value = str(draw_number)
-        if value.isdecimal():
+        if value and all("0" <= character <= "9" for character in value):
             normalized = value.lstrip("0") or "0"
             return 0, len(normalized), normalized, value
         return 1, 0, "", value
