@@ -37,16 +37,17 @@ def _get_request_id(request: Request) -> str:
     return str(uuid.uuid4())
 
 
-def _log_exception(message: str, exc: Exception, **fields: object) -> None:
-    safe_fields = {key: str(value).replace("\r", " ").replace("\n", " ") for key, value in fields.items()}
+def _log_exception(message: str, exc: Exception, *args: object) -> None:
+    safe_args = tuple(str(value).replace("\r", " ").replace("\n", " ") for value in args)
     if is_development:
-        logger.exception(message, **safe_fields)
+        logger.exception(message, *safe_args)
     else:
+        rendered_context = " ".join(safe_args)
         logger.error(
             "%s exception_type=%s%s",
             message,
             type(exc).__name__,
-            "".join(f" {key}={value}" for key, value in safe_fields.items()),
+            f" {rendered_context}" if rendered_context else "",
         )
 
 
