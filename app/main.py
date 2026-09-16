@@ -37,18 +37,12 @@ def _get_request_id(request: Request) -> str:
     return str(uuid.uuid4())
 
 
-def _log_exception(message: str, exc: Exception, *args: object) -> None:
-    safe_args = tuple(str(value).replace("\r", " ").replace("\n", " ") for value in args)
+def _log_exception(message: str, exc: Exception) -> None:
+    safe_message = str(message).replace("\r", " ").replace("\n", " ")
     if is_development:
-        logger.exception(message, *safe_args)
+        logger.exception(safe_message)
     else:
-        rendered_context = " ".join(safe_args)
-        logger.error(
-            "%s exception_type=%s%s",
-            message,
-            type(exc).__name__,
-            f" {rendered_context}" if rendered_context else "",
-        )
+        logger.error("%s exception_type=%s", safe_message, type(exc).__name__)
 
 
 class RequestBodyLimitMiddleware(BaseHTTPMiddleware):
@@ -85,12 +79,9 @@ class RequestObservabilityMiddleware(BaseHTTPMiddleware):
         except Exception as exc:
             duration_ms = (time.perf_counter() - started) * 1000
             _log_exception(
-                "request_failed request_id=%s method=%s path=%s duration_ms=%.2f",
+                f"request_failed request_id={request_id} method={request.method} "
+                f"path={request.url.path} duration_ms={duration_ms:.2f}",
                 exc,
-                request_id,
-                request.method,
-                request.url.path,
-                duration_ms,
             )
             raise
         duration_ms = (time.perf_counter() - started) * 1000
@@ -164,11 +155,9 @@ async def statistical_input_limit_handler(request: Request, exc: StatisticalInpu
 async def unhandled_exception_handler(request: Request, exc: Exception):
     request_id = getattr(request.state, "request_id", None) or _get_request_id(request)
     _log_exception(
-        "Unhandled application exception request_id=%s on %s %s",
+        f"Unhandled application exception request_id={request_id} "
+        f"on {request.method} {request.url.path}",
         exc,
-        request_id,
-        request.method,
-        request.url.path,
     )
     return JSONResponse(
         status_code=500,
