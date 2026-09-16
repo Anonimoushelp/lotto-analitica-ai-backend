@@ -37,6 +37,19 @@ def _get_request_id(request: Request) -> str:
     return str(uuid.uuid4())
 
 
+def _log_exception(message: str, exc: Exception, **fields: object) -> None:
+    safe_fields = {key: str(value).replace("\r", " ").replace("\n", " ") for key, value in fields.items()}
+    if is_development:
+        logger.exception(message, **safe_fields)
+    else:
+        logger.error(
+            "%s exception_type=%s%s",
+            message,
+            type(exc).__name__,
+            "".join(f" {key}={value}" for key, value in safe_fields.items()),
+        )
+
+
 class RequestBodyLimitMiddleware(BaseHTTPMiddleware):
     async def dispatch(self, request, call_next):
         content_length = request.headers.get("content-length")
@@ -68,10 +81,11 @@ class RequestObservabilityMiddleware(BaseHTTPMiddleware):
         started = time.perf_counter()
         try:
             response = await call_next(request)
-        except Exception:
+        except Exception as exc:
             duration_ms = (time.perf_counter() - started) * 1000
-            logger.exception(
+            _log_exception(
                 "request_failed request_id=%s method=%s path=%s duration_ms=%.2f",
+                exc,
                 request_id,
                 request.method,
                 request.url.path,
@@ -148,8 +162,9 @@ async def statistical_input_limit_handler(request: Request, exc: StatisticalInpu
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
     request_id = getattr(request.state, "request_id", None) or _get_request_id(request)
-    logger.exception(
+    _log_exception(
         "Unhandled application exception request_id=%s on %s %s",
+        exc,
         request_id,
         request.method,
         request.url.path,
@@ -170,8 +185,8 @@ def root():
 def health(db: Session = Depends(get_db)):
     try:
         db.execute(text("SELECT 1"))
-    except SQLAlchemyError:
-        logger.exception("Health check failed: PostgreSQL unavailable")
+    except SQLAlchemyError as exc:
+        _log_exception("Health check failed: PostgreSQL unavailable", exc)
         return JSONResponse(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             content={"status": "unhealthy", "service": "Lotto Analítica AI"},
@@ -180,8 +195,8 @@ def health(db: Session = Depends(get_db)):
     if settings.environment.lower() == "production":
         try:
             login_rate_limiter.health_check()
-        except Exception:
-            logger.exception("Health check failed: Redis unavailable")
+        except Exception as exc:
+            _log_exception("Health check failed: Redis unavailable", exc)
             return JSONResponse(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 content={"status": "unhealthy", "service": "Lotto Analítica AI"},
