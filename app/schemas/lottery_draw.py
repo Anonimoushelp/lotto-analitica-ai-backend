@@ -56,6 +56,13 @@ def _validate_source(value: str) -> str:
     return normalized
 
 
+def _validate_draw_number(value: str) -> str:
+    normalized = value.strip()
+    if not normalized:
+        raise ValueError("draw_number must not be blank")
+    return normalized
+
+
 class LotteryDrawBase(BaseModel):
     lottery_id: int = Field(gt=0)
     draw_number: str = Field(min_length=1, max_length=50)
@@ -89,6 +96,7 @@ class LotteryDrawBase(BaseModel):
             max_items=MAX_BONUS_NUMBERS,
         )
     )
+    _validate_draw_number = field_validator("draw_number")(_validate_draw_number)
     _validate_source = field_validator("source")(_validate_source)
     _validate_metadata_json = field_validator("metadata_json")(_validate_metadata)
 
@@ -130,6 +138,7 @@ class LotteryDrawUpdate(BaseModel):
             max_items=MAX_BONUS_NUMBERS,
         )
     )
+    _validate_draw_number = field_validator("draw_number")(_validate_draw_number)
     _validate_source = field_validator("source")(_validate_source)
     _validate_metadata_json = field_validator("metadata_json")(_validate_metadata)
 
