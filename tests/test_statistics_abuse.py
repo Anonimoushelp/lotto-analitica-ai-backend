@@ -51,8 +51,8 @@ def test_statistical_overview_rejects_injection_like_scope():
 def test_statistical_overview_does_not_fallback_for_unknown_lottery(monkeypatch):
     calls = []
 
-    def fake_overview(*, db, lottery_id):
-        calls.append(lottery_id)
+    def fake_overview(*, db, lottery_id, source):
+        calls.append((lottery_id, source))
         return {"module_status": "STANDBY", "algorithms_count": 0, "draws_analyzed": 0}
 
     monkeypatch.setattr(StatisticalService, "overview", fake_overview)
@@ -63,7 +63,7 @@ def test_statistical_overview_does_not_fallback_for_unknown_lottery(monkeypatch)
         _restore_user(previous)
 
     assert response.status_code == 200
-    assert calls == [2147483647]
+    assert calls == [(2147483647, None)]
     assert response.json()["draws_analyzed"] == 0
 
 
