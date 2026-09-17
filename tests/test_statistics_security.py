@@ -47,14 +47,16 @@ def test_statistical_overview_rejects_unauthorized_role():
 def test_statistical_overview_allows_analyst_and_preserves_scope(monkeypatch):
     calls = []
 
-    def fake_overview(*, db, lottery_id):
-        calls.append(lottery_id)
+    def fake_overview(*, db, lottery_id, source):
+        calls.append((lottery_id, source))
         return {"module_status": "STANDBY", "algorithms_count": 0, "draws_analyzed": 0}
 
     monkeypatch.setattr(StatisticalService, "overview", fake_overview)
     previous = _set_user("analyst")
     try:
-        response = client.get("/api/v1/statistics/overview?lottery_id=42")
+        response = client.get(
+            "/api/v1/statistics/overview?lottery_id=42&source=baloto-colombia"
+        )
     finally:
         _restore_user(previous)
 
@@ -64,7 +66,7 @@ def test_statistical_overview_allows_analyst_and_preserves_scope(monkeypatch):
         "algorithms_count": 0,
         "draws_analyzed": 0,
     }
-    assert calls == [42]
+    assert calls == [(42, "baloto-colombia")]
 
 
 def test_statistical_overview_does_not_silently_accept_malformed_scope():
@@ -75,21 +77,23 @@ def test_statistical_overview_does_not_silently_accept_malformed_scope():
             client.get("/api/v1/statistics/overview?lottery_id=1.5"),
             client.get("/api/v1/statistics/overview?lottery_id=-1"),
             client.get("/api/v1/statistics/overview?lottery_id=0"),
+            client.get("/api/v1/statistics/overview?source="),
+            client.get("/api/v1/statistics/overview?source=" + "a" * 256),
         ]
     finally:
         _restore_user(previous)
 
-    assert [response.status_code for response in responses] == [422, 422, 422, 422]
+    assert [response.status_code for response in responses] == [422, 422, 422, 422, 422, 422]
 
 
 def test_statistical_overview_does_not_expose_internal_errors(monkeypatch):
-    def fail(*, db, lottery_id):
+    def fail(*, db, lottery_id, source):
         raise RuntimeError("database secret should not leak")
 
     monkeypatch.setattr(StatisticalService, "overview", fail)
     previous = _set_user("admin")
     try:
-        response = client.get("/api/v1/statistics/overview?lottery_id=1")
+        response = client.get("/api/v1/statistics/overview?lottery_id=1&source=baloto-colombia")
     finally:
         _restore_user(previous)
 
