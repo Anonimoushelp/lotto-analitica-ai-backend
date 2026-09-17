@@ -14,11 +14,13 @@ class LotteryDrawService:
     def list_draws(
         db: Session,
         lottery_id: int | None = None,
+        source: str | None = None,
         limit: int = 100,
     ) -> list[LotteryDraw]:
         return LotteryDrawRepository.list(
             db=db,
             lottery_id=lottery_id,
+            source=source,
             limit=limit,
         )
 
