@@ -122,10 +122,11 @@ class _ColombiaLotteryAdapter:
         ):
             numbers = value
         elif isinstance(value, str):
-            tokens = [
-                token for token in re.split(r"\s*-\s*", value.strip()) if token
-            ]
-            if not tokens or any(not token.isdigit() for token in tokens):
+            normalized = value.strip()
+            if not normalized:
+                raise ValueError("Invalid provider draw payload")
+            tokens = [token.strip() for token in normalized.split("-")]
+            if any(not token.isdigit() for token in tokens):
                 raise ValueError("Invalid provider draw payload")
             numbers = [int(token) for token in tokens]
         else:
