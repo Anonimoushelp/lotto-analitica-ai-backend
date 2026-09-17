@@ -14,6 +14,7 @@ class LotteryDrawRepository:
     def list(
         db: Session,
         lottery_id: int | None = None,
+        source: str | None = None,
         limit: int = 100,
     ) -> list[LotteryDraw]:
         statement = (
@@ -24,6 +25,8 @@ class LotteryDrawRepository:
 
         if lottery_id is not None:
             statement = statement.where(LotteryDraw.lottery_id == lottery_id)
+        if source is not None:
+            statement = statement.where(LotteryDraw.source == source)
 
         return list(db.scalars(statement).all())
 
