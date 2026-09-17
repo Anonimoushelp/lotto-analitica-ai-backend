@@ -251,3 +251,13 @@ def test_canonical_validation_error_is_not_exposed():
         adapter.parse_draw(payload)
     assert "provider_draw_id" not in str(exc_info.value)
     assert "ValidationError" not in str(exc_info.value)
+
+
+def test_registry_rejects_control_characters_before_source_lookup():
+    registry = LotterySourceAdapterRegistry(
+        [JsonLotterySourceAdapter("provider-example")]
+    )
+    with pytest.raises(ValueError, match="Invalid source name"):
+        registry.get("provider-example\n")
+    with pytest.raises(ValueError, match="Invalid source name"):
+        registry.get("provider-example\t")
