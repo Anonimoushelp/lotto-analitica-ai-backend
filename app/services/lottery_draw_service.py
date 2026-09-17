@@ -127,8 +127,9 @@ class LotteryDrawService:
         new_lottery_id = update_data.get("lottery_id", draw.lottery_id)
         new_draw_number = update_data.get("draw_number", draw.draw_number)
         new_draw_date = update_data.get("draw_date", draw.draw_date)
+        source_was_provided = "source" in update_data
         requested_source = update_data.get("source")
-        if requested_source is not None:
+        if source_was_provided:
             if not isinstance(requested_source, str) or not requested_source.strip():
                 raise HTTPException(
                     status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
