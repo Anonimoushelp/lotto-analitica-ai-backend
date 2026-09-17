@@ -111,18 +111,37 @@ class StatisticalService:
             raise ValueError("lottery_id must be a positive integer or null")
 
     @staticmethod
+    def _validate_source(source: str | None) -> None:
+        if source is None:
+            return
+        if not isinstance(source, str) or not source.strip():
+            raise ValueError("source must be a non-empty string or null")
+        if len(source.strip()) > 255:
+            raise ValueError("source exceeds maximum length")
+        if any(not char.isprintable() for char in source):
+            raise ValueError("source contains invalid characters")
+
+    @staticmethod
     def analyze(
-        draws: list[LotteryDraw], lottery_id: int | None = None
+        draws: list[LotteryDraw],
+        lottery_id: int | None = None,
+        source: str | None = None,
     ) -> dict[str, object]:
         if not isinstance(draws, list):
             raise TypeError("Statistical analysis requires a list of draws")
         StatisticalService._validate_lottery_id(lottery_id)
+        StatisticalService._validate_source(source)
 
-        if lottery_id is not None:
+        normalized_source = source.strip() if source is not None else None
+        if lottery_id is not None or normalized_source is not None:
             draws = [
                 draw
                 for draw in draws
-                if getattr(draw, "lottery_id", None) == lottery_id
+                if (lottery_id is None or getattr(draw, "lottery_id", None) == lottery_id)
+                and (
+                    normalized_source is None
+                    or getattr(draw, "source", None) == normalized_source
+                )
             ]
 
         StatisticalService._validate_draws(draws)
@@ -193,12 +212,19 @@ class StatisticalService:
 
     @staticmethod
     def overview(
-        db: Session, lottery_id: int | None = None
+        db: Session,
+        lottery_id: int | None = None,
+        source: str | None = None,
     ) -> dict[str, int | str]:
         StatisticalService._validate_lottery_id(lottery_id)
+        StatisticalService._validate_source(source)
+        normalized_source = source.strip() if source is not None else None
+
         statement = select(LotteryDraw)
         if lottery_id is not None:
             statement = statement.where(LotteryDraw.lottery_id == lottery_id)
+        if normalized_source is not None:
+            statement = statement.where(LotteryDraw.source == normalized_source)
         statement = statement.limit(_MAX_ANALYZABLE_DRAWS + 1)
 
         autoflush_context = getattr(db, "no_autoflush", nullcontext())
@@ -217,7 +243,11 @@ class StatisticalService:
                 "draws_analyzed": 0,
             }
 
-        StatisticalService.analyze(analyzable_draws, lottery_id=lottery_id)
+        StatisticalService.analyze(
+            analyzable_draws,
+            lottery_id=lottery_id,
+            source=normalized_source,
+        )
         return {
             "module_status": "READY",
             "algorithms_count": len(STATISTICAL_ALGORITHMS),
