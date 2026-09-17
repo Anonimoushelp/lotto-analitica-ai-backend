@@ -78,3 +78,22 @@ def test_provider_adapters_reject_duplicate_numbers():
                 "resultado": "05 - 16 - 16 - 36 - 43 - 14",
             }
         )
+
+
+@pytest.mark.parametrize(
+    "result",
+    [
+        "05--16-22-36-43-14",
+        "05 -  16 - -22 - 36 - 43 - 14",
+        "05 -16-22-36-43-14-",
+    ],
+)
+def test_provider_adapters_reject_malformed_number_separators(result: str):
+    with pytest.raises(ValueError, match="Invalid provider draw payload"):
+        BalotoAdapter().parse_draw(
+            {
+                "sorteo": "605",
+                "fecha": "9 de Septiembre de 2026",
+                "resultado": result,
+            }
+        )
