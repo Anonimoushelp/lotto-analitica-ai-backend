@@ -5,6 +5,8 @@ from __future__ import annotations
 from app.integrations.colombia_lotteries import BalotoAdapter, MiLotoAdapter
 from app.integrations.lottery_sources import LotterySourceAdapter
 
+_MAX_SOURCE_NAME_LENGTH = 255
+
 
 class RevanchaAdapter(BalotoAdapter):
     """Normalize Revancha using its five-ball plus bonus-ball shape."""
@@ -29,6 +31,12 @@ def get_colombia_source_adapter(source_name: str) -> LotterySourceAdapter:
     if not isinstance(source_name, str):
         raise TypeError("Invalid source name")
     key = source_name.strip()
+    if (
+        not key
+        or len(key) > _MAX_SOURCE_NAME_LENGTH
+        or any(not char.isprintable() for char in key)
+    ):
+        raise ValueError("Invalid source name")
     adapter = build_colombia_source_adapters().get(key)
     if adapter is None:
         raise KeyError("Unknown lottery source")
