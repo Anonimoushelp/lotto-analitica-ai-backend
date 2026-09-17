@@ -84,7 +84,11 @@ class LotterySourceAdapterRegistry:
     def get(self, source_name: str) -> LotterySourceAdapter:
         if not isinstance(source_name, str):
             raise TypeError("Invalid source name")
+        if any(not char.isprintable() for char in source_name):
+            raise ValueError("Invalid source name")
         key = source_name.strip()
+        if not key or len(key) > 255:
+            raise ValueError("Invalid source name")
         adapter = self._adapters.get(key)
         if adapter is None:
             raise KeyError("Unknown lottery source")
