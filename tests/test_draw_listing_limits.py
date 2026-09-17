@@ -55,6 +55,7 @@ def test_draw_list_accepts_configured_limit(monkeypatch):
     captured = {}
 
     def fake_list_draws(db, lottery_id=None, source=None, limit=100):
+        captured["source"] = source
         captured["limit"] = limit
         return []
 
