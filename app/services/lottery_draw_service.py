@@ -127,7 +127,20 @@ class LotteryDrawService:
         new_lottery_id = update_data.get("lottery_id", draw.lottery_id)
         new_draw_number = update_data.get("draw_number", draw.draw_number)
         new_draw_date = update_data.get("draw_date", draw.draw_date)
-        new_source = update_data.get("source", draw.source)
+        requested_source = update_data.get("source")
+        if requested_source is not None:
+            if not isinstance(requested_source, str) or not requested_source.strip():
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="Lottery draw source is required",
+                )
+            if requested_source.strip() != draw.source:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Lottery draw source is immutable",
+                )
+
+        new_source = draw.source
 
         if not isinstance(new_source, str) or not new_source.strip():
             raise HTTPException(
