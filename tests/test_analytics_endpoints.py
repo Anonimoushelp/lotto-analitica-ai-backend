@@ -32,7 +32,7 @@ def test_statistical_overview_contract(monkeypatch):
     monkeypatch.setattr(
         StatisticalService,
         "overview",
-        lambda db, lottery_id=None: {"module_status": "READY", "algorithms_count": 6, "draws_analyzed": 42},
+        lambda db, lottery_id=None, source=None: {"module_status": "READY", "algorithms_count": 6, "draws_analyzed": 42},
     )
     response = client.get("/api/v1/statistics/overview")
     assert response.status_code == 200
@@ -42,14 +42,16 @@ def test_statistical_overview_contract(monkeypatch):
 def test_statistical_overview_forwards_lottery_scope(monkeypatch):
     captured = {}
 
-    def overview(db, lottery_id=None):
+    def overview(db, lottery_id=None, source=None):
         captured["lottery_id"] = lottery_id
+        captured["source"] = source
         return {"module_status": "READY", "algorithms_count": 6, "draws_analyzed": 2}
 
     monkeypatch.setattr(StatisticalService, "overview", overview)
     response = client.get("/api/v1/statistics/overview?lottery_id=7")
     assert response.status_code == 200
     assert captured["lottery_id"] == 7
+    assert captured["source"] is None
     assert response.json() == {"module_status": "READY", "algorithms_count": 6, "draws_analyzed": 2}
 
 
