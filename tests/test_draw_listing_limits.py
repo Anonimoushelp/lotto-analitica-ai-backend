@@ -34,8 +34,10 @@ def authenticated_read_context():
 def test_draw_list_uses_bounded_default_limit(monkeypatch):
     captured = {}
 
-    def fake_list_draws(db, lottery_id=None, limit=100):
+    def fake_list_draws(db, lottery_id=None, source=None, limit=100):
         captured["lottery_id"] = lottery_id
+        captured["source"] = source
+        captured["source"] = source
         captured["limit"] = limit
         return []
 
@@ -45,13 +47,14 @@ def test_draw_list_uses_bounded_default_limit(monkeypatch):
 
     assert response.status_code == 200
     assert captured["lottery_id"] is None
+    assert captured["source"] is None
     assert captured["limit"] == 100
 
 
 def test_draw_list_accepts_configured_limit(monkeypatch):
     captured = {}
 
-    def fake_list_draws(db, lottery_id=None, limit=100):
+    def fake_list_draws(db, lottery_id=None, source=None, limit=100):
         captured["limit"] = limit
         return []
 
@@ -60,6 +63,7 @@ def test_draw_list_accepts_configured_limit(monkeypatch):
     response = client.get("/api/v1/draws?lottery_id=1&limit=250")
 
     assert response.status_code == 200
+    assert captured["source"] is None
     assert captured["limit"] == 250
 
 
