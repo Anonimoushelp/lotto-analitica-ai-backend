@@ -34,43 +34,23 @@ def _get_request_id(request: Request) -> str:
     supplied_request_id = request.headers.get(REQUEST_ID_HEADER, "")
     if _REQUEST_ID_PATTERN.fullmatch(supplied_request_id):
         return supplied_request_id
-    return str(uuid.uuid4())
+    return uuid.uuid4().hex
+
+
+def _sanitize_log_value(value: str) -> str:
+    return re.sub(r"[\r\n\t]", " ", value)
 
 
 def _log_exception(message: str, exc: Exception) -> None:
-    safe_message = str(message).replace("\r", " ").replace("\n", " ")
+    safe_message = _sanitize_log_value(message)
     if is_development:
-        logger.exception(safe_message)
+        logger.exception(safe_message, exc_info=exc)
     else:
         logger.error("%s exception_type=%s", safe_message, type(exc).__name__)
 
 
-class RequestBodyLimitMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request, call_next):
-        content_length = request.headers.get("content-length")
-        if content_length is not None:
-            try:
-                declared_length = int(content_length)
-            except ValueError:
-                return JSONResponse(
-                    status_code=400,
-                    content={"detail": "Invalid Content-Length header"},
-                )
-            if declared_length < 0:
-                return JSONResponse(
-                    status_code=400,
-                    content={"detail": "Invalid Content-Length header"},
-                )
-            if declared_length > MAX_REQUEST_BODY_BYTES:
-                return JSONResponse(
-                    status_code=413,
-                    content={"detail": "Request body too large"},
-                )
-        return await call_next(request)
-
-
 class RequestObservabilityMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request, call_next):
+    async def dispatch(self, request: Request, call_next):
         request_id = _get_request_id(request)
         request.state.request_id = request_id
         started = time.perf_counter()
@@ -87,7 +67,7 @@ class RequestObservabilityMiddleware(BaseHTTPMiddleware):
         duration_ms = (time.perf_counter() - started) * 1000
         response.headers[REQUEST_ID_HEADER] = request_id
         logger.info(
-            "request_completed request_id=%s method=%s path=%s status_code=%s duration_ms=%.2f",
+            "request_completed request_id=%s method=%s path=%s status=%s duration_ms=%.2f",
             request_id,
             request.method,
             request.url.path,
@@ -97,8 +77,25 @@ class RequestObservabilityMiddleware(BaseHTTPMiddleware):
         return response
 
 
+class RequestBodyLimitMiddleware(BaseHTTPMiddleware):
+    async def dispatch(self, request: Request, call_next):
+        content_length = request.headers.get("content-length")
+        if content_length:
+            try:
+                if int(content_length) > MAX_REQUEST_BODY_BYTES:
+                    request_id = getattr(request.state, "request_id", None) or _get_request_id(request)
+                    return JSONResponse(
+                        status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+                        content={"detail": "Request body too large"},
+                        headers={REQUEST_ID_HEADER: request_id},
+                    )
+            except ValueError:
+                pass
+        return await call_next(request)
+
+
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request, call_next):
+    async def dispatch(self, request: Request, call_next):
         response = await call_next(request)
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
@@ -185,7 +182,7 @@ def health(db: Session = Depends(get_db)):
     if settings.environment.lower() == "production":
         try:
             login_rate_limiter.health_check()
-        except Exception as exc:
+        except Exception as exc:  # noqa: BLE001 - health boundary must fail closed on any Redis client failure
             _log_exception("Health check failed: Redis unavailable", exc)
             return JSONResponse(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -200,5 +197,5 @@ app.include_router(functional_encryption_router)
 app.include_router(tee_router)
 app.include_router(lotteries_router)
 app.include_router(lottery_draws_router)
-app.include_router(statistics_router)
 app.include_router(predictions_router)
+app.include_router(statistics_router)
