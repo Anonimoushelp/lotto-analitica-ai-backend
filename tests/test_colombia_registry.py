@@ -82,3 +82,9 @@ def test_unknown_or_non_string_source_is_fail_closed():
 
     with pytest.raises(TypeError, match="Invalid source name"):
         get_colombia_source_adapter(123)  # type: ignore[arg-type]
+
+
+@pytest.mark.parametrize("source", ["", "   ", "bad\nsource", "a" * 256])
+def test_source_resolution_rejects_invalid_names(source):
+    with pytest.raises(ValueError, match="Invalid source name"):
+        get_colombia_source_adapter(source)
