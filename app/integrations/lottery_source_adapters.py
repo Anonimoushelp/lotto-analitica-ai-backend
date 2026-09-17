@@ -92,6 +92,8 @@ class LotterySourceAdapterRegistry:
         adapter = self._adapters.get(key)
         if adapter is None:
             raise KeyError("Unknown lottery source")
+        if getattr(adapter, "source_name", None) != key:
+            raise ValueError("Registered adapter source has changed")
         return adapter
 
     def parse_draw(self, source_name: str, payload: Any) -> LotteryDrawPayload:
