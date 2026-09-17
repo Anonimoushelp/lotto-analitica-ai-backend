@@ -109,4 +109,3 @@ def delete_draw(
         resource_id=draw_id,
         actor=current_user,
     )
-    return None
