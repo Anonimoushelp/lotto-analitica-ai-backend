@@ -151,3 +151,42 @@ def test_update_collision_is_scoped_to_same_source(monkeypatch):
     assert get_by_date.call_args.kwargs["source"] == "baloto-colombia"
     assert get_by_number.call_args.kwargs["source"] == "baloto-colombia"
     assert get_by_date.call_args.kwargs["source"] == "baloto-colombia"
+
+
+def test_update_integrity_error_rolls_back_and_returns_conflict(monkeypatch):
+    draw = _draw(source="baloto-colombia")
+    monkeypatch.setattr(LotteryDrawService, "get_draw", staticmethod(lambda db, draw_id: draw))
+
+    class DB:
+        def get(self, model, lottery_id):
+            return object()
+
+        def commit(self):
+            from sqlalchemy.exc import IntegrityError
+            raise IntegrityError("duplicate", {}, Exception("constraint"))
+
+        def rollback(self):
+            self.rolled_back = True
+
+        def refresh(self, value):
+            pass
+
+    db = DB()
+    monkeypatch.setattr(
+        "app.services.lottery_draw_service.LotteryDrawRepository.get_by_number",
+        Mock(return_value=None),
+    )
+    monkeypatch.setattr(
+        "app.services.lottery_draw_service.LotteryDrawRepository.get_by_date",
+        Mock(return_value=None),
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        LotteryDrawService.update_draw(
+            db=db,
+            draw_id=draw.id,
+            update_data={"draw_number": "D-2"},
+        )
+
+    assert exc_info.value.status_code == 409
+    assert db.rolled_back is True
