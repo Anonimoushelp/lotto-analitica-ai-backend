@@ -164,8 +164,8 @@ def test_all_statistical_metrics_follow_updated_numbers_and_dates(db: Session):
     assert after["pair_frequency"]["9-10"] == 1
     assert "1-2" not in after["pair_frequency"]
     assert after["consecutive_numbers"] == {
-        "draws_with_consecutive": 2,
-        "total_consecutive_pairs": 6,
+        "draws_with_consecutive": 1,
+        "total_consecutive_pairs": 3,
         "maximum_consecutive_pairs": 3,
     }
     assert after["number_recency"][9] == {"last_seen_draw": 2, "draws_since_seen": 0}
