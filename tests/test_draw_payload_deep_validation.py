@@ -270,7 +270,7 @@ def test_update_rejects_unknown_fields_without_mutation():
         _cleanup()
 
 
-def test_update_rejects_lottery_change_without_mutation():
+def test_update_allows_lottery_change_with_consistency_checks():
     user = _seed_user()
     lottery_a = _seed_lottery("PAYLOAD-A")
     lottery_b = _seed_lottery("PAYLOAD-B")
@@ -295,10 +295,10 @@ def test_update_rejects_lottery_change_without_mutation():
             headers=headers,
             json={"lottery_id": lottery_b.id},
         )
-        assert response.status_code == 409
+        assert response.status_code == 200
 
         fetched = client.get(f"/api/v1/draws/{draw_id}", headers=headers)
         assert fetched.status_code == 200
-        assert fetched.json()["lottery_id"] == lottery_a.id
+        assert fetched.json()["lottery_id"] == lottery_b.id
     finally:
         _cleanup()
