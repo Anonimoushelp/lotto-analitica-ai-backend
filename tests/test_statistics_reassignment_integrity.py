@@ -1,4 +1,4 @@
-from datetime import date, datetime, timezone
+from datetime import UTC, date, datetime
 
 import pytest
 from sqlalchemy import create_engine, delete, select
@@ -222,7 +222,7 @@ def test_statistics_is_deterministic_for_reordered_historical_input():
 
 def test_statistics_rejects_datetime_as_historical_draw_date():
     draw = _fake_draw([1, 2, 3])
-    draw.draw_date = datetime(2026, 9, 18, tzinfo=timezone.utc)
+    draw.draw_date = datetime(2026, 9, 18, tzinfo=UTC)
     with pytest.raises(TypeError, match="valid draw_date"):
         StatisticalService.analyze([draw])
 
