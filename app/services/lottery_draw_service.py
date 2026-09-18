@@ -129,6 +129,12 @@ class LotteryDrawService:
         new_lottery_id = update_data.get("lottery_id", draw.lottery_id)
         new_draw_number = update_data.get("draw_number", draw.draw_number)
         new_draw_date = update_data.get("draw_date", draw.draw_date)
+
+        if new_lottery_id != draw.lottery_id:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Lottery draw lottery_id is immutable",
+            )
         source_was_provided = "source" in update_data
         requested_source = update_data.get("source")
         if source_was_provided:
