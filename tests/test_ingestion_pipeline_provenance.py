@@ -398,13 +398,13 @@ def test_concurrent_duplicate_ingestion_is_database_safe(db: Session):
     )
     db.add(first)
     db.commit()
-    with pytest.raises(Exception):
+    with pytest.raises(Exception) as exc_info:
         LotteryDrawService.create_draw(
             db=db, lottery_id=lottery.id, draw_number=second.draw_number,
             draw_date=second.draw_date, main_numbers=second.main_numbers,
             source=second.source,
         )
-    assert db.query(LotteryDraw).count() == 1
+    assert getattr(exc_info.value, "status_code", None) == 409\n    assert db.query(LotteryDraw).count() == 1
 
 
 def test_concurrent_same_identity_remains_isolated_by_provider(db: Session):
