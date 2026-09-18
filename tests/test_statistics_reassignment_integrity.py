@@ -359,10 +359,10 @@ def test_multiple_scope_cycles_preserve_provider_and_lottery_statistics(db: Sess
             )
 
     expected = {
-        (lottery_a.id, "baloto-colombia"): {81: 1, 82: 1, 83: 1, 84: 1, 85: 1},
-        (lottery_a.id, "revancha-colombia"): {86: 1, 87: 1, 88: 1, 89: 1, 90: 1},
-        (lottery_b.id, "baloto-colombia"): {71: 1, 72: 1, 73: 1, 74: 1, 75: 1},
-        (lottery_b.id, "revancha-colombia"): {76: 1, 77: 1, 78: 1, 79: 1, 80: 1},
+        (lottery_a.id, "baloto-colombia"): {71: 1, 72: 1, 73: 1, 74: 1, 75: 1},
+        (lottery_a.id, "revancha-colombia"): {76: 1, 77: 1, 78: 1, 79: 1, 80: 1},
+        (lottery_b.id, "baloto-colombia"): {81: 1, 82: 1, 83: 1, 84: 1, 85: 1},
+        (lottery_b.id, "revancha-colombia"): {86: 1, 87: 1, 88: 1, 89: 1, 90: 1},
     }
     for (lottery_id, source), frequency in expected.items():
         rows = LotteryDrawService.list_draws(db=db, lottery_id=lottery_id, source=source, limit=100)
