@@ -1507,3 +1507,137 @@ def test_number_date_conflict_is_scoped_by_provider_and_preserves_other_provider
     assert persisted_revancha.source == "revancha-colombia"
     assert persisted_baloto.draw_number == persisted_revancha.draw_number == "66005"
     assert persisted_baloto.draw_date == persisted_revancha.draw_date == date(2026, 9, 17)
+
+
+def test_number_conflict_after_simulated_commit_integrity_error_rolls_back_all_fields(
+    db: Session,
+    monkeypatch,
+):
+    lottery = Lottery(code="PH367-A", name="Rollback Number Conflict", country="Colombia")
+    db.add(lottery)
+    db.commit()
+    db.refresh(lottery)
+
+    first = LotteryDrawService.create_draw(
+        db=db, lottery_id=lottery.id, draw_number="67001",
+        draw_date=date(2026, 9, 17), main_numbers=[1, 7, 12, 28, 43],
+        source="baloto-colombia",
+    )
+    second = LotteryDrawService.create_draw(
+        db=db, lottery_id=lottery.id, draw_number="67002",
+        draw_date=date(2026, 9, 18), main_numbers=[2, 8, 17, 29, 39],
+        source="baloto-colombia",
+    )
+
+    original_commit = db.commit
+
+    def failing_commit():
+        raise IntegrityError("forced conflict", {}, Exception("unique violation"))
+
+    monkeypatch.setattr(db, "commit", failing_commit)
+    with pytest.raises(Exception) as exc_info:
+        LotteryDrawService.update_draw(
+            db=db,
+            draw_id=second.id,
+            update_data={
+                "draw_number": "67003",
+                "draw_date": date(2026, 9, 19),
+                "main_numbers": [4, 9, 18, 30, 38],
+            },
+        )
+    assert getattr(exc_info.value, "status_code", None) == 409
+    monkeypatch.setattr(db, "commit", original_commit)
+
+    db.expire_all()
+    persisted = db.get(LotteryDraw, second.id)
+    assert persisted is not None
+    assert persisted.draw_number == "67002"
+    assert persisted.draw_date == date(2026, 9, 18)
+    assert persisted.main_numbers == [2, 8, 17, 29, 39]
+
+
+def test_date_conflict_after_simulated_commit_integrity_error_rolls_back_and_preserves_statistics(
+    db: Session,
+    monkeypatch,
+):
+    lottery = Lottery(code="PH367-B", name="Rollback Date Conflict", country="Colombia")
+    db.add(lottery)
+    db.commit()
+    db.refresh(lottery)
+
+    draw = LotteryDrawService.create_draw(
+        db=db, lottery_id=lottery.id, draw_number="67004",
+        draw_date=date(2026, 9, 18), main_numbers=[3, 8, 17, 29, 39],
+        source="miloto-colombia",
+    )
+
+    original_commit = db.commit
+
+    def failing_commit():
+        raise IntegrityError("forced conflict", {}, Exception("unique violation"))
+
+    monkeypatch.setattr(db, "commit", failing_commit)
+    with pytest.raises(Exception) as exc_info:
+        LotteryDrawService.update_draw(
+            db=db,
+            draw_id=draw.id,
+            update_data={
+                "draw_date": date(2026, 9, 19),
+                "main_numbers": [4, 9, 18, 30, 38],
+            },
+        )
+    assert getattr(exc_info.value, "status_code", None) == 409
+    monkeypatch.setattr(db, "commit", original_commit)
+
+    db.expire_all()
+    persisted = db.get(LotteryDraw, draw.id)
+    assert persisted is not None
+    assert persisted.draw_date == date(2026, 9, 18)
+    assert persisted.main_numbers == [3, 8, 17, 29, 39]
+
+    stats = StatisticalService.analyze(
+        [persisted], lottery_id=lottery.id, source="miloto-colombia"
+    )
+    assert stats["number_frequency"] == {3: 1, 8: 1, 17: 1, 29: 1, 39: 1}
+    assert 4 not in stats["number_frequency"]
+
+
+def test_rollback_conflict_does_not_cross_contaminate_other_provider_statistics(db: Session, monkeypatch):
+    lottery = Lottery(code="PH367-C", name="Rollback Provider Isolation", country="Colombia")
+    db.add(lottery)
+    db.commit()
+    db.refresh(lottery)
+
+    baloto = LotteryDrawService.create_draw(
+        db=db, lottery_id=lottery.id, draw_number="67005",
+        draw_date=date(2026, 9, 17), main_numbers=[1, 7, 12, 28, 43],
+        bonus_numbers=[16], source="baloto-colombia",
+    )
+    revancha = LotteryDrawService.create_draw(
+        db=db, lottery_id=lottery.id, draw_number="67005",
+        draw_date=date(2026, 9, 17), main_numbers=[2, 8, 17, 29, 41],
+        bonus_numbers=[9], source="revancha-colombia",
+    )
+
+    original_commit = db.commit
+
+    def failing_commit():
+        raise IntegrityError("forced conflict", {}, Exception("unique violation"))
+
+    monkeypatch.setattr(db, "commit", failing_commit)
+    with pytest.raises(Exception) as exc_info:
+        LotteryDrawService.update_draw(
+            db=db,
+            draw_id=baloto.id,
+            update_data={"main_numbers": [5, 10, 19, 31, 42]},
+        )
+    assert getattr(exc_info.value, "status_code", None) == 409
+    monkeypatch.setattr(db, "commit", original_commit)
+
+    db.expire_all()
+    persisted_baloto = db.get(LotteryDraw, baloto.id)
+    persisted_revancha = db.get(LotteryDraw, revancha.id)
+    assert persisted_baloto is not None
+    assert persisted_revancha is not None
+    assert persisted_baloto.main_numbers == [1, 7, 12, 28, 43]
+    assert persisted_revancha.main_numbers == [2, 8, 17, 29, 41]
