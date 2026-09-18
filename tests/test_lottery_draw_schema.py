@@ -71,3 +71,37 @@ def test_draw_schema_rejects_oversized_metadata() -> None:
 def test_draw_update_schema_rejects_oversized_metadata() -> None:
     with pytest.raises(ValidationError, match="metadata_json cannot exceed"):
         LotteryDrawUpdate(metadata_json={"payload": "x" * MAX_METADATA_BYTES})
+
+
+def test_draw_schema_rejects_overlapping_bonus_numbers() -> None:
+    payload = valid_payload()
+    payload["bonus_numbers"] = [7]
+    with pytest.raises(ValidationError, match="bonus_numbers cannot overlap"):
+        LotteryDrawCreate(**payload)
+
+
+@pytest.mark.parametrize("field", ["source", "draw_number"])
+def test_draw_schema_rejects_control_characters(field: str) -> None:
+    payload = valid_payload()
+    payload[field] = "valid\nvalue"
+    with pytest.raises(ValidationError):
+        LotteryDrawCreate(**payload)
+
+
+def test_draw_schema_rejects_non_finite_metadata() -> None:
+    payload = valid_payload()
+    payload["metadata_json"] = {"score": float("nan")}
+    with pytest.raises(ValidationError, match="non-finite"):
+        LotteryDrawCreate(**payload)
+
+
+def test_draw_schema_rejects_deep_metadata() -> None:
+    payload = valid_payload()
+    value = {}
+    cursor = value
+    for _ in range(7):
+        cursor["nested"] = {}
+        cursor = cursor["nested"]
+    payload["metadata_json"] = value
+    with pytest.raises(ValidationError, match="too complex"):
+        LotteryDrawCreate(**payload)
