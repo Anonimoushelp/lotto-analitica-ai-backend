@@ -161,7 +161,7 @@ def test_recovery_cycle_keeps_single_database_record_and_statistics_after_stale_
         main_numbers=[81, 82, 83, 84, 85],
         source="miloto-colombia",
     )
-    stale = type(db)(db.bind, autoflush=False, autocommit=False)
+    stale = SessionLocal()
     try:
         stale_draw = stale.get(LotteryDraw, draw.id)
         assert stale_draw is not None
