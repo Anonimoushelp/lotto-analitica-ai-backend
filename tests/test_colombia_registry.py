@@ -141,3 +141,49 @@ def test_colombian_adapters_keep_same_draw_identity_isolated_by_source():
     )
     assert baloto.source != revancha.source
     assert baloto.main_numbers != revancha.main_numbers
+
+
+
+def test_provider_payload_cannot_override_canonical_provenance():
+    adapter = get_colombia_source_adapter("baloto-colombia")
+    with pytest.raises(ValueError, match="Invalid provider draw payload"):
+        adapter.parse_draw(
+            {
+                "sorteo": 7003,
+                "fecha": "2026-09-15",
+                "resultado": [1, 7, 12, 28, 43, 16],
+                "source": "revancha-colombia",
+            }
+        )
+
+
+def test_mixed_provider_results_keep_independent_provenance_and_payloads():
+    adapters = build_colombia_source_adapters()
+    results = [
+        adapters["baloto-colombia"].parse_draw(
+            {"sorteo": 7004, "fecha": "15 de septiembre de 2026",
+             "resultado": "1-7-12-28-43-16"}
+        ),
+        adapters["revancha-colombia"].parse_draw(
+            {"sorteo": "Sorteo #7004", "fecha": "2026-09-15",
+             "resultado": [2, 8, 17, 29, 41, 9]}
+        ),
+        adapters["miloto-colombia"].parse_draw(
+            {"sorteo": "7004", "fecha": "2026-09-15",
+             "resultado": "3-8-17-29-39"}
+        ),
+    ]
+
+    assert [result.source for result in results] == [
+        "baloto-colombia",
+        "revancha-colombia",
+        "miloto-colombia",
+    ]
+    assert len({result.source for result in results}) == 3
+    assert all(result.draw_number == "7004" for result in results)
+    assert len({tuple(result.main_numbers) for result in results}) == 3
+
+
+def test_registry_resolution_normalizes_outer_whitespace_but_preserves_canonical_key():
+    adapter = get_colombia_source_adapter("  miloto-colombia  ")
+    assert adapter.source_name == "miloto-colombia"
