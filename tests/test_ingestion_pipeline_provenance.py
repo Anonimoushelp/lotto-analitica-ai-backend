@@ -622,3 +622,198 @@ def test_historical_correction_preserves_other_provider_statistics(db: Session):
 
     assert baloto_stats["number_frequency"] == {3: 1, 8: 1, 18: 1, 30: 1, 43: 1}
     assert revancha_stats["number_frequency"] == {2: 1, 8: 1, 17: 1, 29: 1, 41: 1}
+
+
+def test_concurrent_reassignment_keeps_statistics_isolated_by_lottery_and_provider(db: Session):
+    source_lottery = Lottery(
+        code="PH361-A",
+        name="Concurrent Reassignment Source",
+        country="Colombia",
+    )
+    target_lottery = Lottery(
+        code="PH361-B",
+        name="Concurrent Reassignment Target",
+        country="Colombia",
+    )
+    db.add_all([source_lottery, target_lottery])
+    db.commit()
+    db.refresh(source_lottery)
+    db.refresh(target_lottery)
+
+    baloto = LotteryDrawService.create_draw(
+        db=db,
+        lottery_id=source_lottery.id,
+        draw_number="61001",
+        draw_date=date(2026, 9, 18),
+        main_numbers=[1, 7, 12, 28, 43],
+        bonus_numbers=[16],
+        source="baloto-colombia",
+    )
+    revancha = LotteryDrawService.create_draw(
+        db=db,
+        lottery_id=source_lottery.id,
+        draw_number="61001",
+        draw_date=date(2026, 9, 18),
+        main_numbers=[2, 8, 17, 29, 41],
+        bonus_numbers=[9],
+        source="revancha-colombia",
+    )
+
+    reassignment_session = SessionLocal()
+    statistics_session = SessionLocal()
+    try:
+        reassigned = LotteryDrawService.update_draw(
+            db=reassignment_session,
+            draw_id=baloto.id,
+            update_data={"lottery_id": target_lottery.id},
+        )
+        assert reassigned.lottery_id == target_lottery.id
+
+        source_baloto = StatisticalService.analyze(
+            LotteryDrawService.list_draws(
+                db=statistics_session,
+                lottery_id=source_lottery.id,
+                source="baloto-colombia",
+                limit=100,
+            ),
+            lottery_id=source_lottery.id,
+            source="baloto-colombia",
+        )
+        source_revancha = StatisticalService.analyze(
+            LotteryDrawService.list_draws(
+                db=statistics_session,
+                lottery_id=source_lottery.id,
+                source="revancha-colombia",
+                limit=100,
+            ),
+            lottery_id=source_lottery.id,
+            source="revancha-colombia",
+        )
+        target_baloto = StatisticalService.analyze(
+            LotteryDrawService.list_draws(
+                db=statistics_session,
+                lottery_id=target_lottery.id,
+                source="baloto-colombia",
+                limit=100,
+            ),
+            lottery_id=target_lottery.id,
+            source="baloto-colombia",
+        )
+
+        assert source_baloto == {
+            "number_frequency": {},
+            "number_recency": {},
+            "even_odd_distribution": {},
+            "sum_distribution": {
+                "count": 0,
+                "minimum": None,
+                "maximum": None,
+                "average": None,
+            },
+            "pair_frequency": {},
+            "consecutive_numbers": {
+                "draws_with_consecutive": 0,
+                "total_consecutive_pairs": 0,
+                "maximum_consecutive_pairs": 0,
+            },
+        }
+        assert source_revancha["number_frequency"] == {
+            2: 1,
+            8: 1,
+            17: 1,
+            29: 1,
+            41: 1,
+        }
+        assert target_baloto["number_frequency"] == {
+            1: 1,
+            7: 1,
+            12: 1,
+            28: 1,
+            43: 1,
+        }
+        assert revancha.lottery_id == source_lottery.id
+    finally:
+        reassignment_session.close()
+        statistics_session.close()
+
+
+def test_stale_concurrent_update_reloads_reassigned_draw_before_statistics(db: Session):
+    source_lottery = Lottery(
+        code="PH361-C",
+        name="Stale Reassignment Source",
+        country="Colombia",
+    )
+    target_lottery = Lottery(
+        code="PH361-D",
+        name="Stale Reassignment Target",
+        country="Colombia",
+    )
+    db.add_all([source_lottery, target_lottery])
+    db.commit()
+    db.refresh(source_lottery)
+    db.refresh(target_lottery)
+
+    draw = LotteryDrawService.create_draw(
+        db=db,
+        lottery_id=source_lottery.id,
+        draw_number="61002",
+        draw_date=date(2026, 9, 18),
+        main_numbers=[3, 8, 17, 29, 39],
+        source="miloto-colombia",
+    )
+
+    stale_session = SessionLocal()
+    reassignment_session = SessionLocal()
+    try:
+        stale_draw = stale_session.get(LotteryDraw, draw.id)
+        assert stale_draw is not None
+        assert stale_draw.lottery_id == source_lottery.id
+
+        LotteryDrawService.update_draw(
+            db=reassignment_session,
+            draw_id=draw.id,
+            update_data={"lottery_id": target_lottery.id},
+        )
+
+        updated = LotteryDrawService.update_draw(
+            db=stale_session,
+            draw_id=draw.id,
+            update_data={"main_numbers": [4, 9, 18, 30, 38]},
+        )
+
+        assert updated.lottery_id == target_lottery.id
+        assert updated.main_numbers == [4, 9, 18, 30, 38]
+
+        source_stats = StatisticalService.analyze(
+            LotteryDrawService.list_draws(
+                db=stale_session,
+                lottery_id=source_lottery.id,
+                source="miloto-colombia",
+                limit=100,
+            ),
+            lottery_id=source_lottery.id,
+            source="miloto-colombia",
+        )
+        target_stats = StatisticalService.analyze(
+            LotteryDrawService.list_draws(
+                db=stale_session,
+                lottery_id=target_lottery.id,
+                source="miloto-colombia",
+                limit=100,
+            ),
+            lottery_id=target_lottery.id,
+            source="miloto-colombia",
+        )
+
+        assert source_stats["sum_distribution"]["count"] == 0
+        assert target_stats["number_frequency"] == {
+            4: 1,
+            9: 1,
+            18: 1,
+            30: 1,
+            38: 1,
+        }
+        assert 3 not in target_stats["number_frequency"]
+    finally:
+        stale_session.close()
+        reassignment_session.close()
