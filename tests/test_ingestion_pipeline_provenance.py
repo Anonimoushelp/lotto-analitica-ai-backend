@@ -1168,3 +1168,240 @@ def test_multiple_historical_corrections_and_reimports_preserve_provider_isolati
         41: 1,
     }
     assert baloto.lottery_id == revancha.lottery_id == lottery.id
+
+
+def test_concurrent_reimports_with_date_and_number_corrections_keep_single_provenance_record(
+    db: Session,
+):
+    lottery = Lottery(
+        code="PH365-A",
+        name="Concurrent Date Number Corrections",
+        country="Colombia",
+    )
+    db.add(lottery)
+    db.commit()
+    db.refresh(lottery)
+
+    draw = LotteryDrawService.create_draw(
+        db=db,
+        lottery_id=lottery.id,
+        draw_number="65001",
+        draw_date=date(2026, 9, 18),
+        main_numbers=[1, 7, 12, 28, 43],
+        bonus_numbers=[16],
+        source="baloto-colombia",
+    )
+
+    first_session = SessionLocal()
+    second_session = SessionLocal()
+    try:
+        first = LotteryDrawService.update_draw(
+            db=first_session,
+            draw_id=draw.id,
+            update_data={
+                "draw_date": date(2026, 9, 17),
+                "main_numbers": [3, 8, 18, 30, 43],
+                "bonus_numbers": [16],
+            },
+        )
+        second = LotteryDrawService.update_draw(
+            db=second_session,
+            draw_id=draw.id,
+            update_data={
+                "draw_date": date(2026, 9, 16),
+                "main_numbers": [5, 10, 19, 31, 42],
+                "bonus_numbers": [15],
+            },
+        )
+
+        assert first.id == second.id == draw.id
+        db.expire_all()
+        persisted = db.get(LotteryDraw, draw.id)
+        assert persisted is not None
+        assert persisted.source == "baloto-colombia"
+        assert persisted.draw_number == "65001"
+        assert persisted.draw_date == date(2026, 9, 16)
+        assert persisted.main_numbers == [5, 10, 19, 31, 42]
+        assert persisted.bonus_numbers == [15]
+
+        rows = LotteryDrawService.list_draws(
+            db=db, lottery_id=lottery.id, source="baloto-colombia", limit=100
+        )
+        stats = StatisticalService.analyze(
+            rows, lottery_id=lottery.id, source="baloto-colombia"
+        )
+        assert len(rows) == 1
+        assert stats["number_frequency"] == {
+            5: 1,
+            10: 1,
+            19: 1,
+            31: 1,
+            42: 1,
+        }
+        assert 1 not in stats["number_frequency"]
+        assert 3 not in stats["number_frequency"]
+    finally:
+        first_session.close()
+        second_session.close()
+
+
+def test_reimport_after_date_and_number_correction_is_rejected_without_losing_correction(
+    db: Session,
+):
+    lottery = Lottery(
+        code="PH365-B",
+        name="Corrected Reimport Identity",
+        country="Colombia",
+    )
+    db.add(lottery)
+    db.commit()
+    db.refresh(lottery)
+
+    adapter = get_colombia_source_adapter("revancha-colombia")
+    original = adapter.parse_draw(
+        {
+            "sorteo": 65002,
+            "fecha": "2026-09-18",
+            "resultado": [2, 8, 17, 29, 41, 9],
+        }
+    )
+    draw = LotteryDrawService.create_draw(
+        db=db,
+        lottery_id=lottery.id,
+        draw_number=original.draw_number,
+        draw_date=original.draw_date,
+        main_numbers=original.main_numbers,
+        bonus_numbers=original.bonus_numbers,
+        source=original.source,
+    )
+
+    corrected = LotteryDrawService.update_draw(
+        db=db,
+        draw_id=draw.id,
+        update_data={
+            "draw_date": date(2026, 9, 17),
+            "main_numbers": [4, 9, 18, 30, 38],
+            "bonus_numbers": [7],
+        },
+    )
+
+    with pytest.raises(Exception) as exc_info:
+        LotteryDrawService.create_draw(
+            db=db,
+            lottery_id=lottery.id,
+            draw_number=original.draw_number,
+            draw_date=original.draw_date,
+            main_numbers=original.main_numbers,
+            bonus_numbers=original.bonus_numbers,
+            source=original.source,
+        )
+    assert getattr(exc_info.value, "status_code", None) == 409
+
+    db.expire_all()
+    persisted = db.get(LotteryDraw, corrected.id)
+    assert persisted is not None
+    assert persisted.source == "revancha-colombia"
+    assert persisted.draw_number == "65002"
+    assert persisted.draw_date == date(2026, 9, 17)
+    assert persisted.main_numbers == [4, 9, 18, 30, 38]
+    assert persisted.bonus_numbers == [7]
+
+
+def test_cross_provider_reimport_after_correction_keeps_date_number_and_statistics_isolated(
+    db: Session,
+):
+    lottery = Lottery(
+        code="PH365-C",
+        name="Cross Provider Corrected Reimports",
+        country="Colombia",
+    )
+    db.add(lottery)
+    db.commit()
+    db.refresh(lottery)
+
+    baloto = LotteryDrawService.create_draw(
+        db=db,
+        lottery_id=lottery.id,
+        draw_number="65003",
+        draw_date=date(2026, 9, 18),
+        main_numbers=[1, 7, 12, 28, 43],
+        bonus_numbers=[16],
+        source="baloto-colombia",
+    )
+    revancha = LotteryDrawService.create_draw(
+        db=db,
+        lottery_id=lottery.id,
+        draw_number="65003",
+        draw_date=date(2026, 9, 18),
+        main_numbers=[2, 8, 17, 29, 41],
+        bonus_numbers=[9],
+        source="revancha-colombia",
+    )
+
+    LotteryDrawService.update_draw(
+        db=db,
+        draw_id=baloto.id,
+        update_data={
+            "draw_date": date(2026, 9, 17),
+            "main_numbers": [5, 10, 19, 31, 42],
+            "bonus_numbers": [15],
+        },
+    )
+    LotteryDrawService.update_draw(
+        db=db,
+        draw_id=revancha.id,
+        update_data={
+            "draw_date": date(2026, 9, 16),
+            "main_numbers": [3, 9, 18, 27, 39],
+            "bonus_numbers": [8],
+        },
+    )
+
+    for source, numbers, bonus in (
+        ("baloto-colombia", [1, 7, 12, 28, 43], [16]),
+        ("revancha-colombia", [2, 8, 17, 29, 41], [9]),
+    ):
+        with pytest.raises(Exception) as exc_info:
+            LotteryDrawService.create_draw(
+                db=db,
+                lottery_id=lottery.id,
+                draw_number="65003",
+                draw_date=date(2026, 9, 18),
+                main_numbers=numbers,
+                bonus_numbers=bonus,
+                source=source,
+            )
+        assert getattr(exc_info.value, "status_code", None) == 409
+
+    baloto_rows = LotteryDrawService.list_draws(
+        db=db, lottery_id=lottery.id, source="baloto-colombia", limit=100
+    )
+    revancha_rows = LotteryDrawService.list_draws(
+        db=db, lottery_id=lottery.id, source="revancha-colombia", limit=100
+    )
+    baloto_stats = StatisticalService.analyze(
+        baloto_rows, lottery_id=lottery.id, source="baloto-colombia"
+    )
+    revancha_stats = StatisticalService.analyze(
+        revancha_rows, lottery_id=lottery.id, source="revancha-colombia"
+    )
+
+    assert len(baloto_rows) == len(revancha_rows) == 1
+    assert baloto_rows[0].draw_date == date(2026, 9, 17)
+    assert revancha_rows[0].draw_date == date(2026, 9, 16)
+    assert baloto_stats["number_frequency"] == {
+        5: 1,
+        10: 1,
+        19: 1,
+        31: 1,
+        42: 1,
+    }
+    assert revancha_stats["number_frequency"] == {
+        3: 1,
+        9: 1,
+        18: 1,
+        27: 1,
+        39: 1,
+    }
+    assert baloto_rows[0].source == "baloto-colombia"
+    assert revancha_rows[0].source == "revancha-colombia"
