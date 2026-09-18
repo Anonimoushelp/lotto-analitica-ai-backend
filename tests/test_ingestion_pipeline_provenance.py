@@ -425,3 +425,92 @@ def test_concurrent_same_identity_remains_isolated_by_provider(db: Session):
     assert {draw.source for draw in db.query(LotteryDraw).all()} == {
         "baloto-colombia", "revancha-colombia"
     }
+
+
+def test_concurrent_retry_conflict_cannot_duplicate_statistical_counts(db: Session):
+    lottery = Lottery(code="PH359-A", name="Concurrent Statistics", country="Colombia")
+    db.add(lottery)
+    db.commit()
+    adapter = get_colombia_source_adapter("miloto-colombia")
+    normalized = adapter.parse_draw(
+        {"sorteo": 50001, "fecha": "2026-09-18", "resultado": [1, 7, 12, 28, 39]}
+    )
+
+    LotteryDrawService.create_draw(
+        db=db,
+        lottery_id=lottery.id,
+        draw_number=normalized.draw_number,
+        draw_date=normalized.draw_date,
+        main_numbers=normalized.main_numbers,
+        source=normalized.source,
+    )
+
+    with pytest.raises(Exception) as exc_info:
+        LotteryDrawService.create_draw(
+            db=db,
+            lottery_id=lottery.id,
+            draw_number=normalized.draw_number,
+            draw_date=normalized.draw_date,
+            main_numbers=normalized.main_numbers,
+            source=normalized.source,
+        )
+
+    assert getattr(exc_info.value, "status_code", None) == 409
+    persisted = LotteryDrawService.list_draws(
+        db=db, lottery_id=lottery.id, source="miloto-colombia", limit=100
+    )
+    stats = StatisticalService.analyze(
+        persisted, lottery_id=lottery.id, source="miloto-colombia"
+    )
+    assert len(persisted) == 1
+    assert stats["sum_distribution"]["count"] == 1
+    assert stats["number_frequency"] == {1: 1, 7: 1, 12: 1, 28: 1, 39: 1}
+
+
+def test_concurrent_provider_retries_do_not_cross_contaminate_statistics(db: Session):
+    lottery = Lottery(code="PH359-B", name="Provider Statistics Isolation", country="Colombia")
+    db.add(lottery)
+    db.commit()
+
+    payloads = {
+        "baloto-colombia": [1, 7, 12, 28, 43],
+        "revancha-colombia": [2, 8, 17, 29, 41],
+    }
+    for source, numbers in payloads.items():
+        LotteryDrawService.create_draw(
+            db=db,
+            lottery_id=lottery.id,
+            draw_number="50002",
+            draw_date=date(2026, 9, 18),
+            main_numbers=numbers,
+            bonus_numbers=[16 if source == "baloto-colombia" else 9],
+            source=source,
+        )
+
+    for source, numbers in payloads.items():
+        with pytest.raises(Exception) as exc_info:
+            LotteryDrawService.create_draw(
+                db=db,
+                lottery_id=lottery.id,
+                draw_number="50002",
+                draw_date=date(2026, 9, 18),
+                main_numbers=numbers,
+                bonus_numbers=[16 if source == "baloto-colombia" else 9],
+                source=source,
+            )
+        assert getattr(exc_info.value, "status_code", None) == 409
+
+    all_draws = LotteryDrawService.list_draws(
+        db=db, lottery_id=lottery.id, limit=100
+    )
+    assert len(all_draws) == 2
+
+    for source, numbers in payloads.items():
+        provider_draws = LotteryDrawService.list_draws(
+            db=db, lottery_id=lottery.id, source=source, limit=100
+        )
+        stats = StatisticalService.analyze(
+            provider_draws, lottery_id=lottery.id, source=source
+        )
+        assert stats["number_frequency"] == {number: 1 for number in numbers}
+        assert stats["sum_distribution"]["count"] == 1
