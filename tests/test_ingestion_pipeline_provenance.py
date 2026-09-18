@@ -2,15 +2,13 @@ from datetime import date
 
 import pytest
 from sqlalchemy import create_engine, select
-from sqlalchemy.exc import SQLAlchemyError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.integrations.colombia_registry import get_colombia_source_adapter
 from app.models.lottery import Lottery
 from app.models.lottery_draw import LotteryDraw
-from sqlalchemy.exc import IntegrityError
-
 from app.services.lottery_draw_service import LotteryDrawService
 from app.services.statistical_service import StatisticalService
 
@@ -147,7 +145,7 @@ def test_repeated_ingestion_is_idempotent_by_source_number_and_date(db: Session)
         )
     assert getattr(exc_info.value, "status_code", None) == 409
     assert db.query(LotteryDraw).count() == 1
-    assert db.get(LotteryDraw, first.id).metadata_json is None
+    assert db.query(LotteryDraw).first().metadata_json is None
 
 
 def test_same_draw_identity_can_repeat_across_providers_without_collision(db: Session):
@@ -1520,7 +1518,7 @@ def test_number_conflict_after_simulated_commit_integrity_error_rolls_back_all_f
     db.commit()
     db.refresh(lottery)
 
-    first = LotteryDrawService.create_draw(
+    LotteryDrawService.create_draw(
         db=db, lottery_id=lottery.id, draw_number="67001",
         draw_date=date(2026, 9, 17), main_numbers=[1, 7, 12, 28, 43],
         source="baloto-colombia",
