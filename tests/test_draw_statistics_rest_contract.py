@@ -227,3 +227,55 @@ def test_draw_rest_rejects_invalid_payload_and_immutable_source_change():
         assert source_change.status_code == 409
     finally:
         _cleanup()
+
+
+def test_statistics_rest_response_contract_preserves_exact_shape_and_request_id():
+    user = _seed_user("analyst-shape@example.com", "analyst")
+    lottery = _seed_lottery("REST-SHAPE")
+    headers = _auth(user)
+    db = TestingSessionLocal()
+    db.add(
+        LotteryDraw(
+            lottery_id=lottery.id,
+            source="baloto-colombia",
+            draw_number="D-SHAPE",
+            draw_date=date(2026, 9, 18),
+            main_numbers=[11, 12, 13],
+        )
+    )
+    db.commit()
+    db.close()
+    try:
+        response = client.get(
+            f"/api/v1/statistics/overview?lottery_id={lottery.id}&source=baloto-colombia",
+            headers=headers,
+        )
+        assert response.status_code == 200
+        assert set(response.json()) == {
+            "module_status",
+            "algorithms_count",
+            "draws_analyzed",
+        }
+        assert response.headers.get("X-Request-ID")
+    finally:
+        _cleanup()
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "lottery_id=-1",
+        "lottery_id=2147483648",
+        "source=" + ("x" * 256),
+    ],
+)
+def test_statistics_rest_rejects_out_of_contract_filters(query):
+    user = _seed_user("analyst-filter@example.com", "analyst")
+    try:
+        response = client.get(
+            f"/api/v1/statistics/overview?{query}",
+            headers=_auth(user),
+        )
+        assert response.status_code == 422
+    finally:
+        _cleanup()
