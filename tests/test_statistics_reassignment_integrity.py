@@ -7,7 +7,8 @@ from sqlalchemy.pool import StaticPool
 
 from app.models.lottery import Lottery
 from app.models.lottery_draw import LotteryDraw
-from app.services.lottery_draw_service import DrawService as DrawService
+from app.services.lottery_draw_service import LotteryDrawService
+from app.services.statistical_service import StatisticalService
 
 engine = create_engine(
     "sqlite://",
@@ -286,7 +287,7 @@ def test_statistics_rejects_excessive_unique_pair_cardinality():
 
 def test_repeated_correction_reingestion_cycles_keep_single_current_statistical_state(db: Session):
     lottery = seed_lottery(db, "PH370-A")
-    draw = DrawService.create_draw(
+    draw = LotteryDrawService.create_draw(
         db=db, lottery_id=lottery.id, draw_number="70001",
         draw_date=date(2026, 9, 10), main_numbers=[1, 2, 3, 4, 5],
         source="baloto-colombia",
@@ -297,19 +298,19 @@ def test_repeated_correction_reingestion_cycles_keep_single_current_statistical_
         ("70004", date(2026, 9, 13), [16, 17, 18, 19, 20]),
     ]
     for draw_number, draw_date, numbers in corrections:
-        draw = DrawService.update_draw(
+        draw = LotteryDrawService.update_draw(
             db=db, draw_id=draw.id,
             update_data={"draw_number": draw_number, "draw_date": draw_date, "main_numbers": numbers},
         )
         with pytest.raises(Exception) as exc_info:
-            DrawService.create_draw(
+            LotteryDrawService.create_draw(
                 db=db, lottery_id=lottery.id, draw_number=draw_number,
                 draw_date=draw_date, main_numbers=numbers,
                 source="baloto-colombia",
             )
         assert getattr(exc_info.value, "status_code", None) == 409
 
-    rows = DrawService.list_draws(
+    rows = LotteryDrawService.list_draws(
         db=db, lottery_id=lottery.id, source="baloto-colombia", limit=100
     )
     stats = StatisticalService.analyze(rows, lottery_id=lottery.id, source="baloto-colombia")
@@ -332,7 +333,7 @@ def test_multiple_scope_cycles_preserve_provider_and_lottery_statistics(db: Sess
     draws = []
     for lottery_id, source, numbers in states:
         draws.append(
-            DrawService.create_draw(
+            LotteryDrawService.create_draw(
                 db=db, lottery_id=lottery_id, draw_number="70010",
                 draw_date=date(2026, 9, 14), main_numbers=numbers, source=source,
             )
@@ -342,7 +343,7 @@ def test_multiple_scope_cycles_preserve_provider_and_lottery_statistics(db: Sess
         for index, draw in enumerate(draws):
             base = 50 + cycle * 10 + index * 5
             numbers = [base + offset for offset in range(1, 6)]
-            DrawService.update_draw(
+            LotteryDrawService.update_draw(
                 db=db, draw_id=draw.id,
                 update_data={"draw_number": f"700{20 + cycle * 10 + index}",
                              "draw_date": date(2026, 9, 15 + cycle),
@@ -350,8 +351,8 @@ def test_multiple_scope_cycles_preserve_provider_and_lottery_statistics(db: Sess
             )
 
         if cycle == 1:
-            DrawService.delete_draw(db=db, draw_id=draws[1].id)
-            draws[1] = DrawService.create_draw(
+            LotteryDrawService.delete_draw(db=db, draw_id=draws[1].id)
+            draws[1] = LotteryDrawService.create_draw(
                 db=db, lottery_id=lottery_a.id, draw_number="70090",
                 draw_date=date(2026, 9, 17), main_numbers=[101, 102, 103, 104, 105],
                 source="revancha-colombia",
@@ -364,7 +365,7 @@ def test_multiple_scope_cycles_preserve_provider_and_lottery_statistics(db: Sess
         (lottery_b.id, "revancha-colombia"): {76: 1, 77: 1, 78: 1, 79: 1, 80: 1},
     }
     for (lottery_id, source), frequency in expected.items():
-        rows = DrawService.list_draws(db=db, lottery_id=lottery_id, source=source, limit=100)
+        rows = LotteryDrawService.list_draws(db=db, lottery_id=lottery_id, source=source, limit=100)
         stats = StatisticalService.analyze(rows, lottery_id=lottery_id, source=source)
         assert len(rows) == 1
         assert stats["number_frequency"] == frequency
