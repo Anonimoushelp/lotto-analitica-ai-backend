@@ -817,3 +817,120 @@ def test_stale_concurrent_update_reloads_reassigned_draw_before_statistics(db: S
     finally:
         stale_session.close()
         reassignment_session.close()
+
+
+def test_update_then_concurrent_delete_leaves_statistics_empty_and_allows_reingestion(db: Session):
+    lottery = Lottery(
+        code="PH363-A",
+        name="Update Delete Reingestion",
+        country="Colombia",
+    )
+    db.add(lottery)
+    db.commit()
+    db.refresh(lottery)
+
+    draw = LotteryDrawService.create_draw(
+        db=db,
+        lottery_id=lottery.id,
+        draw_number="63001",
+        draw_date=date(2026, 9, 18),
+        main_numbers=[1, 7, 12, 28, 39],
+        source="miloto-colombia",
+    )
+
+    update_session = SessionLocal()
+    delete_session = SessionLocal()
+    try:
+        updated = LotteryDrawService.update_draw(
+            db=update_session,
+            draw_id=draw.id,
+            update_data={"main_numbers": [2, 8, 17, 29, 39]},
+        )
+        assert updated.main_numbers == [2, 8, 17, 29, 39]
+
+        LotteryDrawService.delete_draw(db=delete_session, draw_id=draw.id)
+
+        assert LotteryDrawService.list_draws(
+            db=db, lottery_id=lottery.id, source="miloto-colombia", limit=100
+        ) == []
+        assert StatisticalService.overview(
+            db=db, lottery_id=lottery.id, source="miloto-colombia"
+        ) == {
+            "module_status": "STANDBY",
+            "algorithms_count": 0,
+            "draws_analyzed": 0,
+        }
+
+        reingested = LotteryDrawService.create_draw(
+            db=db,
+            lottery_id=lottery.id,
+            draw_number="63001",
+            draw_date=date(2026, 9, 18),
+            main_numbers=[4, 9, 18, 30, 38],
+            source="miloto-colombia",
+        )
+        stats = StatisticalService.analyze(
+            [reingested],
+            lottery_id=lottery.id,
+            source="miloto-colombia",
+        )
+        assert stats["number_frequency"] == {
+            4: 1,
+            9: 1,
+            18: 1,
+            30: 1,
+            38: 1,
+        }
+    finally:
+        update_session.close()
+        delete_session.close()
+
+
+def test_stale_update_after_concurrent_delete_cannot_restore_deleted_statistics(db: Session):
+    lottery = Lottery(
+        code="PH363-B",
+        name="Stale Delete Update",
+        country="Colombia",
+    )
+    db.add(lottery)
+    db.commit()
+    db.refresh(lottery)
+
+    draw = LotteryDrawService.create_draw(
+        db=db,
+        lottery_id=lottery.id,
+        draw_number="63002",
+        draw_date=date(2026, 9, 18),
+        main_numbers=[3, 8, 17, 29, 39],
+        source="miloto-colombia",
+    )
+
+    stale_session = SessionLocal()
+    delete_session = SessionLocal()
+    try:
+        stale_draw = stale_session.get(LotteryDraw, draw.id)
+        assert stale_draw is not None
+
+        LotteryDrawService.delete_draw(db=delete_session, draw_id=draw.id)
+
+        with pytest.raises(Exception) as exc_info:
+            LotteryDrawService.update_draw(
+                db=stale_session,
+                draw_id=draw.id,
+                update_data={"main_numbers": [4, 9, 18, 30, 38]},
+            )
+        assert getattr(exc_info.value, "status_code", None) == 404
+
+        assert LotteryDrawService.list_draws(
+            db=db, lottery_id=lottery.id, source="miloto-colombia", limit=100
+        ) == []
+        assert StatisticalService.overview(
+            db=db, lottery_id=lottery.id, source="miloto-colombia"
+        ) == {
+            "module_status": "STANDBY",
+            "algorithms_count": 0,
+            "draws_analyzed": 0,
+        }
+    finally:
+        stale_session.close()
+        delete_session.close()
