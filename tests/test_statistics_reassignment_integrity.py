@@ -132,3 +132,61 @@ def test_statistics_update_is_atomic_on_rollback(db: Session):
     assert (persisted.lottery_id, persisted.draw_number, persisted.draw_date, persisted.main_numbers) == original
     assert StatisticalService.overview(db, lottery_id=lottery_a.id, source="baloto-colombia")["draws_analyzed"] == 1
     assert StatisticalService.overview(db, lottery_id=lottery_b.id, source="baloto-colombia")["draws_analyzed"] == 0
+
+
+def test_all_statistical_metrics_follow_updated_numbers_and_dates(db: Session):
+    lottery = seed_lottery(db, "PH347-A")
+    first = seed_draw(db, lottery.id, "D-040", date(2026, 9, 10), [1, 2, 3, 4], "baloto-colombia")
+    second = seed_draw(db, lottery.id, "D-041", date(2026, 9, 17), [2, 4, 6, 8], "baloto-colombia")
+
+    before = StatisticalService.analyze(
+        [first, second], lottery_id=lottery.id, source="baloto-colombia"
+    )
+    assert before["number_frequency"] == {1: 1, 2: 2, 3: 1, 4: 2, 6: 1, 8: 1}
+    assert before["sum_distribution"] == {
+        "count": 2, "minimum": 10, "maximum": 20, "average": 15.0
+    }
+    assert before["even_odd_distribution"] == {"2-2": 1, "4-0": 1}
+    assert before["number_recency"][2] == {"last_seen_draw": 2, "draws_since_seen": 0}
+
+    first.main_numbers = [9, 10, 11, 12]
+    first.draw_date = date(2026, 9, 18)
+    db.commit()
+
+    after = StatisticalService.analyze(
+        [first, second], lottery_id=lottery.id, source="baloto-colombia"
+    )
+    assert after["number_frequency"] == {2: 1, 4: 1, 6: 1, 8: 1, 9: 1, 10: 1, 11: 1, 12: 1}
+    assert after["sum_distribution"] == {
+        "count": 2, "minimum": 20, "maximum": 42, "average": 31.0
+    }
+    assert after["even_odd_distribution"] == {"2-2": 1, "4-0": 1}
+    assert after["pair_frequency"]["9-10"] == 1
+    assert "1-2" not in after["pair_frequency"]
+    assert after["consecutive_numbers"] == {
+        "draws_with_consecutive": 2,
+        "total_consecutive_pairs": 6,
+        "maximum_consecutive_pairs": 3,
+    }
+    assert after["number_recency"][9] == {"last_seen_draw": 2, "draws_since_seen": 0}
+    assert 1 not in after["number_recency"]
+
+
+def test_updated_numbers_cannot_contaminate_other_provider_statistics(db: Session):
+    lottery = seed_lottery(db, "PH347-B")
+    baloto = seed_draw(db, lottery.id, "D-050", date(2026, 9, 15), [1, 2, 3], "baloto-colombia")
+    revancha = seed_draw(db, lottery.id, "D-050", date(2026, 9, 16), [7, 8, 9], "revancha-colombia")
+
+    baloto.main_numbers = [10, 20, 30]
+    db.commit()
+
+    baloto_stats = StatisticalService.analyze(
+        [baloto, revancha], lottery_id=lottery.id, source="baloto-colombia"
+    )
+    revancha_stats = StatisticalService.analyze(
+        [baloto, revancha], lottery_id=lottery.id, source="revancha-colombia"
+    )
+    assert baloto_stats["number_frequency"] == {10: 1, 20: 1, 30: 1}
+    assert revancha_stats["number_frequency"] == {7: 1, 8: 1, 9: 1}
+    assert "7-8" not in baloto_stats["pair_frequency"]
+    assert "10-20" not in revancha_stats["pair_frequency"]
