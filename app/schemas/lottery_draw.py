@@ -96,6 +96,8 @@ def _validate_bonus_disjoint(main_numbers: list[int] | None, bonus_numbers: list
 
 
 class LotteryDrawBase(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     lottery_id: int = Field(gt=0)
     draw_number: str = Field(min_length=1, max_length=50)
     draw_date: date
