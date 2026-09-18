@@ -101,7 +101,7 @@ def test_overview_isolated_by_lottery_and_source_after_reassignment(db: Session)
 def test_reassignment_preserves_provider_statistics_without_cross_contamination(db: Session):
     lottery_a = seed_lottery(db, "PH346-E")
     lottery_b = seed_lottery(db, "PH346-F")
-    baloto = seed_draw(db, lottery_a.id, "D-020", date(2026, 9, 18), [1, 1 + 1, 3], "baloto-colombia")
+    baloto = seed_draw(db, lottery_a.id, "D-020", date(2026, 9, 18), [1, 2, 3], "baloto-colombia")
     revancha = seed_draw(db, lottery_b.id, "D-020", date(2026, 9, 19), [4, 5, 6], "revancha-colombia")
     baloto.main_numbers = [1, 2, 3]
     db.commit()
@@ -115,7 +115,7 @@ def test_reassignment_preserves_provider_statistics_without_cross_contamination(
     assert revancha_stats["number_frequency"] == {4: 1, 5: 1, 6: 1}
 
 
-def test_statistics_update_is_atomic_on_rollback(db: Session, monkeypatch):
+def test_statistics_update_is_atomic_on_rollback(db: Session):
     lottery_a = seed_lottery(db, "PH346-G")
     lottery_b = seed_lottery(db, "PH346-H")
     draw = seed_draw(db, lottery_a.id, "D-030", date(2026, 9, 18), [10, 20, 30], "baloto-colombia")
