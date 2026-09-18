@@ -208,6 +208,50 @@ def _fake_draw(numbers: list[int], draw_id: int = 1) -> SimpleNamespace:
     )
 
 
+def test_statistics_is_deterministic_for_reordered_historical_input():
+    draws = [
+        SimpleNamespace(id=30, lottery_id=1, source="legacy-import", draw_number="00010",
+                        draw_date=date(2020, 1, 2), main_numbers=[5, 7, 9]),
+        SimpleNamespace(id=20, lottery_id=1, source="legacy-import", draw_number="9",
+                        draw_date=date(2020, 1, 2), main_numbers=[1, 3, 5]),
+        SimpleNamespace(id=10, lottery_id=1, source="legacy-import", draw_number="8",
+                        draw_date=date(2020, 1, 1), main_numbers=[2, 4, 6]),
+    ]
+    assert StatisticalService.analyze(draws) == StatisticalService.analyze(list(reversed(draws)))
+
+
+def test_statistics_rejects_datetime_as_historical_draw_date():
+    draw = _fake_draw([1, 2, 3])
+    draw.draw_date = datetime(2026, 9, 18)
+    with pytest.raises(TypeError, match="valid draw_date"):
+        StatisticalService.analyze([draw])
+
+
+@pytest.mark.parametrize(
+    "draw_number",
+    ["1", "0001", "999999999999999999999999999999999999"],
+)
+def test_statistics_handles_historical_draw_number_formats_without_integer_overflow(draw_number):
+    draw = _fake_draw([1, 2, 3])
+    draw.draw_number = draw_number
+    result = StatisticalService.analyze([draw])
+    assert result["number_frequency"] == {1: 1, 2: 1, 3: 1}
+
+
+def test_statistics_rejects_non_list_historical_numbers():
+    draw = _fake_draw([1, 2, 3])
+    draw.main_numbers = "1,2,3"
+    with pytest.raises(TypeError, match="main_numbers must be a list"):
+        StatisticalService.analyze([draw])
+
+
+def test_statistics_rejects_boolean_historical_numbers():
+    draw = _fake_draw([1, 2, 3])
+    draw.main_numbers = [True, 2, 3]
+    with pytest.raises(ValueError, match="positive integers"):
+        StatisticalService.analyze([draw])
+
+
 def test_statistics_rejects_more_than_maximum_draws():
     draws = [_fake_draw([1], index) for index in range(10_001)]
     with pytest.raises(StatisticalInputLimitError):
