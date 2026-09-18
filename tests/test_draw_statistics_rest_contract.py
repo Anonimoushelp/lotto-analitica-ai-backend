@@ -12,7 +12,6 @@ from app.models.lottery import Lottery
 from app.models.lottery_draw import LotteryDraw
 from app.models.user import User
 
-
 engine = create_engine(
     "sqlite://",
     connect_args={"check_same_thread": False},
