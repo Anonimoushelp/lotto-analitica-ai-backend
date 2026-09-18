@@ -111,3 +111,47 @@ def test_update_without_source_preserves_existing_provenance(monkeypatch):
     assert result is draw
     assert draw.source == "baloto-colombia"
     assert draw.draw_number == "D-2"
+
+
+def test_update_collision_is_scoped_to_same_source(monkeypatch):
+    draw = _draw(source="baloto-colombia")
+    monkeypatch.setattr(LotteryDrawService, "get_draw", staticmethod(lambda db, draw_id: draw))
+
+    class DB:
+        def get(self, model, lottery_id):
+            return object()
+
+        def commit(self):
+            pass
+
+        def refresh(self, value):
+            pass
+
+    class Repo:
+        @staticmethod
+        def get_by_number(**kwargs):
+            assert kwargs["source"] == "baloto-colombia"
+            return None
+
+        @staticmethod
+        def get_by_date(**kwargs):
+            assert kwargs["source"] == "baloto-colombia"
+            return None
+
+    monkeypatch.setattr(
+        "app.services.lottery_draw_service.LotteryDrawRepository.get_by_number",
+        Repo.get_by_number,
+    )
+    monkeypatch.setattr(
+        "app.services.lottery_draw_service.LotteryDrawRepository.get_by_date",
+        Repo.get_by_date,
+    )
+
+    result = LotteryDrawService.update_draw(
+        db=DB(),
+        draw_id=draw.id,
+        update_data={"draw_number": "D-2", "draw_date": date(2026, 9, 2)},
+    )
+
+    assert result is draw
+    assert draw.source == "baloto-colombia"
