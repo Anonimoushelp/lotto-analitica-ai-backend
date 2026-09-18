@@ -1801,3 +1801,109 @@ def test_rollback_conflict_allows_followup_update_without_statistical_residue(
     assert stats["number_frequency"] == {7: 1, 13: 1, 19: 1, 25: 1, 31: 1}
     assert 6 not in stats["number_frequency"]
     assert 12 not in stats["number_frequency"]
+
+
+def test_mixed_lifecycle_operations_preserve_statistics_across_scopes(db: Session):
+    lotteries = [
+        Lottery(code="PH369-A", name="Mixed Lifecycle A", country="Colombia"),
+        Lottery(code="PH369-B", name="Mixed Lifecycle B", country="Colombia"),
+    ]
+    db.add_all(lotteries)
+    db.commit()
+    for lottery in lotteries:
+        db.refresh(lottery)
+
+    baloto_a = LotteryDrawService.create_draw(
+        db=db, lottery_id=lotteries[0].id, draw_number="69001",
+        draw_date=date(2026, 9, 16), main_numbers=[1, 7, 12, 28, 43],
+        source="baloto-colombia",
+    )
+    revancha_a = LotteryDrawService.create_draw(
+        db=db, lottery_id=lotteries[0].id, draw_number="69001",
+        draw_date=date(2026, 9, 16), main_numbers=[2, 8, 17, 29, 41],
+        source="revancha-colombia",
+    )
+    baloto_b = LotteryDrawService.create_draw(
+        db=db, lottery_id=lotteries[1].id, draw_number="69001",
+        draw_date=date(2026, 9, 16), main_numbers=[3, 9, 18, 27, 39],
+        source="baloto-colombia",
+    )
+
+    LotteryDrawService.update_draw(
+        db=db, draw_id=baloto_a.id,
+        update_data={"draw_number": "69002", "main_numbers": [4, 10, 19, 30, 38]},
+    )
+    LotteryDrawService.delete_draw(db=db, draw_id=revancha_a.id)
+    LotteryDrawService.update_draw(
+        db=db, draw_id=baloto_b.id,
+        update_data={"draw_date": date(2026, 9, 18), "main_numbers": [5, 11, 20, 31, 37]},
+    )
+    reimported = LotteryDrawService.create_draw(
+        db=db, lottery_id=lotteries[0].id, draw_number="69003",
+        draw_date=date(2026, 9, 18), main_numbers=[6, 13, 21, 32, 36],
+        source="revancha-colombia",
+    )
+    assert reimported.source == "revancha-colombia"
+
+    expected = (
+        (lotteries[0], "baloto-colombia", {4: 1, 10: 1, 19: 1, 30: 1, 38: 1}),
+        (lotteries[0], "revancha-colombia", {6: 1, 13: 1, 21: 1, 32: 1, 36: 1}),
+        (lotteries[1], "baloto-colombia", {5: 1, 11: 1, 20: 1, 31: 1, 37: 1}),
+    )
+    for lottery, source, frequency in expected:
+        rows = LotteryDrawService.list_draws(
+            db=db, lottery_id=lottery.id, source=source, limit=100
+        )
+        stats = StatisticalService.analyze(rows, lottery_id=lottery.id, source=source)
+        assert len(rows) == 1
+        assert stats["number_frequency"] == frequency
+
+
+def test_reimport_after_mixed_mutations_does_not_restore_deleted_provider_state(db: Session):
+    lottery = Lottery(code="PH369-C", name="Mixed Reimport Isolation", country="Colombia")
+    db.add(lottery)
+    db.commit()
+    db.refresh(lottery)
+
+    deleted = LotteryDrawService.create_draw(
+        db=db, lottery_id=lottery.id, draw_number="69004",
+        draw_date=date(2026, 9, 17), main_numbers=[1, 2, 3, 4, 5],
+        source="baloto-colombia",
+    )
+    survivor = LotteryDrawService.create_draw(
+        db=db, lottery_id=lottery.id, draw_number="69004",
+        draw_date=date(2026, 9, 17), main_numbers=[6, 7, 8, 9, 10],
+        source="revancha-colombia",
+    )
+    LotteryDrawService.delete_draw(db=db, draw_id=deleted.id)
+    corrected = LotteryDrawService.update_draw(
+        db=db, draw_id=survivor.id,
+        update_data={"main_numbers": [11, 12, 13, 14, 15]},
+    )
+
+    restored = LotteryDrawService.create_draw(
+        db=db, lottery_id=lottery.id, draw_number="69005",
+        draw_date=date(2026, 9, 18), main_numbers=[16, 17, 18, 19, 20],
+        source="baloto-colombia",
+    )
+    assert corrected.source == "revancha-colombia"
+    assert restored.source == "baloto-colombia"
+
+    baloto_rows = LotteryDrawService.list_draws(
+        db=db, lottery_id=lottery.id, source="baloto-colombia", limit=100
+    )
+    revancha_rows = LotteryDrawService.list_draws(
+        db=db, lottery_id=lottery.id, source="revancha-colombia", limit=100
+    )
+    baloto_stats = StatisticalService.analyze(
+        baloto_rows, lottery_id=lottery.id, source="baloto-colombia"
+    )
+    revancha_stats = StatisticalService.analyze(
+        revancha_rows, lottery_id=lottery.id, source="revancha-colombia"
+    )
+    assert len(baloto_rows) == 1
+    assert len(revancha_rows) == 1
+    assert baloto_stats["number_frequency"] == {16: 1, 17: 1, 18: 1, 19: 1, 20: 1}
+    assert revancha_stats["number_frequency"] == {11: 1, 12: 1, 13: 1, 14: 1, 15: 1}
+    assert 1 not in baloto_stats["number_frequency"]
+    assert 6 not in revancha_stats["number_frequency"]
