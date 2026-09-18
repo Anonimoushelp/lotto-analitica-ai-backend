@@ -4,6 +4,7 @@ from unittest.mock import Mock
 
 import pytest
 from fastapi import HTTPException
+from sqlalchemy.exc import IntegrityError
 
 from app.services.lottery_draw_service import LotteryDrawService
 
@@ -162,7 +163,6 @@ def test_update_integrity_error_rolls_back_and_returns_conflict(monkeypatch):
             return object()
 
         def commit(self):
-            from sqlalchemy.exc import IntegrityError
             raise IntegrityError("duplicate", {}, Exception("constraint"))
 
         def rollback(self):
