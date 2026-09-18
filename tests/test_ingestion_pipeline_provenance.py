@@ -2,6 +2,7 @@ from datetime import date
 
 import pytest
 from sqlalchemy import create_engine, select
+from sqlalchemy.exc import SQLAlchemyError
 from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
@@ -290,3 +291,42 @@ def test_database_conflict_during_ingestion_does_not_leave_partial_record(db: Se
         LotteryDrawService.create_draw(db=db, lottery_id=lottery.id, draw_number=first.draw_number, draw_date=first.draw_date, main_numbers=first.main_numbers, source=first.source)
     assert getattr(exc_info.value, "status_code", None) == 409
     assert db.query(LotteryDraw).filter(LotteryDraw.lottery_id == lottery.id).count() == 1
+
+
+
+def test_corrupt_provider_payload_fails_before_persistence(db: Session):
+    lottery = Lottery(code="PH356-A", name="Corrupt Payload", country="Colombia")
+    db.add(lottery)
+    db.commit()
+    adapter = get_colombia_source_adapter("baloto-colombia")
+    with pytest.raises(ValueError, match="Invalid provider draw payload"):
+        adapter.parse_draw({"sorteo": 20001, "fecha": "2026-09-18", "resultado": [1, 7, 12, 28, 43, 16], "metadata": ["corrupt"]})
+    assert db.query(LotteryDraw).count() == 0
+
+
+def test_repository_failure_rolls_back_partial_ingestion(monkeypatch, db: Session):
+    lottery = Lottery(code="PH356-B", name="Rollback Ingestion", country="Colombia")
+    db.add(lottery)
+    db.commit()
+    original_commit = db.commit
+    def fail_commit():
+        raise SQLAlchemyError("forced ingestion failure")
+    monkeypatch.setattr(db, "commit", fail_commit)
+    with pytest.raises(SQLAlchemyError):
+        LotteryDrawService.create_draw(db=db, lottery_id=lottery.id, draw_number="20002", draw_date=date(2026, 9, 18), main_numbers=[1, 7, 12, 28, 43], source="baloto-colombia")
+    monkeypatch.setattr(db, "commit", original_commit)
+    db.rollback()
+    assert db.query(LotteryDraw).count() == 0
+
+
+def test_invalid_historical_correction_does_not_partially_mutate_record(db: Session):
+    lottery = Lottery(code="PH356-C", name="Atomic Correction", country="Colombia")
+    db.add(lottery)
+    db.commit()
+    draw = LotteryDrawService.create_draw(db=db, lottery_id=lottery.id, draw_number="20003", draw_date=date(2026, 9, 18), main_numbers=[1, 7, 12, 28, 43], bonus_numbers=[16], source="baloto-colombia")
+    with pytest.raises(Exception) as exc_info:
+        LotteryDrawService.update_draw(db=db, draw_id=draw.id, update_data={"main_numbers": [1, 7, 12, 28, 43], "bonus_numbers": [43]})
+    assert getattr(exc_info.value, "status_code", None) == 422
+    persisted = db.get(LotteryDraw, draw.id)
+    assert persisted.main_numbers == [1, 7, 12, 28, 43]
+    assert persisted.bonus_numbers == [16]
