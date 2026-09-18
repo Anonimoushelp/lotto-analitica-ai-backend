@@ -133,7 +133,6 @@ def test_for_update_repository_method_emits_row_lock():
 
         def scalar(self, statement):
             self.statement = statement
-            return None
 
     db = ScalarSession()
     assert LotteryDrawRepository.get_by_id_for_update(db, 42) is None
