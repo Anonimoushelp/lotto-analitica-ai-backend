@@ -3,7 +3,7 @@ from datetime import date, datetime
 from math import isfinite
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 MAX_NUMBER_VALUE = 1000
 MAX_MAIN_NUMBERS = 20
@@ -90,6 +90,12 @@ def _validate_draw_number(value: str) -> str:
     return _validate_identifier(value, "draw_number")
 
 
+def _validate_bonus_disjoint(main_numbers: list[int] | None, bonus_numbers: list[int] | None):
+    if main_numbers is not None and bonus_numbers is not None:
+        if set(main_numbers) & set(bonus_numbers):
+            raise ValueError("bonus_numbers cannot overlap main_numbers")
+
+
 class LotteryDrawBase(BaseModel):
     lottery_id: int = Field(gt=0)
     draw_number: str = Field(min_length=1, max_length=50)
@@ -126,6 +132,11 @@ class LotteryDrawBase(BaseModel):
     _validate_draw_number = field_validator("draw_number")(_validate_draw_number)
     _validate_source = field_validator("source")(_validate_source)
     _validate_metadata_json = field_validator("metadata_json")(_validate_metadata)
+
+    @model_validator(mode="after")
+    def validate_bonus_disjointness(self):
+        _validate_bonus_disjoint(self.main_numbers, self.bonus_numbers)
+        return self
 
 
 class LotteryDrawCreate(LotteryDrawBase):
@@ -168,6 +179,11 @@ class LotteryDrawUpdate(BaseModel):
     _validate_draw_number = field_validator("draw_number")(_validate_draw_number)
     _validate_source = field_validator("source")(_validate_source)
     _validate_metadata_json = field_validator("metadata_json")(_validate_metadata)
+
+    @model_validator(mode="after")
+    def validate_bonus_disjointness(self):
+        _validate_bonus_disjoint(self.main_numbers, self.bonus_numbers)
+        return self
 
 
 class LotteryDrawResponse(LotteryDrawBase):
