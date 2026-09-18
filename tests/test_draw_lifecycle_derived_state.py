@@ -1,4 +1,4 @@
-from datetime import date, timedelta
+from datetime import date
 
 from sqlalchemy import create_engine, delete, event
 from sqlalchemy.orm import sessionmaker
