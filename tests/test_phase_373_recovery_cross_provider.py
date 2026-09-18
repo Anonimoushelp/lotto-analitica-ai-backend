@@ -1,13 +1,63 @@
 from datetime import date
 
 import pytest
-from sqlalchemy import select
+from sqlalchemy import create_engine, delete, select
+from sqlalchemy.orm import Session, sessionmaker
+from sqlalchemy.pool import StaticPool
 
+from app.models.lottery import Lottery
 from app.models.lottery_draw import LotteryDraw
 from app.services.lottery_draw_service import LotteryDrawService
 from app.services.statistical_service import StatisticalService
 
-from tests.test_statistics_reassignment_integrity import seed_draw, seed_lottery
+engine = create_engine(
+    "sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool
+)
+SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+Lottery.__table__.create(bind=engine)
+LotteryDraw.__table__.create(bind=engine)
+
+
+@pytest.fixture
+def db():
+    session = SessionLocal()
+    session.execute(delete(LotteryDraw))
+    session.execute(delete(Lottery))
+    session.commit()
+    yield session
+    session.execute(delete(LotteryDraw))
+    session.execute(delete(Lottery))
+    session.commit()
+    session.close()
+
+
+def seed_lottery(db: Session, code: str) -> Lottery:
+    lottery = Lottery(name=code, code=code, country="Colombia")
+    db.add(lottery)
+    db.commit()
+    db.refresh(lottery)
+    return lottery
+
+
+def seed_draw(
+    db: Session,
+    lottery_id: int,
+    number: str,
+    draw_date: date,
+    numbers: list[int],
+    source: str,
+) -> LotteryDraw:
+    draw = LotteryDraw(
+        lottery_id=lottery_id,
+        draw_number=number,
+        draw_date=draw_date,
+        main_numbers=numbers,
+        source=source,
+    )
+    db.add(draw)
+    db.commit()
+    db.refresh(draw)
+    return draw
 
 
 def test_repeated_conflict_recovery_preserves_scope_and_allows_cross_provider_reimport(db):
