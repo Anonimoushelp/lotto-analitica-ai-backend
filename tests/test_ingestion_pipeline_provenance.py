@@ -9,6 +9,8 @@ from sqlalchemy.pool import StaticPool
 from app.integrations.colombia_registry import get_colombia_source_adapter
 from app.models.lottery import Lottery
 from app.models.lottery_draw import LotteryDraw
+from sqlalchemy.exc import IntegrityError
+
 from app.services.lottery_draw_service import LotteryDrawService
 from app.services.statistical_service import StatisticalService
 
@@ -131,7 +133,7 @@ def test_repeated_ingestion_is_idempotent_by_source_number_and_date(db: Session)
             "resultado": "1-7-12-28-43-16",
         }
     )
-    first = LotteryDrawService.create_draw(
+    LotteryDrawService.create_draw(
         db=db, lottery_id=lottery.id, draw_number=normalized.draw_number,
         draw_date=normalized.draw_date, main_numbers=normalized.main_numbers,
         bonus_numbers=normalized.bonus_numbers, source=normalized.source,
