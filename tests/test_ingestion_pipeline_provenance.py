@@ -596,7 +596,7 @@ def test_historical_correction_preserves_other_provider_statistics(db: Session):
         draw_date=date(2026, 9, 18), main_numbers=[1, 7, 12, 28, 43],
         bonus_numbers=[16], source="baloto-colombia",
     )
-    revancha = LotteryDrawService.create_draw(
+    LotteryDrawService.create_draw(
         db=db, lottery_id=lottery.id, draw_number="60003",
         draw_date=date(2026, 9, 18), main_numbers=[2, 8, 17, 29, 41],
         bonus_numbers=[9], source="revancha-colombia",
