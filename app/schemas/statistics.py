@@ -9,7 +9,6 @@ class StatisticalOverviewResponse(BaseModel):
     module_status: Literal["READY", "STANDBY"]
     algorithms_count: int = Field(ge=0)
     draws_analyzed: int = Field(ge=0)
-    sources: list[str]
 
 
 class StatisticalNumberFrequency(BaseModel):
