@@ -91,3 +91,53 @@ def test_unknown_or_non_string_source_is_fail_closed():
 def test_source_resolution_rejects_invalid_names(source):
     with pytest.raises(ValueError, match="Invalid source name"):
         get_colombia_source_adapter(source)
+
+
+def test_each_colombian_adapter_emits_only_its_own_canonical_source():
+    payloads = {
+        "baloto-colombia": {
+            "sorteo": 7001,
+            "fecha": "2026-09-13",
+            "resultado": [1, 7, 12, 28, 43, 16],
+        },
+        "revancha-colombia": {
+            "sorteo": 7001,
+            "fecha": "2026-09-13",
+            "resultado": [2, 8, 17, 29, 41, 9],
+        },
+        "miloto-colombia": {
+            "sorteo": 7001,
+            "fecha": "2026-09-13",
+            "resultado": [3, 8, 17, 29, 39],
+        },
+    }
+
+    adapters = build_colombia_source_adapters()
+    for source, payload in payloads.items():
+        result = adapters[source].parse_draw(payload)
+        assert result.source == source
+
+
+def test_colombian_adapters_keep_same_draw_identity_isolated_by_source():
+    adapters = build_colombia_source_adapters()
+    baloto = adapters["baloto-colombia"].parse_draw(
+        {
+            "sorteo": 7002,
+            "fecha": "2026-09-14",
+            "resultado": [1, 7, 12, 28, 43, 16],
+        }
+    )
+    revancha = adapters["revancha-colombia"].parse_draw(
+        {
+            "sorteo": 7002,
+            "fecha": "2026-09-14",
+            "resultado": [2, 8, 17, 29, 41, 9],
+        }
+    )
+
+    assert (baloto.draw_number, baloto.draw_date) == (
+        revancha.draw_number,
+        revancha.draw_date,
+    )
+    assert baloto.source != revancha.source
+    assert baloto.main_numbers != revancha.main_numbers
