@@ -1,14 +1,13 @@
 from datetime import date
 
-from sqlalchemy import create_engine, delete, event
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
-
 from app.models.lottery import Lottery
 from app.models.lottery_draw import LotteryDraw
 from app.services.lottery_draw_service import LotteryDrawService
 from app.services.lottery_service import LotteryService
 from app.services.statistical_service import StatisticalService
+from sqlalchemy import create_engine, delete, event
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
 
 
 engine = create_engine(
