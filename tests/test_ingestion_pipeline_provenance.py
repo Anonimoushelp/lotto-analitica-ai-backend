@@ -517,7 +517,7 @@ def test_concurrent_provider_retries_do_not_cross_contaminate_statistics(db: Ses
 
 
 def test_historical_correction_removes_old_values_from_statistics(db: Session):
-    lottery = Lottery(code="PH360-A", name="Concurrent Historical Correction", country="Colombia")
+    lottery = Lottery(\n        code="PH360-A",\n        name="Concurrent Historical Correction",\n        country="Colombia",\n    )
     db.add(lottery)
     db.commit()
 
@@ -543,7 +543,7 @@ def test_historical_correction_removes_old_values_from_statistics(db: Session):
 
 
 def test_delete_after_concurrent_retry_leaves_statistics_empty(db: Session):
-    lottery = Lottery(code="PH360-B", name="Delete Retry Statistics", country="Colombia")
+    lottery = Lottery(\n        code="PH360-B",\n        name="Delete Retry Statistics",\n        country="Colombia",\n    )
     db.add(lottery)
     db.commit()
 
@@ -575,7 +575,7 @@ def test_delete_after_concurrent_retry_leaves_statistics_empty(db: Session):
 
 
 def test_historical_correction_preserves_other_provider_statistics(db: Session):
-    lottery = Lottery(code="PH360-C", name="Correction Provider Isolation", country="Colombia")
+    lottery = Lottery(\n        code="PH360-C",\n        name="Correction Provider Isolation",\n        country="Colombia",\n    )
     db.add(lottery)
     db.commit()
 
