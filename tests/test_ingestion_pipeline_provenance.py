@@ -114,3 +114,59 @@ def test_same_pipeline_identity_remains_isolated_for_revancha_and_miloto(db: Ses
     assert StatisticalService.analyze(
         created, lottery_id=lottery.id, source="miloto-colombia"
     )["number_frequency"] == {3: 1, 8: 1, 17: 1, 29: 1, 39: 1}
+
+
+
+def test_repeated_ingestion_is_idempotent_by_source_number_and_date(db: Session):
+    lottery = Lottery(code="PH354-A", name="Idempotency", country="Colombia")
+    db.add(lottery)
+    db.commit()
+    db.refresh(lottery)
+
+    normalized = get_colombia_source_adapter("baloto-colombia").parse_draw(
+        {
+            "sorteo": "Sorteo #99001",
+            "fecha": "2026-09-18",
+            "resultado": "1-7-12-28-43-16",
+        }
+    )
+    first = LotteryDrawService.create_draw(
+        db=db, lottery_id=lottery.id, draw_number=normalized.draw_number,
+        draw_date=normalized.draw_date, main_numbers=normalized.main_numbers,
+        bonus_numbers=normalized.bonus_numbers, source=normalized.source,
+        metadata_json=normalized.metadata,
+    )
+    with pytest.raises(Exception) as exc_info:
+        LotteryDrawService.create_draw(
+            db=db, lottery_id=lottery.id, draw_number=normalized.draw_number,
+            draw_date=normalized.draw_date, main_numbers=normalized.main_numbers,
+            bonus_numbers=normalized.bonus_numbers, source=normalized.source,
+        )
+    assert getattr(exc_info.value, "status_code", None) == 409
+    assert db.query(LotteryDraw).count() == 1
+    assert db.get(LotteryDraw, first.id).metadata_json is None
+
+
+def test_same_draw_identity_can_repeat_across_providers_without_collision(db: Session):
+    lottery = Lottery(code="PH354-B", name="Provider Idempotency", country="Colombia")
+    db.add(lottery)
+    db.commit()
+    db.refresh(lottery)
+
+    for source, result in (
+        ("baloto-colombia", "1-7-12-28-43-16"),
+        ("revancha-colombia", "2-8-17-29-41-9"),
+    ):
+        normalized = get_colombia_source_adapter(source).parse_draw(
+            {"sorteo": "Sorteo #99002", "fecha": "2026-09-18", "resultado": result}
+        )
+        LotteryDrawService.create_draw(
+            db=db, lottery_id=lottery.id, draw_number=normalized.draw_number,
+            draw_date=normalized.draw_date, main_numbers=normalized.main_numbers,
+            bonus_numbers=normalized.bonus_numbers, source=normalized.source,
+        )
+
+    assert db.query(LotteryDraw).count() == 2
+    assert {draw.source for draw in db.query(LotteryDraw).all()} == {
+        "baloto-colombia", "revancha-colombia"
+    }
