@@ -233,16 +233,8 @@ def test_statistics_rejects_excessive_unique_number_cardinality():
 
 def test_statistics_rejects_excessive_unique_pair_cardinality():
     draws = [
-        _fake_draw(list(range(start, start + 20)), index)
-        for index, start in enumerate(range(1, 10_001, 20), start=1)
+        _fake_draw(list(range(start, start + 50)), index)
+        for index, start in enumerate(range(1, 5_051, 50), start=1)
     ]
-    base_count = len(draws)
-    draws.extend(
-        _fake_draw(
-            [(((offset + (position * 17)) % 500) * 20) + 1 for position in range(20)],
-            base_count + offset + 1,
-        )
-        for offset in range(30)
-    )
     with pytest.raises(StatisticalInputLimitError):
         StatisticalService.analyze(draws)
