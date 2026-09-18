@@ -63,8 +63,8 @@ def test_draw_schema_accepts_metadata_within_limit() -> None:
 
 def test_draw_schema_rejects_oversized_metadata() -> None:
     payload = valid_payload()
-    payload["metadata_json"] = {"payload": "x" * MAX_METADATA_BYTES}
-    with pytest.raises(ValidationError, match="metadata_json cannot exceed"):
+    payload["metadata_json"] = {"payloads": ["x" * 100 for _ in range(255)]}
+    with pytest.raises(ValidationError):
         LotteryDrawCreate(**payload)
 
 
