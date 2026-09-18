@@ -86,13 +86,14 @@ class LotterySourceAdapterRegistry:
             raise TypeError("Invalid source name")
         if any(not char.isprintable() for char in source_name):
             raise ValueError("Invalid source name")
-        key = source_name.strip()
-        if not key or len(key) > 255:
+        if not source_name or len(source_name) > 255:
             raise ValueError("Invalid source name")
-        adapter = self._adapters.get(key)
+        if source_name != source_name.strip():
+            raise ValueError("Source name must be normalized")
+        adapter = self._adapters.get(source_name)
         if adapter is None:
             raise KeyError("Unknown lottery source")
-        if getattr(adapter, "source_name", None) != key:
+        if getattr(adapter, "source_name", None) != source_name:
             raise ValueError("Registered adapter source has changed")
         return adapter
 
