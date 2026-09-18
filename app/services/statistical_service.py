@@ -236,11 +236,19 @@ class StatisticalService:
         analyzable_draws = [
             draw for draw in draws if getattr(draw, "main_numbers", None)
         ]
+        sources = sorted(
+            {
+                draw.source
+                for draw in analyzable_draws
+                if isinstance(getattr(draw, "source", None), str)
+            }
+        )
         if not analyzable_draws:
             return {
                 "module_status": "STANDBY",
                 "algorithms_count": 0,
                 "draws_analyzed": 0,
+                "sources": [],
             }
 
         StatisticalService.analyze(
@@ -252,4 +260,5 @@ class StatisticalService:
             "module_status": "READY",
             "algorithms_count": len(STATISTICAL_ALGORITHMS),
             "draws_analyzed": len(analyzable_draws),
+            "sources": sources,
         }
