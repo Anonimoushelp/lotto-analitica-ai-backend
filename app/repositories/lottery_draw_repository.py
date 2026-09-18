@@ -11,6 +11,12 @@ class LotteryDrawRepository:
         return db.get(LotteryDraw, draw_id)
 
     @staticmethod
+    def get_by_id_for_update(db: Session, draw_id: int) -> LotteryDraw | None:
+        """Load a draw with a row lock for transactional mutation paths."""
+        statement = select(LotteryDraw).where(LotteryDraw.id == draw_id).with_for_update()
+        return db.scalar(statement)
+
+    @staticmethod
     def list(
         db: Session,
         lottery_id: int | None = None,
