@@ -186,6 +186,18 @@ class LotteryDrawService:
                 detail="Draw date already exists for this lottery",
             )
 
+        merged_main_numbers = update_data.get("main_numbers", draw.main_numbers)
+        merged_bonus_numbers = update_data.get("bonus_numbers", draw.bonus_numbers)
+        if (
+            merged_main_numbers is not None
+            and merged_bonus_numbers is not None
+            and set(merged_main_numbers) & set(merged_bonus_numbers)
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="bonus_numbers cannot overlap main_numbers",
+            )
+
         for field, value in update_data.items():
             setattr(draw, field, new_source if field == "source" else value)
 
