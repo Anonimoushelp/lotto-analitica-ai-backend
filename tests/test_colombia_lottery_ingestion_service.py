@@ -163,11 +163,9 @@ def test_facade_queries_persistence_with_the_resolved_provider_source(monkeypatc
 
     def get_by_number(**kwargs):
         observed_sources.append(kwargs["source"])
-        return None
 
     def get_by_date(**kwargs):
         observed_sources.append(kwargs["source"])
-        return None
 
     create_draw = Mock(return_value="created")
     monkeypatch.setattr(
