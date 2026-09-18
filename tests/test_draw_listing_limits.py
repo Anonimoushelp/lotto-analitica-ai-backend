@@ -99,13 +99,12 @@ def test_draw_list_rejects_sql_injection_like_lottery_id(monkeypatch):
     assert not called
 
 
-def test_draw_update_schema_ignores_unrecognized_mass_assignment_fields():
-    payload = LotteryDrawUpdate.model_validate(
-        {
-            "draw_number": "123",
-            "password_hash": "attacker-controlled",
-            "role": "admin",
-        }
-    )
-
-    assert payload.model_dump(exclude_unset=True) == {"draw_number": "123"}
+def test_draw_update_schema_rejects_unrecognized_mass_assignment_fields():
+    with pytest.raises(ValueError):
+        LotteryDrawUpdate.model_validate(
+            {
+                "draw_number": "123",
+                "password_hash": "attacker-controlled",
+                "role": "admin",
+            }
+        )
