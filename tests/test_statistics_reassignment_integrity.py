@@ -239,7 +239,7 @@ def test_statistics_rejects_excessive_unique_pair_cardinality():
     base_count = len(draws)
     draws.extend(
         _fake_draw(
-            [group * 20 + 1 for group in range(offset, offset + 20)],
+            [(((offset + (position * 17)) % 500) * 20) + 1 for position in range(20)],
             base_count + offset + 1,
         )
         for offset in range(30)
