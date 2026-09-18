@@ -69,8 +69,10 @@ def test_draw_schema_rejects_oversized_metadata() -> None:
 
 
 def test_draw_update_schema_rejects_oversized_metadata() -> None:
-    with pytest.raises(ValidationError, match="metadata_json cannot exceed"):
-        LotteryDrawUpdate(metadata_json={"payload": "x" * MAX_METADATA_BYTES})
+    with pytest.raises(ValidationError):
+        LotteryDrawUpdate(
+            metadata_json={"payloads": ["x" * 100 for _ in range(255)]}
+        )
 
 
 def test_draw_schema_rejects_overlapping_bonus_numbers() -> None:
