@@ -170,3 +170,82 @@ def test_same_draw_identity_can_repeat_across_providers_without_collision(db: Se
     assert {draw.source for draw in db.query(LotteryDraw).all()} == {
         "baloto-colombia", "revancha-colombia"
     }
+
+
+
+def test_historical_out_of_order_ingestion_keeps_database_and_statistics_consistent(db: Session):
+    lottery = Lottery(code="PH355-A", name="Historical Order", country="Colombia")
+    db.add(lottery)
+    db.commit()
+    db.refresh(lottery)
+    adapter = get_colombia_source_adapter("baloto-colombia")
+    payloads = [
+        {"sorteo": 10003, "fecha": "2026-09-18", "resultado": [3, 4, 10, 20, 30, 7]},
+        {"sorteo": 10001, "fecha": "2026-09-10", "resultado": [1, 5, 10, 20, 30, 6]},
+        {"sorteo": 10002, "fecha": "2026-09-14", "resultado": [2, 5, 10, 20, 31, 8]},
+    ]
+    for payload in payloads:
+        n = adapter.parse_draw(payload)
+        LotteryDrawService.create_draw(
+            db=db, lottery_id=lottery.id, draw_number=n.draw_number,
+            draw_date=n.draw_date, main_numbers=n.main_numbers,
+            bonus_numbers=n.bonus_numbers, source=n.source,
+        )
+    listed = LotteryDrawService.list_draws(
+        db=db, lottery_id=lottery.id, source="baloto-colombia", limit=100
+    )
+    assert [d.draw_number for d in listed] == ["10003", "10002", "10001"]
+    stats = StatisticalService.analyze(listed, lottery_id=lottery.id, source="baloto-colombia")
+    assert stats["number_frequency"][10] == 3
+    assert stats["number_recency"][10]["last_seen_draw"] == 3
+
+
+def test_partial_reimport_does_not_mutate_existing_historical_record(db: Session):
+    lottery = Lottery(code="PH355-B", name="Partial Reimport", country="Colombia")
+    db.add(lottery)
+    db.commit()
+    db.refresh(lottery)
+    adapter = get_colombia_source_adapter("miloto-colombia")
+    n = adapter.parse_draw({"sorteo": 10004, "fecha": "2026-09-18", "resultado": [1, 7, 12, 28, 39], "metadata": {"batch": "original"}})
+    first = LotteryDrawService.create_draw(
+        db=db, lottery_id=lottery.id, draw_number=n.draw_number,
+        draw_date=n.draw_date, main_numbers=n.main_numbers,
+        source=n.source, metadata_json=n.metadata,
+    )
+    retry = adapter.parse_draw({"sorteo": 10004, "fecha": "2026-09-18", "resultado": [1, 7, 12, 28, 39], "metadata": {"batch": "retry"}})
+    with pytest.raises(Exception) as exc_info:
+        LotteryDrawService.create_draw(
+            db=db, lottery_id=lottery.id, draw_number=retry.draw_number,
+            draw_date=retry.draw_date, main_numbers=retry.main_numbers,
+            source=retry.source, metadata_json=retry.metadata,
+        )
+    assert getattr(exc_info.value, "status_code", None) == 409
+    persisted = db.get(LotteryDraw, first.id)
+    assert persisted.metadata_json == {"batch": "original"}
+
+
+def test_corrected_historical_draw_is_updated_atomically(db: Session):
+    lottery = Lottery(code="PH355-C", name="Historical Correction", country="Colombia")
+    db.add(lottery)
+    db.commit()
+    db.refresh(lottery)
+    adapter = get_colombia_source_adapter("baloto-colombia")
+    n = adapter.parse_draw({"sorteo": 10005, "fecha": "2026-09-18", "resultado": [1, 7, 12, 28, 43, 16]})
+    first = LotteryDrawService.create_draw(
+        db=db, lottery_id=lottery.id, draw_number=n.draw_number,
+        draw_date=n.draw_date, main_numbers=n.main_numbers,
+        bonus_numbers=n.bonus_numbers, source=n.source,
+    )
+    corrected = adapter.parse_draw({"sorteo": 10005, "fecha": "2026-09-18", "resultado": [1, 7, 13, 28, 43, 16]})
+    updated = LotteryDrawService.update_draw(
+        db=db, draw_id=first.id, update_data={
+            "main_numbers": corrected.main_numbers,
+            "bonus_numbers": corrected.bonus_numbers,
+        }
+    )
+    assert updated.id == first.id
+    assert updated.main_numbers == [1, 7, 13, 28, 43]
+    assert updated.bonus_numbers == [16]
+    stats = StatisticalService.analyze([updated], lottery_id=lottery.id, source=n.source)
+    assert stats["number_frequency"] == {1: 1, 7: 1, 13: 1, 28: 1, 43: 1}
+    assert 12 not in stats["number_frequency"]
