@@ -10,7 +10,6 @@ from app.services.lottery_draw_service import LotteryDrawService
 from app.services.lottery_service import LotteryService
 from app.services.statistical_service import StatisticalService
 
-
 engine = create_engine(
     "sqlite://",
     connect_args={"check_same_thread": False},
