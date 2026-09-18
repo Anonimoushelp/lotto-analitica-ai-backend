@@ -78,8 +78,6 @@ def test_update_allows_same_source_without_rewriting_provenance(monkeypatch):
 
     assert result is draw
     assert draw.source == "baloto-colombia"
-    assert get_by_number.call_args.kwargs["source"] == "baloto-colombia"
-    assert get_by_date.call_args.kwargs["source"] == "baloto-colombia"
 
 
 def test_update_without_source_preserves_existing_provenance(monkeypatch):
@@ -149,5 +147,7 @@ def test_update_collision_is_scoped_to_same_source(monkeypatch):
 
     assert result is draw
     assert draw.source == "baloto-colombia"
+    assert get_by_number.call_args.kwargs["source"] == "baloto-colombia"
+    assert get_by_date.call_args.kwargs["source"] == "baloto-colombia"
     assert get_by_number.call_args.kwargs["source"] == "baloto-colombia"
     assert get_by_date.call_args.kwargs["source"] == "baloto-colombia"
