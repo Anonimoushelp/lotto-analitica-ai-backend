@@ -249,3 +249,44 @@ def test_corrected_historical_draw_is_updated_atomically(db: Session):
     stats = StatisticalService.analyze([updated], lottery_id=lottery.id, source=n.source)
     assert stats["number_frequency"] == {1: 1, 7: 1, 13: 1, 28: 1, 43: 1}
     assert 12 not in stats["number_frequency"]
+
+
+
+def test_corrupt_provider_payload_fails_before_any_database_mutation(db: Session):
+    lottery = Lottery(code="PH356-A", name="Corrupt Provider", country="Colombia")
+    db.add(lottery)
+    db.commit()
+    db.refresh(lottery)
+    adapter = get_colombia_source_adapter("baloto-colombia")
+    with pytest.raises(ValueError):
+        adapter.parse_draw({"sorteo": "Sorteo #20001", "fecha": "2026-09-18", "resultado": [1, 2, 3, 4, 5, 6], "unexpected": "corrupt"})
+    assert db.query(LotteryDraw).filter(LotteryDraw.lottery_id == lottery.id).count() == 0
+
+
+def test_partial_batch_with_late_corrupt_payload_keeps_only_committed_valid_draws(db: Session):
+    lottery = Lottery(code="PH356-B", name="Partial Batch", country="Colombia")
+    db.add(lottery)
+    db.commit()
+    db.refresh(lottery)
+    adapter = get_colombia_source_adapter("miloto-colombia")
+    valid = adapter.parse_draw({"sorteo": 20002, "fecha": "2026-09-18", "resultado": [1, 7, 12, 28, 39]})
+    LotteryDrawService.create_draw(db=db, lottery_id=lottery.id, draw_number=valid.draw_number, draw_date=valid.draw_date, main_numbers=valid.main_numbers, source=valid.source)
+    with pytest.raises(ValueError):
+        adapter.parse_draw({"sorteo": 20003, "fecha": "2026-09-19", "resultado": [1, 7, 12, 28, 39], "metadata": ["malformed"]})
+    persisted = LotteryDrawService.list_draws(db=db, lottery_id=lottery.id, source=valid.source, limit=100)
+    assert len(persisted) == 1
+    assert persisted[0].draw_number == "20002"
+
+
+def test_database_conflict_during_ingestion_does_not_leave_partial_record(db: Session):
+    lottery = Lottery(code="PH356-C", name="Conflict Rollback", country="Colombia")
+    db.add(lottery)
+    db.commit()
+    db.refresh(lottery)
+    adapter = get_colombia_source_adapter("miloto-colombia")
+    first = adapter.parse_draw({"sorteo": 20004, "fecha": "2026-09-20", "resultado": [2, 8, 17, 29, 39]})
+    LotteryDrawService.create_draw(db=db, lottery_id=lottery.id, draw_number=first.draw_number, draw_date=first.draw_date, main_numbers=first.main_numbers, source=first.source)
+    with pytest.raises(Exception) as exc_info:
+        LotteryDrawService.create_draw(db=db, lottery_id=lottery.id, draw_number=first.draw_number, draw_date=first.draw_date, main_numbers=first.main_numbers, source=first.source)
+    assert getattr(exc_info.value, "status_code", None) == 409
+    assert db.query(LotteryDraw).filter(LotteryDraw.lottery_id == lottery.id).count() == 1
