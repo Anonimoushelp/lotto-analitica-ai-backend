@@ -381,3 +381,46 @@ def test_reimport_duplicate_does_not_remove_other_committed_history(db: Session)
         )
     assert getattr(exc_info.value, "status_code", None) == 409
     assert db.query(LotteryDraw).count() == 2
+
+
+
+def test_concurrent_duplicate_ingestion_is_database_safe(db: Session):
+    lottery = Lottery(code="PH358-A", name="Concurrent Ingestion", country="Colombia")
+    db.add(lottery)
+    db.commit()
+    first = LotteryDraw(
+        lottery_id=lottery.id, draw_number="40001", draw_date=date(2026, 9, 18),
+        main_numbers=[1, 7, 12, 28, 39], source="miloto-colombia",
+    )
+    second = LotteryDraw(
+        lottery_id=lottery.id, draw_number="40001", draw_date=date(2026, 9, 18),
+        main_numbers=[1, 7, 12, 28, 39], source="miloto-colombia",
+    )
+    db.add(first)
+    db.commit()
+    with pytest.raises(Exception):
+        LotteryDrawService.create_draw(
+            db=db, lottery_id=lottery.id, draw_number=second.draw_number,
+            draw_date=second.draw_date, main_numbers=second.main_numbers,
+            source=second.source,
+        )
+    assert db.query(LotteryDraw).count() == 1
+
+
+def test_concurrent_same_identity_remains_isolated_by_provider(db: Session):
+    lottery = Lottery(code="PH358-B", name="Concurrent Providers", country="Colombia")
+    db.add(lottery)
+    db.commit()
+    for source, numbers in (
+        ("baloto-colombia", [1, 7, 12, 28, 43]),
+        ("revancha-colombia", [2, 8, 17, 29, 41]),
+    ):
+        LotteryDrawService.create_draw(
+            db=db, lottery_id=lottery.id, draw_number="40002",
+            draw_date=date(2026, 9, 18), main_numbers=numbers,
+            bonus_numbers=[16 if source == "baloto-colombia" else 9], source=source,
+        )
+    assert db.query(LotteryDraw).count() == 2
+    assert {draw.source for draw in db.query(LotteryDraw).all()} == {
+        "baloto-colombia", "revancha-colombia"
+    }
