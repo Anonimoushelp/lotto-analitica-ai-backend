@@ -46,7 +46,13 @@ def _cleanup() -> None:
     db.close()
 
 
-def _seed_draw(db, lottery_id: int, source: str, draw_number: str, draw_date: date) -> LotteryDraw:
+def _seed_draw(
+    db,
+    lottery_id: int,
+    source: str,
+    draw_number: str,
+    draw_date: date,
+) -> LotteryDraw:
     draw = LotteryDraw(
         lottery_id=lottery_id,
         source=source,
@@ -74,10 +80,14 @@ def test_create_draw_is_immediately_visible_to_list_and_statistics():
         )
 
         listed = LotteryDrawService.list_draws(
-            db=db, lottery_id=lottery.id, source="baloto-colombia"
+            db=db,
+            lottery_id=lottery.id,
+            source="baloto-colombia",
         )
         overview = StatisticalService.overview(
-            db=db, lottery_id=lottery.id, source="baloto-colombia"
+            db=db,
+            lottery_id=lottery.id,
+            source="baloto-colombia",
         )
 
         assert [item.id for item in listed] == [draw.id]
@@ -110,11 +120,17 @@ def test_update_draw_is_immediately_visible_to_list_get_and_statistics():
         )
 
         listed = LotteryDrawService.list_draws(
-            db=db, lottery_id=lottery.id, source="baloto-colombia"
+            db=db,
+            lottery_id=lottery.id,
+            source="baloto-colombia",
         )
-        fetched = LotteryDrawService.get_draw(db=db, draw_id=draw.id)
+        fetched = LotteryDrawService.get_draw(
+            db=db, draw_id=draw.id
+        )
         overview = StatisticalService.overview(
-            db=db, lottery_id=lottery.id, source="baloto-colombia"
+            db=db,
+            lottery_id=lottery.id,
+            source="baloto-colombia",
         )
 
         assert updated.draw_number == "D-002"
@@ -140,10 +156,14 @@ def test_delete_draw_is_immediately_reflected_in_list_get_and_statistics():
         LotteryDrawService.delete_draw(db=db, draw_id=draw.id)
 
         listed = LotteryDrawService.list_draws(
-            db=db, lottery_id=lottery.id, source="baloto-colombia"
+            db=db,
+            lottery_id=lottery.id,
+            source="baloto-colombia",
         )
         overview = StatisticalService.overview(
-            db=db, lottery_id=lottery.id, source="baloto-colombia"
+            db=db,
+            lottery_id=lottery.id,
+            source="baloto-colombia",
         )
 
         assert listed == []
@@ -174,7 +194,9 @@ def test_newer_draw_is_returned_first_after_lifecycle_mutation():
             update_data={"draw_date": date(2026, 9, 12)},
         )
         listed = LotteryDrawService.list_draws(
-            db=db, lottery_id=lottery.id, source="baloto-colombia"
+            db=db,
+            lottery_id=lottery.id,
+            source="baloto-colombia",
         )
 
         assert [item.id for item in listed] == [older.id, newer.id]
@@ -217,9 +239,10 @@ def test_lottery_cascade_is_immediately_reflected_in_surviving_queries():
             "algorithms_count": 0,
             "draws_analyzed": 0,
         }
-        assert LotteryDrawService.get_draw(
+        survivor = LotteryDrawService.get_draw(
             db=db, draw_id=surviving_draw.id
-        ).source == "revancha-colombia"
+        )
+        assert survivor.source == "revancha-colombia"
         assert deleted_draw.id != surviving_draw.id
     finally:
         db.close()
