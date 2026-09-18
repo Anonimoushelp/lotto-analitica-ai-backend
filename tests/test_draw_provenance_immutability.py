@@ -78,6 +78,8 @@ def test_update_allows_same_source_without_rewriting_provenance(monkeypatch):
 
     assert result is draw
     assert draw.source == "baloto-colombia"
+    assert get_by_number.call_args.kwargs["source"] == "baloto-colombia"
+    assert get_by_date.call_args.kwargs["source"] == "baloto-colombia"
 
 
 def test_update_without_source_preserves_existing_provenance(monkeypatch):
@@ -128,24 +130,15 @@ def test_update_collision_is_scoped_to_same_source(monkeypatch):
         def refresh(self, value):
             pass
 
-    class Repo:
-        @staticmethod
-        def get_by_number(**kwargs):
-            assert kwargs["source"] == "baloto-colombia"
-            return None
-
-        @staticmethod
-        def get_by_date(**kwargs):
-            assert kwargs["source"] == "baloto-colombia"
-            return None
-
+    get_by_number = Mock(return_value=None)
+    get_by_date = Mock(return_value=None)
     monkeypatch.setattr(
         "app.services.lottery_draw_service.LotteryDrawRepository.get_by_number",
-        Repo.get_by_number,
+        get_by_number,
     )
     monkeypatch.setattr(
         "app.services.lottery_draw_service.LotteryDrawRepository.get_by_date",
-        Repo.get_by_date,
+        get_by_date,
     )
 
     result = LotteryDrawService.update_draw(
