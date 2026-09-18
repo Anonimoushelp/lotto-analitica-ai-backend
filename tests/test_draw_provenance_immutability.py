@@ -1,5 +1,6 @@
 from datetime import date
 from types import SimpleNamespace
+from unittest.mock import Mock
 
 import pytest
 from fastapi import HTTPException
@@ -95,11 +96,11 @@ def test_update_without_source_preserves_existing_provenance(monkeypatch):
 
     monkeypatch.setattr(
         "app.services.lottery_draw_service.LotteryDrawRepository.get_by_number",
-        lambda **kwargs: None,
+        Mock(return_value=None),
     )
     monkeypatch.setattr(
         "app.services.lottery_draw_service.LotteryDrawRepository.get_by_date",
-        lambda **kwargs: None,
+        Mock(return_value=None),
     )
 
     result = LotteryDrawService.update_draw(
