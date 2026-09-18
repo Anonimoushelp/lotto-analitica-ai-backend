@@ -268,3 +268,37 @@ def test_update_rejects_unknown_fields_without_mutation():
         assert fetched.json()["draw_number"] == "D-001"
     finally:
         _cleanup()
+
+
+def test_update_rejects_lottery_change_without_mutation():
+    user = _seed_user()
+    lottery_a = _seed_lottery("PAYLOAD-A")
+    lottery_b = _seed_lottery("PAYLOAD-B")
+    headers = _auth(user)
+    try:
+        create = client.post(
+            "/api/v1/draws",
+            headers=headers,
+            json={
+                "lottery_id": lottery_a.id,
+                "draw_number": "D-001",
+                "draw_date": "2026-09-18",
+                "main_numbers": [1, 2, 3],
+                "source": "baloto-colombia",
+            },
+        )
+        assert create.status_code == 201
+        draw_id = create.json()["id"]
+
+        response = client.put(
+            f"/api/v1/draws/{draw_id}",
+            headers=headers,
+            json={"lottery_id": lottery_b.id},
+        )
+        assert response.status_code == 409
+
+        fetched = client.get(f"/api/v1/draws/{draw_id}", headers=headers)
+        assert fetched.status_code == 200
+        assert fetched.json()["lottery_id"] == lottery_a.id
+    finally:
+        _cleanup()
