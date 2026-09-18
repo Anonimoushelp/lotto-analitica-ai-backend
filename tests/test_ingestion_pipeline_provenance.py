@@ -404,7 +404,8 @@ def test_concurrent_duplicate_ingestion_is_database_safe(db: Session):
             draw_date=second.draw_date, main_numbers=second.main_numbers,
             source=second.source,
         )
-    assert getattr(exc_info.value, "status_code", None) == 409\n    assert db.query(LotteryDraw).count() == 1
+    assert getattr(exc_info.value, "status_code", None) == 409
+    assert db.query(LotteryDraw).count() == 1
 
 
 def test_concurrent_same_identity_remains_isolated_by_provider(db: Session):
