@@ -155,3 +155,49 @@ def test_facade_uses_only_explicit_registry_resolution(monkeypatch):
 
     assert result == "created"
     registry.get.assert_called_once_with("fixture-source")
+
+
+def test_facade_queries_persistence_with_the_resolved_provider_source(monkeypatch):
+    db = Mock()
+    observed_sources = []
+
+    def get_by_number(**kwargs):
+        observed_sources.append(kwargs["source"])
+        return None
+
+    def get_by_date(**kwargs):
+        observed_sources.append(kwargs["source"])
+        return None
+
+    create_draw = Mock(return_value="created")
+    monkeypatch.setattr(
+        "app.services.lottery_draw_ingestion_service.LotteryDrawRepository.get_by_number",
+        get_by_number,
+    )
+    monkeypatch.setattr(
+        "app.services.lottery_draw_ingestion_service.LotteryDrawRepository.get_by_date",
+        get_by_date,
+    )
+    monkeypatch.setattr(
+        "app.services.lottery_draw_ingestion_service.LotteryDrawService.create_draw",
+        create_draw,
+    )
+
+    ColombiaLotteryIngestionService().ingest(
+        db, 10, "baloto-colombia", payload()
+    )
+
+    assert observed_sources == ["baloto-colombia", "baloto-colombia"]
+    assert create_draw.call_args.kwargs["source"] == "baloto-colombia"
+
+    observed_sources.clear()
+    create_draw.reset_mock()
+    ColombiaLotteryIngestionService().ingest(
+        db,
+        10,
+        "revancha-colombia",
+        payload(resultado=[3, 8, 17, 29, 41, 9]),
+    )
+
+    assert observed_sources == ["revancha-colombia", "revancha-colombia"]
+    assert create_draw.call_args.kwargs["source"] == "revancha-colombia"
