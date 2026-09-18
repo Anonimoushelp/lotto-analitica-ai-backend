@@ -121,10 +121,15 @@ class LotteryDrawService:
         draw_id: int,
         update_data: dict,
     ) -> LotteryDraw:
-        draw = LotteryDrawService.get_draw(
+        draw = LotteryDrawRepository.get_by_id_for_update(
             db=db,
             draw_id=draw_id,
         )
+        if draw is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail="Lottery draw not found",
+            )
 
         new_lottery_id = update_data.get("lottery_id", draw.lottery_id)
         new_draw_number = update_data.get("draw_number", draw.draw_number)
