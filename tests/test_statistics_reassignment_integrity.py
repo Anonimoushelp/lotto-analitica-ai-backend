@@ -7,7 +7,7 @@ from sqlalchemy.pool import StaticPool
 
 from app.models.lottery import Lottery
 from app.models.lottery_draw import LotteryDraw
-from app.services.statistical_service import StatisticalService
+from app.services.lottery_draw_service import LotteryDrawService\nfrom app.services.statistical_service import StatisticalService
 
 engine = create_engine(
     "sqlite://",
