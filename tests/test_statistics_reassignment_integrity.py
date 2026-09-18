@@ -190,3 +190,54 @@ def test_updated_numbers_cannot_contaminate_other_provider_statistics(db: Sessio
     assert revancha_stats["number_frequency"] == {7: 1, 8: 1, 9: 1}
     assert "7-8" not in baloto_stats["pair_frequency"]
     assert "10-20" not in revancha_stats["pair_frequency"]
+
+
+from types import SimpleNamespace
+
+from app.services.statistical_service import StatisticalInputLimitError
+
+
+def _fake_draw(numbers: list[int], draw_id: int = 1) -> SimpleNamespace:
+    return SimpleNamespace(
+        id=draw_id,
+        lottery_id=1,
+        source="baloto-colombia",
+        draw_number=str(draw_id),
+        draw_date=date(2026, 9, 18),
+        main_numbers=numbers,
+    )
+
+
+def test_statistics_rejects_more_than_maximum_draws():
+    draws = [_fake_draw([1], index) for index in range(10_001)]
+    with pytest.raises(StatisticalInputLimitError):
+        StatisticalService.analyze(draws)
+
+
+def test_statistics_rejects_excessive_numbers_per_draw():
+    with pytest.raises(StatisticalInputLimitError):
+        StatisticalService.analyze([_fake_draw(list(range(1, 102)))])
+
+
+def test_statistics_rejects_excessive_pair_operations():
+    draws = [_fake_draw(list(range(1, 16)), index) for index in range(1, 10_001)]
+    with pytest.raises(StatisticalInputLimitError):
+        StatisticalService.analyze(draws)
+
+
+def test_statistics_rejects_excessive_unique_number_cardinality():
+    draws = [
+        _fake_draw(list(range(start, start + 20)), index)
+        for index, start in enumerate(range(1, 10_001, 20), start=1)
+    ]
+    with pytest.raises(StatisticalInputLimitError):
+        StatisticalService.analyze(draws)
+
+
+def test_statistics_rejects_excessive_unique_pair_cardinality():
+    draws = [
+        _fake_draw(list(range(start, start + 20)), index)
+        for index, start in enumerate(range(1, 10_001, 20), start=1)
+    ]
+    with pytest.raises(StatisticalInputLimitError):
+        StatisticalService.analyze(draws)
