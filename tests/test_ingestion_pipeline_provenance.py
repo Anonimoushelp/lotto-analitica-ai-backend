@@ -970,6 +970,7 @@ def test_concurrent_historical_corrections_leave_only_latest_values_and_single_r
         )
 
         assert first.id == second.id == draw.id
+        db.expire_all()
         persisted = db.get(LotteryDraw, draw.id)
         assert persisted is not None
         assert persisted.main_numbers == [4, 9, 18, 30, 38]
