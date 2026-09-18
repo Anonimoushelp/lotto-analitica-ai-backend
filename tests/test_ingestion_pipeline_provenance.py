@@ -33,7 +33,7 @@ def db():
 
 
 def test_adapter_to_service_repository_database_and_statistics_preserves_provenance(db: Session):
-    lottery = Lottery(code="PH353-A", name="Pipeline Test")
+    lottery = Lottery(code="PH353-A", name="Pipeline Test", country="Colombia")
     db.add(lottery)
     db.commit()
     db.refresh(lottery)
@@ -79,7 +79,7 @@ def test_adapter_to_service_repository_database_and_statistics_preserves_provena
 
 
 def test_same_pipeline_identity_remains_isolated_for_revancha_and_miloto(db: Session):
-    lottery = Lottery(code="PH353-B", name="Pipeline Isolation")
+    lottery = Lottery(code="PH353-B", name="Pipeline Isolation", country="Colombia")
     db.add(lottery)
     db.commit()
     db.refresh(lottery)
