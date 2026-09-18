@@ -1641,3 +1641,163 @@ def test_rollback_conflict_does_not_cross_contaminate_other_provider_statistics(
     assert persisted_revancha is not None
     assert persisted_baloto.main_numbers == [1, 7, 12, 28, 43]
     assert persisted_revancha.main_numbers == [2, 8, 17, 29, 41]
+
+
+def test_multi_lottery_rollback_conflict_preserves_each_lottery_statistics(
+    db: Session, monkeypatch
+):
+    lottery_a = Lottery(code="PH368-A", name="Rollback Lottery A", country="Colombia")
+    lottery_b = Lottery(code="PH368-B", name="Rollback Lottery B", country="Colombia")
+    db.add_all([lottery_a, lottery_b])
+    db.commit()
+    db.refresh(lottery_a)
+    db.refresh(lottery_b)
+
+    draw_a = LotteryDrawService.create_draw(
+        db=db, lottery_id=lottery_a.id, draw_number="68001",
+        draw_date=date(2026, 9, 18), main_numbers=[1, 7, 12, 28, 43],
+        source="baloto-colombia",
+    )
+    draw_b = LotteryDrawService.create_draw(
+        db=db, lottery_id=lottery_b.id, draw_number="68001",
+        draw_date=date(2026, 9, 18), main_numbers=[2, 8, 17, 29, 41],
+        source="baloto-colombia",
+    )
+
+    original_commit = db.commit
+
+    def failing_commit():
+        raise IntegrityError("forced conflict", {}, Exception("unique violation"))
+
+    monkeypatch.setattr(db, "commit", failing_commit)
+    with pytest.raises(Exception) as exc_info:
+        LotteryDrawService.update_draw(
+            db=db, draw_id=draw_a.id,
+            update_data={"main_numbers": [5, 10, 19, 31, 42]},
+        )
+    assert getattr(exc_info.value, "status_code", None) == 409
+    monkeypatch.setattr(db, "commit", original_commit)
+
+    db.expire_all()
+    persisted_a = db.get(LotteryDraw, draw_a.id)
+    persisted_b = db.get(LotteryDraw, draw_b.id)
+    assert persisted_a.main_numbers == [1, 7, 12, 28, 43]
+    assert persisted_b.main_numbers == [2, 8, 17, 29, 41]
+
+    stats_a = StatisticalService.analyze(
+        [persisted_a], lottery_id=lottery_a.id, source="baloto-colombia"
+    )
+    stats_b = StatisticalService.analyze(
+        [persisted_b], lottery_id=lottery_b.id, source="baloto-colombia"
+    )
+    assert stats_a["number_frequency"] == {1: 1, 7: 1, 12: 1, 28: 1, 43: 1}
+    assert stats_b["number_frequency"] == {2: 1, 8: 1, 17: 1, 29: 1, 41: 1}
+
+
+def test_multi_provider_multi_lottery_rollback_keeps_all_statistical_scopes_isolated(
+    db: Session, monkeypatch
+):
+    lotteries = [
+        Lottery(code="PH368-C", name="Rollback Scope C", country="Colombia"),
+        Lottery(code="PH368-D", name="Rollback Scope D", country="Colombia"),
+    ]
+    db.add_all(lotteries)
+    db.commit()
+    for lottery in lotteries:
+        db.refresh(lottery)
+
+    created = []
+    for lottery, source, numbers in (
+        (lotteries[0], "baloto-colombia", [1, 7, 12, 28, 43]),
+        (lotteries[0], "revancha-colombia", [2, 8, 17, 29, 41]),
+        (lotteries[1], "baloto-colombia", [3, 9, 18, 27, 39]),
+        (lotteries[1], "revancha-colombia", [4, 10, 19, 30, 38]),
+    ):
+        created.append(
+            LotteryDrawService.create_draw(
+                db=db, lottery_id=lottery.id, draw_number="68002",
+                draw_date=date(2026, 9, 18), main_numbers=numbers,
+                source=source,
+            )
+        )
+
+    target = created[1]
+    original_commit = db.commit
+
+    def failing_commit():
+        raise IntegrityError("forced conflict", {}, Exception("unique violation"))
+
+    monkeypatch.setattr(db, "commit", failing_commit)
+    with pytest.raises(Exception) as exc_info:
+        LotteryDrawService.update_draw(
+            db=db, draw_id=target.id,
+            update_data={"draw_number": "68003", "main_numbers": [5, 11, 20, 31, 37]},
+        )
+    assert getattr(exc_info.value, "status_code", None) == 409
+    monkeypatch.setattr(db, "commit", original_commit)
+
+    db.expire_all()
+    for lottery, source, expected in (
+        (lotteries[0], "baloto-colombia", {1: 1, 7: 1, 12: 1, 28: 1, 43: 1}),
+        (lotteries[0], "revancha-colombia", {2: 1, 8: 1, 17: 1, 29: 1, 41: 1}),
+        (lotteries[1], "baloto-colombia", {3: 1, 9: 1, 18: 1, 27: 1, 39: 1}),
+        (lotteries[1], "revancha-colombia", {4: 1, 10: 1, 19: 1, 30: 1, 38: 1}),
+    ):
+        rows = LotteryDrawService.list_draws(
+            db=db, lottery_id=lottery.id, source=source, limit=100
+        )
+        stats = StatisticalService.analyze(
+            rows, lottery_id=lottery.id, source=source
+        )
+        assert len(rows) == 1
+        assert stats["number_frequency"] == expected
+
+
+def test_rollback_conflict_allows_followup_update_without_statistical_residue(
+    db: Session, monkeypatch
+):
+    lottery = Lottery(code="PH368-E", name="Rollback Recovery", country="Colombia")
+    db.add(lottery)
+    db.commit()
+    db.refresh(lottery)
+
+    draw = LotteryDrawService.create_draw(
+        db=db, lottery_id=lottery.id, draw_number="68004",
+        draw_date=date(2026, 9, 18), main_numbers=[6, 12, 18, 24, 30],
+        source="miloto-colombia",
+    )
+    original_commit = db.commit
+
+    def failing_commit():
+        raise IntegrityError("forced conflict", {}, Exception("unique violation"))
+
+    monkeypatch.setattr(db, "commit", failing_commit)
+    with pytest.raises(Exception) as exc_info:
+        LotteryDrawService.update_draw(
+            db=db, draw_id=draw.id,
+            update_data={"draw_number": "68005", "main_numbers": [7, 13, 19, 25, 31]},
+        )
+    assert getattr(exc_info.value, "status_code", None) == 409
+    monkeypatch.setattr(db, "commit", original_commit)
+
+    db.expire_all()
+    persisted = db.get(LotteryDraw, draw.id)
+    assert persisted.draw_number == "68004"
+    assert persisted.main_numbers == [6, 12, 18, 24, 30]
+
+    recovered = LotteryDrawService.update_draw(
+        db=db, draw_id=draw.id,
+        update_data={"draw_number": "68005", "main_numbers": [7, 13, 19, 25, 31]},
+    )
+    assert recovered.draw_number == "68005"
+
+    rows = LotteryDrawService.list_draws(
+        db=db, lottery_id=lottery.id, source="miloto-colombia", limit=100
+    )
+    stats = StatisticalService.analyze(
+        rows, lottery_id=lottery.id, source="miloto-colombia"
+    )
+    assert len(rows) == 1
+    assert stats["number_frequency"] == {7: 1, 13: 1, 19: 1, 25: 1, 31: 1}
+    assert 6 not in stats["number_frequency"]
+    assert 12 not in stats["number_frequency"]
