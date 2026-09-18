@@ -1405,3 +1405,105 @@ def test_cross_provider_reimport_after_correction_keeps_date_number_and_statisti
     }
     assert baloto_rows[0].source == "baloto-colombia"
     assert revancha_rows[0].source == "revancha-colombia"
+
+
+def test_correction_to_existing_draw_number_rejects_without_mutating_record(db: Session):
+    lottery = Lottery(code="PH366-A", name="Number Conflict", country="Colombia")
+    db.add(lottery)
+    db.commit()
+    db.refresh(lottery)
+
+    first = LotteryDrawService.create_draw(
+        db=db, lottery_id=lottery.id, draw_number="66001",
+        draw_date=date(2026, 9, 17), main_numbers=[1, 7, 12, 28, 43],
+        source="miloto-colombia",
+    )
+    second = LotteryDrawService.create_draw(
+        db=db, lottery_id=lottery.id, draw_number="66002",
+        draw_date=date(2026, 9, 18), main_numbers=[2, 8, 17, 29, 39],
+        source="miloto-colombia",
+    )
+
+    with pytest.raises(Exception) as exc_info:
+        LotteryDrawService.update_draw(
+            db=db, draw_id=second.id,
+            update_data={"draw_number": first.draw_number},
+        )
+
+    assert getattr(exc_info.value, "status_code", None) == 409
+    db.expire_all()
+    persisted = db.get(LotteryDraw, second.id)
+    assert persisted is not None
+    assert persisted.draw_number == "66002"
+    assert persisted.draw_date == date(2026, 9, 18)
+    assert persisted.main_numbers == [2, 8, 17, 29, 39]
+
+
+def test_correction_to_existing_draw_date_rejects_without_mutating_record(db: Session):
+    lottery = Lottery(code="PH366-B", name="Date Conflict", country="Colombia")
+    db.add(lottery)
+    db.commit()
+    db.refresh(lottery)
+
+    first = LotteryDrawService.create_draw(
+        db=db, lottery_id=lottery.id, draw_number="66003",
+        draw_date=date(2026, 9, 17), main_numbers=[1, 7, 12, 28, 43],
+        source="baloto-colombia",
+    )
+    second = LotteryDrawService.create_draw(
+        db=db, lottery_id=lottery.id, draw_number="66004",
+        draw_date=date(2026, 9, 18), main_numbers=[2, 8, 17, 29, 39],
+        source="baloto-colombia",
+    )
+
+    with pytest.raises(Exception) as exc_info:
+        LotteryDrawService.update_draw(
+            db=db, draw_id=second.id,
+            update_data={"draw_date": first.draw_date},
+        )
+
+    assert getattr(exc_info.value, "status_code", None) == 409
+    db.expire_all()
+    persisted = db.get(LotteryDraw, second.id)
+    assert persisted is not None
+    assert persisted.draw_number == "66004"
+    assert persisted.draw_date == date(2026, 9, 18)
+    assert persisted.main_numbers == [2, 8, 17, 29, 39]
+
+
+def test_number_date_conflict_is_scoped_by_provider_and_preserves_other_provider(db: Session):
+    lottery = Lottery(code="PH366-C", name="Provider Conflict Isolation", country="Colombia")
+    db.add(lottery)
+    db.commit()
+    db.refresh(lottery)
+
+    baloto = LotteryDrawService.create_draw(
+        db=db, lottery_id=lottery.id, draw_number="66005",
+        draw_date=date(2026, 9, 17), main_numbers=[1, 7, 12, 28, 43],
+        bonus_numbers=[16], source="baloto-colombia",
+    )
+    revancha = LotteryDrawService.create_draw(
+        db=db, lottery_id=lottery.id, draw_number="66006",
+        draw_date=date(2026, 9, 18), main_numbers=[2, 8, 17, 29, 41],
+        bonus_numbers=[9], source="revancha-colombia",
+    )
+
+    updated = LotteryDrawService.update_draw(
+        db=db, draw_id=revancha.id,
+        update_data={"draw_number": "66005", "draw_date": date(2026, 9, 17)},
+    )
+
+    assert updated.id == revancha.id
+    assert updated.source == "revancha-colombia"
+    assert updated.draw_number == "66005"
+    assert updated.draw_date == date(2026, 9, 17)
+
+    db.expire_all()
+    persisted_baloto = db.get(LotteryDraw, baloto.id)
+    persisted_revancha = db.get(LotteryDraw, revancha.id)
+    assert persisted_baloto is not None
+    assert persisted_revancha is not None
+    assert persisted_baloto.source == "baloto-colombia"
+    assert persisted_revancha.source == "revancha-colombia"
+    assert persisted_baloto.draw_number == persisted_revancha.draw_number == "66005"
+    assert persisted_baloto.draw_date == persisted_revancha.draw_date == date(2026, 9, 17)
