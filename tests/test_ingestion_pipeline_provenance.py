@@ -330,3 +330,52 @@ def test_invalid_historical_correction_does_not_partially_mutate_record(db: Sess
     persisted = db.get(LotteryDraw, draw.id)
     assert persisted.main_numbers == [1, 7, 12, 28, 43]
     assert persisted.bonus_numbers == [16]
+
+
+
+def test_reimport_batch_failure_preserves_prior_committed_draws(db: Session):
+    lottery = Lottery(code="PH357-A", name="Batch Boundary", country="Colombia")
+    db.add(lottery)
+    db.commit()
+    adapter = get_colombia_source_adapter("miloto-colombia")
+
+    first = adapter.parse_draw({"sorteo": 30001, "fecha": "2026-09-16", "resultado": [1, 7, 12, 28, 39]})
+    LotteryDrawService.create_draw(
+        db=db, lottery_id=lottery.id, draw_number=first.draw_number,
+        draw_date=first.draw_date, main_numbers=first.main_numbers, source=first.source,
+    )
+
+    invalid = adapter.parse_draw({"sorteo": 30002, "fecha": "2026-09-17", "resultado": [2, 8, 17, 29, 38]})
+    with pytest.raises(Exception) as exc_info:
+        LotteryDrawService.create_draw(
+            db=db, lottery_id=lottery.id, draw_number=invalid.draw_number,
+            draw_date=invalid.draw_date, main_numbers=invalid.main_numbers,
+            source=invalid.source,
+        )
+        raise RuntimeError("forced batch failure")
+
+    assert exc_info.value is not None
+    rows = db.query(LotteryDraw).order_by(LotteryDraw.draw_number).all()
+    assert [row.draw_number for row in rows] == ["30001", "30002"]
+
+
+def test_reimport_duplicate_does_not_remove_other_committed_history(db: Session):
+    lottery = Lottery(code="PH357-B", name="Batch Duplicate", country="Colombia")
+    db.add(lottery)
+    db.commit()
+    adapter = get_colombia_source_adapter("miloto-colombia")
+    for number, day in (("30003", "2026-09-18"), ("30004", "2026-09-17")):
+        n = adapter.parse_draw({"sorteo": number, "fecha": day, "resultado": [1, 7, 12, 28, 39]})
+        LotteryDrawService.create_draw(
+            db=db, lottery_id=lottery.id, draw_number=n.draw_number,
+            draw_date=n.draw_date, main_numbers=n.main_numbers, source=n.source,
+        )
+    duplicate = adapter.parse_draw({"sorteo": "30003", "fecha": "2026-09-18", "resultado": [1, 7, 12, 28, 39]})
+    with pytest.raises(Exception) as exc_info:
+        LotteryDrawService.create_draw(
+            db=db, lottery_id=lottery.id, draw_number=duplicate.draw_number,
+            draw_date=duplicate.draw_date, main_numbers=duplicate.main_numbers,
+            source=duplicate.source,
+        )
+    assert getattr(exc_info.value, "status_code", None) == 409
+    assert db.query(LotteryDraw).count() == 2
