@@ -1,5 +1,7 @@
 from datetime import date
 
+
+
 import pytest
 from sqlalchemy import create_engine, select
 from sqlalchemy.orm import Session, sessionmaker
@@ -20,7 +22,6 @@ engine = create_engine(
 SessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 Lottery.__table__.create(bind=engine)
 LotteryDraw.__table__.create(bind=engine)
-
 
 @pytest.fixture()
 def db():
