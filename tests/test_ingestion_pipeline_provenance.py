@@ -514,3 +514,99 @@ def test_concurrent_provider_retries_do_not_cross_contaminate_statistics(db: Ses
         )
         assert stats["number_frequency"] == {number: 1 for number in numbers}
         assert stats["sum_distribution"]["count"] == 1
+
+
+def test_historical_correction_removes_old_values_from_statistics(db: Session):
+    lottery = Lottery(code="PH360-A", name="Concurrent Historical Correction", country="Colombia")
+    db.add(lottery)
+    db.commit()
+
+    draw = LotteryDrawService.create_draw(
+        db=db, lottery_id=lottery.id, draw_number="60001",
+        draw_date=date(2026, 9, 18), main_numbers=[1, 7, 12, 28, 39],
+        source="miloto-colombia",
+    )
+    before = StatisticalService.analyze(
+        [draw], lottery_id=lottery.id, source="miloto-colombia"
+    )
+    assert before["number_frequency"][12] == 1
+
+    updated = LotteryDrawService.update_draw(
+        db=db, draw_id=draw.id,
+        update_data={"main_numbers": [2, 8, 17, 29, 39]},
+    )
+    after = StatisticalService.analyze(
+        [updated], lottery_id=lottery.id, source="miloto-colombia"
+    )
+    assert after["number_frequency"] == {2: 1, 8: 1, 17: 1, 29: 1, 39: 1}
+    assert 12 not in after["number_frequency"]
+
+
+def test_delete_after_concurrent_retry_leaves_statistics_empty(db: Session):
+    lottery = Lottery(code="PH360-B", name="Delete Retry Statistics", country="Colombia")
+    db.add(lottery)
+    db.commit()
+
+    draw = LotteryDrawService.create_draw(
+        db=db, lottery_id=lottery.id, draw_number="60002",
+        draw_date=date(2026, 9, 18), main_numbers=[3, 8, 17, 29, 39],
+        source="miloto-colombia",
+    )
+    with pytest.raises(Exception) as exc_info:
+        LotteryDrawService.create_draw(
+            db=db, lottery_id=lottery.id, draw_number="60002",
+            draw_date=date(2026, 9, 18), main_numbers=[3, 8, 17, 29, 39],
+            source="miloto-colombia",
+        )
+    assert getattr(exc_info.value, "status_code", None) == 409
+
+    LotteryDrawService.delete_draw(db=db, draw_id=draw.id)
+    remaining = LotteryDrawService.list_draws(
+        db=db, lottery_id=lottery.id, source="miloto-colombia", limit=100
+    )
+    assert remaining == []
+    assert StatisticalService.overview(
+        db=db, lottery_id=lottery.id, source="miloto-colombia"
+    ) == {
+        "module_status": "STANDBY",
+        "algorithms_count": 0,
+        "draws_analyzed": 0,
+    }
+
+
+def test_historical_correction_preserves_other_provider_statistics(db: Session):
+    lottery = Lottery(code="PH360-C", name="Correction Provider Isolation", country="Colombia")
+    db.add(lottery)
+    db.commit()
+
+    baloto = LotteryDrawService.create_draw(
+        db=db, lottery_id=lottery.id, draw_number="60003",
+        draw_date=date(2026, 9, 18), main_numbers=[1, 7, 12, 28, 43],
+        bonus_numbers=[16], source="baloto-colombia",
+    )
+    revancha = LotteryDrawService.create_draw(
+        db=db, lottery_id=lottery.id, draw_number="60003",
+        draw_date=date(2026, 9, 18), main_numbers=[2, 8, 17, 29, 41],
+        bonus_numbers=[9], source="revancha-colombia",
+    )
+
+    LotteryDrawService.update_draw(
+        db=db, draw_id=baloto.id,
+        update_data={"main_numbers": [3, 8, 18, 30, 43]},
+    )
+
+    baloto_stats = StatisticalService.analyze(
+        LotteryDrawService.list_draws(
+            db=db, lottery_id=lottery.id, source="baloto-colombia", limit=100
+        ),
+        lottery_id=lottery.id, source="baloto-colombia",
+    )
+    revancha_stats = StatisticalService.analyze(
+        LotteryDrawService.list_draws(
+            db=db, lottery_id=lottery.id, source="revancha-colombia", limit=100
+        ),
+        lottery_id=lottery.id, source="revancha-colombia",
+    )
+
+    assert baloto_stats["number_frequency"] == {3: 1, 8: 1, 18: 1, 30: 1, 43: 1}
+    assert revancha_stats["number_frequency"] == {2: 1, 8: 1, 17: 1, 29: 1, 41: 1}
