@@ -2,7 +2,6 @@ import pytest
 from pydantic import ValidationError
 
 from app.schemas.lottery_draw import (
-    MAX_METADATA_BYTES,
     LotteryDrawCreate,
     LotteryDrawUpdate,
 )
