@@ -479,3 +479,146 @@ def test_stale_session_after_repeated_updates_reads_current_statistics_only(db: 
         )["draws_analyzed"] == 0
     finally:
         stale.close()
+
+
+def test_rollback_recovery_after_repeated_conflicts_preserves_statistics_and_allows_reimport(db: Session):
+    lottery_a = seed_lottery(db, "PH372-A")
+    lottery_b = seed_lottery(db, "PH372-B")
+    primary = seed_draw(
+        db, lottery_a.id, "37201", date(2026, 9, 1), [1, 2, 3, 4, 5], "baloto-colombia"
+    )
+    conflicting = seed_draw(
+        db, lottery_b.id, "37202", date(2026, 9, 2), [11, 12, 13, 14, 15], "baloto-colombia"
+    )
+
+    original = (primary.lottery_id, primary.draw_number, primary.draw_date, list(primary.main_numbers))
+
+    for _ in range(3):
+        with pytest.raises(Exception) as exc_info:
+            LotteryDrawService.update_draw(
+                db=db,
+                draw_id=primary.id,
+                update_data={
+                    "lottery_id": lottery_b.id,
+                    "draw_number": conflicting.draw_number,
+                    "draw_date": conflicting.draw_date,
+                    "main_numbers": [21, 22, 23, 24, 25],
+                },
+            )
+        assert getattr(exc_info.value, "status_code", None) == 409
+        db.expire_all()
+        current = db.get(LotteryDraw, primary.id)
+        assert current is not None
+        assert (
+            current.lottery_id,
+            current.draw_number,
+            current.draw_date,
+            current.main_numbers,
+        ) == original
+
+    stats_a = StatisticalService.overview(
+        db, lottery_id=lottery_a.id, source="baloto-colombia"
+    )
+    stats_b = StatisticalService.overview(
+        db, lottery_id=lottery_b.id, source="baloto-colombia"
+    )
+    assert stats_a["draws_analyzed"] == 1
+    assert stats_b["draws_analyzed"] == 1
+
+    LotteryDrawService.delete_draw(db=db, draw_id=primary.id)
+    replacement = LotteryDrawService.create_draw(
+        db=db,
+        lottery_id=lottery_a.id,
+        draw_number="37203",
+        draw_date=date(2026, 9, 3),
+        main_numbers=[31, 32, 33, 34, 35],
+        source="baloto-colombia",
+    )
+    assert replacement.id != primary.id
+    replacement_stats = StatisticalService.analyze(
+        [replacement], lottery_id=lottery_a.id, source="baloto-colombia"
+    )
+    assert replacement_stats["number_frequency"] == {
+        31: 1, 32: 1, 33: 1, 34: 1, 35: 1
+    }
+    assert 1 not in replacement_stats["number_frequency"]
+
+
+def test_repeated_multi_provider_recovery_cycles_keep_statistics_isolated(db: Session):
+    lottery_a = seed_lottery(db, "PH372-C")
+    lottery_b = seed_lottery(db, "PH372-D")
+    records = [
+        seed_draw(db, lottery_a.id, "37210", date(2026, 9, 10), [41, 42, 43], "baloto-colombia"),
+        seed_draw(db, lottery_a.id, "37210", date(2026, 9, 11), [51, 52, 53], "revancha-colombia"),
+        seed_draw(db, lottery_b.id, "37210", date(2026, 9, 12), [61, 62, 63], "baloto-colombia"),
+        seed_draw(db, lottery_b.id, "37210", date(2026, 9, 13), [71, 72, 73], "revancha-colombia"),
+    ]
+
+    for cycle in range(3):
+        for index, draw in enumerate(records):
+            base = 100 + cycle * 20 + index * 5
+            LotteryDrawService.update_draw(
+                db=db,
+                draw_id=draw.id,
+                update_data={
+                    "draw_number": f"372{cycle}{index}",
+                    "draw_date": date(2026, 9, 20 + cycle),
+                    "main_numbers": [base + 1, base + 2, base + 3],
+                },
+            )
+
+        if cycle == 1:
+            LotteryDrawService.delete_draw(db=db, draw_id=records[1].id)
+            records[1] = LotteryDrawService.create_draw(
+                db=db,
+                lottery_id=lottery_a.id,
+                draw_number="372-recovered",
+                draw_date=date(2026, 9, 25),
+                main_numbers=[211, 212, 213],
+                source="revancha-colombia",
+            )
+
+        for index, (lottery_id, source) in enumerate(
+            [
+                (lottery_a.id, "baloto-colombia"),
+                (lottery_a.id, "revancha-colombia"),
+                (lottery_b.id, "baloto-colombia"),
+                (lottery_b.id, "revancha-colombia"),
+            ]
+        ):
+            rows = LotteryDrawService.list_draws(
+                db=db, lottery_id=lottery_id, source=source, limit=100
+            )
+            assert len(rows) == 1
+            stats = StatisticalService.analyze(
+                rows, lottery_id=lottery_id, source=source
+            )
+            if index == 0:
+                expected_base = 100 + cycle * 20
+            elif index == 1 and cycle >= 1:
+                expected_base = 211
+            else:
+                expected_base = 100 + cycle * 20 + index * 5
+            assert stats["number_frequency"] == {
+                expected_base + 1: 1,
+                expected_base + 2: 1,
+                expected_base + 3: 1,
+            }
+
+    for lottery_id, source, forbidden in [
+        (lottery_a.id, "baloto-colombia", {211, 212, 213}),
+        (lottery_a.id, "revancha-colombia", {101, 102, 103}),
+        (lottery_b.id, "baloto-colombia", {211, 212, 213}),
+        (lottery_b.id, "revancha-colombia", {211, 212, 213}),
+    ]:
+        stats = StatisticalService.overview(
+            db, lottery_id=lottery_id, source=source
+        )
+        assert stats["draws_analyzed"] == 1
+        rows = LotteryDrawService.list_draws(
+            db=db, lottery_id=lottery_id, source=source, limit=100
+        )
+        frequencies = StatisticalService.analyze(
+            rows, lottery_id=lottery_id, source=source
+        )["number_frequency"]
+        assert not frequencies.keys() & forbidden
