@@ -91,9 +91,8 @@ def _validate_draw_number(value: str) -> str:
 
 
 def _validate_bonus_disjoint(main_numbers: list[int] | None, bonus_numbers: list[int] | None):
-    if main_numbers is not None and bonus_numbers is not None:
-        if set(main_numbers) & set(bonus_numbers):
-            raise ValueError("bonus_numbers cannot overlap main_numbers")
+    if main_numbers is not None and bonus_numbers is not None and set(main_numbers) & set(bonus_numbers):
+        raise ValueError("bonus_numbers cannot overlap main_numbers")
 
 
 class LotteryDrawBase(BaseModel):
