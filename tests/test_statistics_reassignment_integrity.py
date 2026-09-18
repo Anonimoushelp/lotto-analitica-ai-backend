@@ -595,7 +595,7 @@ def test_repeated_multi_provider_recovery_cycles_keep_statistics_isolated(db: Se
             )
             if index == 0:
                 expected_base = 100 + cycle * 20
-            elif index == 1 and cycle >= 1:
+            elif index == 1 and cycle == 1:
                 expected_base = 211
             else:
                 expected_base = 100 + cycle * 20 + index * 5
