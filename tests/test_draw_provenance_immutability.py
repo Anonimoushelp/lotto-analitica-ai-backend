@@ -149,3 +149,5 @@ def test_update_collision_is_scoped_to_same_source(monkeypatch):
 
     assert result is draw
     assert draw.source == "baloto-colombia"
+    assert get_by_number.call_args.kwargs["source"] == "baloto-colombia"
+    assert get_by_date.call_args.kwargs["source"] == "baloto-colombia"
