@@ -76,8 +76,10 @@ def _validate_metadata(value: dict[str, Any] | None) -> dict[str, Any] | None:
 
 
 def _validate_identifier(value: str, field_name: str) -> str:
+    if any(not char.isprintable() for char in value):
+        raise ValueError(f"{field_name} must contain only printable characters")
     normalized = value.strip()
-    if not normalized or any(not char.isprintable() for char in normalized):
+    if not normalized:
         raise ValueError(f"{field_name} must be a printable non-blank string")
     return normalized
 
@@ -148,6 +150,8 @@ class LotteryDrawCreate(LotteryDrawBase):
 
 
 class LotteryDrawUpdate(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+
     lottery_id: int | None = Field(default=None, gt=0)
     draw_number: str | None = Field(default=None, min_length=1, max_length=50)
     draw_date: date | None = None
