@@ -225,13 +225,6 @@ def test_integrity_error_during_reassignment_rolls_back_all_fields(monkeypatch):
     assert created.status_code == 201
     draw_id = created.json()["id"]
 
-    original_commit = SessionLocal.kw["bind"] if False else None
-    del original_commit
-
-    from app.services.lottery_draw_service import LotteryDrawService
-
-    real_commit = SessionLocal
-    del real_commit
     monkeypatch.setattr(
         "sqlalchemy.orm.Session.commit",
         lambda self: (_ for _ in ()).throw(IntegrityError("forced", {}, Exception("forced"))),
