@@ -110,10 +110,10 @@ def test_phase_376_delete_recover_reassign_and_reimport_remain_isolated(
     baloto = seed_draw(
         db, lottery_a.id, "37610", date(2026, 9, 10), [301, 302, 303], "baloto-colombia"
     )
-    revancha = seed_draw(
+    seed_draw(
         db, lottery_a.id, "37611", date(2026, 9, 11), [401, 402, 403], "revancha-colombia"
     )
-    other = seed_draw(
+    seed_draw(
         db, lottery_b.id, "37612", date(2026, 9, 12), [501, 502, 503], "baloto-colombia"
     )
 
