@@ -199,7 +199,7 @@ def test_phase_376_stale_session_after_cross_scope_recovery_reads_only_current_s
         assert current is not None
         assert current.lottery_id == lottery_b.id
         assert current.main_numbers == [901, 902, 903]
-        assert stats(db, lottery_a.id, "miloto-colombia")["draws_analyzed"] == 0
+        assert stats(db, lottery_a.id, "miloto-colombia")["number_frequency"] == {}
         assert stats(db, lottery_b.id, "miloto-colombia")["number_frequency"] == {
             901: 1, 902: 1, 903: 1
         }
