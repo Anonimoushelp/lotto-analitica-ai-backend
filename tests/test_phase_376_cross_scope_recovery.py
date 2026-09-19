@@ -53,8 +53,8 @@ def test_phase_376_repeated_cross_lottery_recovery_cycles_keep_single_current_re
         new_numbers_a = [111 + cycle, 112 + cycle, 113 + cycle]
         new_numbers_b = [211 + cycle, 212 + cycle, 213 + cycle]
         updates = (
-            (draw_a, lottery_a.id, new_numbers_a, f"376A{cycle}", date(2026, 10 + cycle)),
-            (draw_b, lottery_b.id, new_numbers_b, f"376B{cycle}", date(2026, 11 + cycle)),
+            (draw_a, lottery_a.id, new_numbers_a, f"376A{cycle}", date(2026, 10, 1 + cycle)),
+            (draw_b, lottery_b.id, new_numbers_b, f"376B{cycle}", date(2026, 11, 1 + cycle)),
         )
         for index, (draw, lottery_id, numbers, number, draw_date) in enumerate(updates):
             if cycle in {1, 3} and index == 0:
@@ -148,7 +148,7 @@ def test_phase_376_delete_recover_reassign_and_reimport_remain_isolated(
         },
     )
 
-    assert stats(db, lottery_a.id, "baloto-colombia")["draws_analyzed"] == 0
+    assert stats(db, lottery_a.id, "baloto-colombia")["number_frequency"] == {}
     assert stats(db, lottery_b.id, "baloto-colombia")["number_frequency"] == {
         501: 1, 502: 1, 503: 1, 601: 1, 602: 1, 603: 1
     }
