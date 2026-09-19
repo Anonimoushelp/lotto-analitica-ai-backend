@@ -16,7 +16,6 @@ from tests.test_phase_375_prolonged_cycles import (
 )
 
 
-
 @pytest.fixture
 def db():
     session = SessionLocal()
