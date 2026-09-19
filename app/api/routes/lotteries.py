@@ -1,4 +1,4 @@
-from fastapi import APIRouter, Depends, status
+from fastapi import APIRouter, Depends, Path, status
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import require_admin, require_admin_or_analyst
@@ -23,7 +23,7 @@ def list_lotteries(
 
 @router.get("/{lottery_id}", response_model=LotteryResponse)
 def get_lottery(
-    lottery_id: int,
+    lottery_id: int = Path(gt=0),
     db: Session = Depends(get_db),
     current_user=Depends(require_admin_or_analyst),
 ):
@@ -51,8 +51,8 @@ def create_lottery(
 
 @router.put("/{lottery_id}", response_model=LotteryResponse)
 def update_lottery(
-    lottery_id: int,
     payload: LotteryUpdate,
+    lottery_id: int = Path(gt=0),
     db: Session = Depends(get_db),
     current_user=Depends(require_admin),
 ):
@@ -72,7 +72,7 @@ def update_lottery(
 
 @router.delete("/{lottery_id}", status_code=status.HTTP_204_NO_CONTENT)
 def delete_lottery(
-    lottery_id: int,
+    lottery_id: int = Path(gt=0),
     db: Session = Depends(get_db),
     current_user=Depends(require_admin),
 ):

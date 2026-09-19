@@ -10,6 +10,7 @@ from app.repositories.lottery_draw_repository import LotteryDrawRepository
 from app.services.gemini_client import GeminiClient
 from app.services.gemini_prompt import build_prediction_prompt
 from app.services.gemini_validator import validate_predictions
+from app.services.lottery_rules import get_verified_lottery_rule
 
 
 class PredictionService:
@@ -31,6 +32,21 @@ class PredictionService:
                 detail="Lottery not found",
             )
 
+        rule = get_verified_lottery_rule(lottery.code)
+        if rule is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="AI predictions require a verified lottery rule catalog",
+            )
+
+        if payload.include_extra_number and (
+            rule.extra_min is None or rule.extra_max is None
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Extra-number predictions are not supported for the selected lottery",
+            )
+
         draws = LotteryDrawRepository.list(
             db=db,
             lottery_id=payload.lottery_id,
@@ -42,11 +58,24 @@ class PredictionService:
                 detail="The selected lottery has no historical draws available",
             )
 
-        historical_numbers = [
-            draw.main_numbers or []
-            for draw in draws
-            if draw.main_numbers
-        ]
+        historical_numbers = []
+        for draw in draws:
+            numbers = draw.main_numbers or []
+            if (
+                len(numbers) != rule.main_count
+                or any(
+                    isinstance(number, bool) or not isinstance(number, int)
+                    for number in numbers
+                )
+                or len(set(numbers)) != len(numbers)
+                or any(number < rule.main_min or number > rule.main_max for number in numbers)
+            ):
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail="The selected lottery contains invalid historical draw data",
+                )
+            historical_numbers.append(numbers)
+
         if not historical_numbers:
             raise HTTPException(
                 status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -59,8 +88,18 @@ class PredictionService:
             prediction_count=payload.prediction_count,
             historical_numbers=historical_numbers,
         )
-        generated = GeminiClient.generate_json(prompt)
-        if not validate_predictions(generated, payload.prediction_count):
+        generated = GeminiClient.generate_json(prompt, temperature=payload.temperature)
+        if not validate_predictions(
+            generated,
+            payload.prediction_count,
+            min_confidence_threshold=payload.min_confidence_threshold,
+            include_extra_number=payload.include_extra_number,
+            main_count=rule.main_count,
+            main_min=rule.main_min,
+            main_max=rule.main_max,
+            extra_min=rule.extra_min,
+            extra_max=rule.extra_max,
+        ):
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 detail="Gemini returned predictions that do not match the required contract",

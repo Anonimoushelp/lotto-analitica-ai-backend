@@ -138,10 +138,14 @@ def test_gemini_client_keeps_api_key_out_of_url_and_body(monkeypatch):
     monkeypatch.setattr(settings, "gemini_api_key", secret)
     monkeypatch.setattr("app.services.gemini_client.httpx.Client", MockClient)
 
-    result = GeminiClient.generate_json("historical lottery prompt")
+    result = GeminiClient.generate_json("historical lottery prompt", temperature=0.7)
     request = MockClient.last_request
 
     assert result == {"predictions": []}
     assert secret not in request["url"]
     assert secret not in json.dumps(request["body"])
     assert request["headers"]["x-goog-api-key"] == secret
+    assert request["body"]["generationConfig"] == {
+        "temperature": 0.7,
+        "responseMimeType": "application/json",
+    }
