@@ -157,7 +157,7 @@ def test_phase_376_delete_recover_reassign_and_reimport_remain_isolated(
         501: 1, 502: 1, 503: 1
     }
 
-    reimported = seed_draw(
+    seed_draw(
         db, lottery_a.id, "37614", date(2026, 9, 14), [701, 702, 703], "baloto-colombia"
     )
     assert stats(db, lottery_a.id, "baloto-colombia")["number_frequency"] == {
