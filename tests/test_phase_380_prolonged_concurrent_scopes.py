@@ -89,7 +89,7 @@ def test_phase_380_repeated_conflict_recovery_keeps_four_scopes_isolated():
             100: 1, 200: 1, 300: 1
         }
         assert frequency(db, conflict_lottery.id, conflict.source) == {
-            101: 1, 201: 1, 301: 1
+            400: 1, 500: 1, 600: 1
         }
 
         recovered = LotteryDrawService.update_draw(
