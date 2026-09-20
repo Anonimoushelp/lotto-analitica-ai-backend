@@ -2,7 +2,7 @@ import json
 from datetime import date, datetime
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 MAX_NUMBER_VALUE = 1000
 MAX_MAIN_NUMBERS = 20
@@ -101,6 +101,12 @@ class LotteryDrawBase(BaseModel):
     )
     _validate_metadata_json = field_validator("metadata_json")(_validate_metadata)
 
+    @model_validator(mode="after")
+    def validate_result_representation(self):
+        if not self.main_numbers and not self.bonus_numbers and not self.result_groups:
+            raise ValueError("At least one result representation is required")
+        return self
+
     @field_validator("result_groups")
     @classmethod
     def validate_result_groups(
@@ -155,6 +161,19 @@ class LotteryDrawUpdate(BaseModel):
         )
     )
     _validate_metadata_json = field_validator("metadata_json")(_validate_metadata)
+
+    @field_validator("result_groups")
+    @classmethod
+    def validate_result_groups(
+        cls,
+        value: list[DrawResultInput] | None,
+    ) -> list[DrawResultInput] | None:
+        if value is None:
+            return None
+        keys = [(item.group_code, item.position) for item in value]
+        if len(keys) != len(set(keys)):
+            raise ValueError("result_groups cannot contain duplicate group/position pairs")
+        return value
 
 
 class LotteryDrawResponse(LotteryDrawBase):
