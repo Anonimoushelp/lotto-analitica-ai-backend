@@ -46,6 +46,7 @@ def test_phase_377_failed_correction_then_cross_provider_reimport_keeps_single_c
             db.rollback()
     finally:
         monkeypatch.setattr(Session, "commit", original_commit)
+        db.close()
 
     LotteryDrawService.update_draw(
         db=db, draw_id=baloto.id,
@@ -63,16 +64,16 @@ def test_phase_377_recovery_delete_and_reimport_does_not_restore_deleted_provide
     try:
         lottery_a = seed_lottery(db, "PH377-B")
         lottery_b = seed_lottery(db, "PH377-C")
-    deleted = seed_draw(db, lottery_a.id, "37710", date(2026, 9, 10), [301, 302, 303], "miloto-colombia")
-    seed_draw(db, lottery_b.id, "37710", date(2026, 9, 10), [401, 402, 403], "miloto-colombia")
+        deleted = seed_draw(db, lottery_a.id, "37710", date(2026, 9, 10), [301, 302, 303], "miloto-colombia")
+        seed_draw(db, lottery_b.id, "37710", date(2026, 9, 10), [401, 402, 403], "miloto-colombia")
 
-    LotteryDrawService.delete_draw(db=db, draw_id=deleted.id)
-    assert db.get(LotteryDraw, deleted.id) is None
-    assert stats(db, lottery_a.id, "miloto-colombia")["number_frequency"] == {}
-    assert stats(db, lottery_b.id, "miloto-colombia")["number_frequency"] == {401: 1, 402: 1, 403: 1}
+        LotteryDrawService.delete_draw(db=db, draw_id=deleted.id)
+        assert db.get(LotteryDraw, deleted.id) is None
+        assert stats(db, lottery_a.id, "miloto-colombia")["number_frequency"] == {}
+        assert stats(db, lottery_b.id, "miloto-colombia")["number_frequency"] == {401: 1, 402: 1, 403: 1}
 
-    reimported = seed_draw(db, lottery_a.id, "37711", date(2026, 9, 11), [501, 502, 503], "miloto-colombia")
-    assert reimported.id != deleted.id
+        reimported = seed_draw(db, lottery_a.id, "37711", date(2026, 9, 11), [501, 502, 503], "miloto-colombia")
+        assert reimported.id != deleted.id
     assert stats(db, lottery_a.id, "miloto-colombia")["number_frequency"] == {501: 1, 502: 1, 503: 1}
     assert stats(db, lottery_b.id, "miloto-colombia")["number_frequency"] == {401: 1, 402: 1, 403: 1}
 
@@ -94,5 +95,7 @@ def test_phase_377_stale_session_after_cross_provider_recovery_reads_current_sta
         assert current is not None
         assert current.main_numbers == [701, 702, 703]
         assert stats(db, lottery.id, "baloto-colombia")["number_frequency"] == {701: 1, 702: 1, 703: 1}
+        finally:
+            stale.close()
     finally:
-        stale.close()
+        db.close()
