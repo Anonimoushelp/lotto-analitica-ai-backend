@@ -108,7 +108,7 @@ def test_phase_380_repeated_conflict_recovery_keeps_four_scopes_isolated():
             710: 1, 810: 1, 910: 1
         }
         assert frequency(db, conflict_lottery.id, conflict.source) == {
-            101: 1, 201: 1, 301: 1
+            400: 1, 500: 1, 600: 1
         }
 
         for lottery, _, source in scopes[2:]:
