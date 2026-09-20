@@ -7,6 +7,9 @@ from pydantic import BaseModel, ConfigDict, Field, field_validator
 MAX_NUMBER_VALUE = 1000
 MAX_MAIN_NUMBERS = 20
 MAX_BONUS_NUMBERS = 10
+MAX_RESULT_GROUPS = 20
+MAX_RESULT_VALUES = 50
+MAX_VALUE_LENGTH = 50
 MAX_METADATA_BYTES = 16 * 1024
 
 
@@ -20,9 +23,7 @@ def _validate_numbers(
         return None
 
     if len(value) > max_items:
-        raise ValueError(
-            f"{field_name} cannot contain more than {max_items} numbers"
-        )
+        raise ValueError(f"{field_name} cannot contain more than {max_items} numbers")
 
     if any(number < 1 or number > MAX_NUMBER_VALUE for number in value):
         raise ValueError(
@@ -41,26 +42,47 @@ def _validate_metadata(value: dict[str, Any] | None) -> dict[str, Any] | None:
 
     serialized = json.dumps(value, ensure_ascii=False, separators=(",", ":"))
     if len(serialized.encode("utf-8")) > MAX_METADATA_BYTES:
-        raise ValueError(
-            f"metadata_json cannot exceed {MAX_METADATA_BYTES} bytes"
-        )
+        raise ValueError(f"metadata_json cannot exceed {MAX_METADATA_BYTES} bytes")
 
     return value
+
+
+class DrawResultInput(BaseModel):
+    group_code: str = Field(min_length=1, max_length=50)
+    position: int = Field(ge=1, le=MAX_RESULT_VALUES)
+    value: str = Field(min_length=1, max_length=MAX_VALUE_LENGTH)
+    numeric_value: int | None = Field(default=None, ge=1, le=MAX_NUMBER_VALUE)
+
+
+class DrawResultResponse(DrawResultInput):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: int
+    draw_id: int
+    created_at: datetime
 
 
 class LotteryDrawBase(BaseModel):
     lottery_id: int = Field(gt=0)
     draw_number: str = Field(min_length=1, max_length=50)
     draw_date: date
-    main_numbers: list[int] = Field(
-        min_length=1,
+    draw_datetime: datetime | None = None
+    main_numbers: list[int] | None = Field(
+        default=None,
         max_length=MAX_MAIN_NUMBERS,
     )
     bonus_numbers: list[int] | None = Field(
         default=None,
         max_length=MAX_BONUS_NUMBERS,
     )
+    result_groups: list[DrawResultInput] = Field(
+        default_factory=list,
+        max_length=MAX_RESULT_GROUPS * MAX_RESULT_VALUES,
+    )
     source: str | None = Field(default=None, max_length=255)
+    source_type: str | None = Field(default=None, max_length=50)
+    source_reference: str | None = Field(default=None, max_length=500)
+    raw_payload: dict[str, Any] | None = None
     metadata_json: dict[str, Any] | None = None
 
     _validate_main_numbers = field_validator("main_numbers")(
@@ -79,6 +101,17 @@ class LotteryDrawBase(BaseModel):
     )
     _validate_metadata_json = field_validator("metadata_json")(_validate_metadata)
 
+    @field_validator("result_groups")
+    @classmethod
+    def validate_result_groups(
+        cls,
+        value: list[DrawResultInput],
+    ) -> list[DrawResultInput]:
+        keys = [(item.group_code, item.position) for item in value]
+        if len(keys) != len(set(keys)):
+            raise ValueError("result_groups cannot contain duplicate group/position pairs")
+        return value
+
 
 class LotteryDrawCreate(LotteryDrawBase):
     pass
@@ -88,16 +121,23 @@ class LotteryDrawUpdate(BaseModel):
     lottery_id: int | None = Field(default=None, gt=0)
     draw_number: str | None = Field(default=None, min_length=1, max_length=50)
     draw_date: date | None = None
+    draw_datetime: datetime | None = None
     main_numbers: list[int] | None = Field(
         default=None,
-        min_length=1,
         max_length=MAX_MAIN_NUMBERS,
     )
     bonus_numbers: list[int] | None = Field(
         default=None,
         max_length=MAX_BONUS_NUMBERS,
     )
+    result_groups: list[DrawResultInput] | None = Field(
+        default=None,
+        max_length=MAX_RESULT_GROUPS * MAX_RESULT_VALUES,
+    )
     source: str | None = Field(default=None, max_length=255)
+    source_type: str | None = Field(default=None, max_length=50)
+    source_reference: str | None = Field(default=None, max_length=500)
+    raw_payload: dict[str, Any] | None = None
     metadata_json: dict[str, Any] | None = None
 
     _validate_main_numbers = field_validator("main_numbers")(
@@ -121,5 +161,6 @@ class LotteryDrawResponse(LotteryDrawBase):
     model_config = ConfigDict(from_attributes=True)
 
     id: int
+    results: list[DrawResultResponse] = Field(default_factory=list)
     created_at: datetime
     updated_at: datetime
