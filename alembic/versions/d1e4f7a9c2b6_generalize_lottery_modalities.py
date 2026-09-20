@@ -198,12 +198,11 @@ def upgrade() -> None:
 
     values = []
     for row in rows:
-        position = 1
         for group_code, raw_values in (
             ("main", _as_list(row.main_numbers)),
             ("bonus", _as_list(row.bonus_numbers)),
         ):
-            for raw_value in raw_values:
+            for position, raw_value in enumerate(raw_values, start=1):
                 try:
                     numeric_value = int(raw_value)
                 except (TypeError, ValueError):
@@ -218,7 +217,6 @@ def upgrade() -> None:
                         "created_at": datetime.now(UTC),
                     }
                 )
-                position += 1
 
     if values:
         op.bulk_insert(draw_results, values)
