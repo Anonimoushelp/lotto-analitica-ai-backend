@@ -47,7 +47,7 @@ class LotteryDraw(Base):
     )
 
     # Compatibility fields. New ingestion must populate normalized results.
-    main_numbers: Mapped[list[int]] = mapped_column(
+    main_numbers: Mapped[list[int] | None] = mapped_column(
         DRAW_JSON_TYPE,
         nullable=False,
     )
