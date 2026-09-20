@@ -131,7 +131,7 @@ def test_phase_383_cross_scope_failure_recovery_preserves_other_providers():
 
         LotteryDrawService.update_draw(
             db=db, draw_id=target.id,
-            update_data={"lottery_id": second.id, "draw_number": "38331",
+            update_data={"lottery_id": second.id, "draw_number": "38332",
                          "draw_date": date(2026, 12, 13),
                          "main_numbers": [4901, 4902, 4903]},
         )
