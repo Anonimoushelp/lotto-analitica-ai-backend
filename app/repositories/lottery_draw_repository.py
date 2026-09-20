@@ -44,6 +44,11 @@ class LotteryDrawRepository:
         return db.scalar(statement)
 
     @staticmethod
+    def get_by_ingestion_key(db: Session, ingestion_key: str) -> LotteryDraw | None:
+        statement = select(LotteryDraw).where(LotteryDraw.ingestion_key == ingestion_key)
+        return db.scalar(statement)
+
+    @staticmethod
     def create(db: Session, draw: LotteryDraw) -> LotteryDraw:
         db.add(draw)
         try:
