@@ -213,11 +213,6 @@ def test_draw_creation_is_idempotency_safe_for_repeated_draw_number(monkeypatch)
     )
     monkeypatch.setattr(
         LotteryDrawRepository,
-        "get_by_date",
-        lambda **kwargs: None,
-    )
-    monkeypatch.setattr(
-        LotteryDrawRepository,
         "create",
         lambda **kwargs: pytest.fail("duplicate draw must not be inserted"),
     )
@@ -271,7 +266,6 @@ def test_draw_creation_translates_integrity_error_from_race_condition(monkeypatc
             return Lottery(id=1, code="TEST", name="Test Lottery")
 
     monkeypatch.setattr(LotteryDrawRepository, "get_by_number", lambda **kwargs: None)
-    monkeypatch.setattr(LotteryDrawRepository, "get_by_date", lambda **kwargs: None)
     monkeypatch.setattr(
         LotteryDrawRepository,
         "create",
