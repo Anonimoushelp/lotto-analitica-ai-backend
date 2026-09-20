@@ -16,7 +16,7 @@ def stats(db: Session, lottery_id: int, source: str) -> dict:
 
 
 def seed_lottery(db: Session, code: str) -> Lottery:
-    lottery = Lottery(name=code, code=code, country="Colombia", currency="COP")
+    lottery = Lottery(name=code, code=code, country="Colombia")
     db.add(lottery)
     db.commit()
     db.refresh(lottery)
