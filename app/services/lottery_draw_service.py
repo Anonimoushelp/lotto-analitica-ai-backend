@@ -2,7 +2,6 @@ from datetime import date
 from typing import Any
 
 from fastapi import HTTPException, status
-from sqlalchemy import delete
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -37,9 +36,8 @@ class LotteryDrawService:
         draw: LotteryDraw,
         result_groups: list[dict[str, Any]] | None,
     ) -> None:
-        groups = result_groups or []
+        groups = list(result_groups or [])
 
-        # Backward-compatible normalization of the legacy fields.
         if not groups and draw.main_numbers:
             groups.extend(
                 {
