@@ -60,9 +60,11 @@ class LotteryDrawService:
                     for position, number in enumerate(draw.bonus_numbers, start=1)
                 )
 
-        for existing_result in list(draw.results):
+        existing_results = list(draw.results)
+        for existing_result in existing_results:
             db.delete(existing_result)
-        db.flush()
+        if existing_results:
+            db.flush()
 
         for item in groups:
             numeric_value = item.get("numeric_value")
