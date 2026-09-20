@@ -179,6 +179,12 @@ class LotteryDrawService:
         elif "main_numbers" in update_data or "bonus_numbers" in update_data:
             LotteryDrawService._build_results(db, draw, None)
 
+        if not draw.main_numbers and not draw.bonus_numbers and not draw.results:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="At least one result representation is required",
+            )
+
         try:
             db.commit()
             db.refresh(draw)
