@@ -59,7 +59,9 @@ def test_phase_377_failed_correction_then_cross_provider_reimport_keeps_single_c
 
 
 def test_phase_377_recovery_delete_and_reimport_does_not_restore_deleted_provider_state(db: Session):
-    lottery_a = seed_lottery(db, "PH377-B")
+    db = SessionLocal()
+    try:
+        lottery_a = seed_lottery(db, "PH377-B")
     lottery_b = seed_lottery(db, "PH377-C")
     deleted = seed_draw(db, lottery_a.id, "37710", date(2026, 9, 10), [301, 302, 303], "miloto-colombia")
     seed_draw(db, lottery_b.id, "37710", date(2026, 9, 10), [401, 402, 403], "miloto-colombia")
@@ -76,7 +78,9 @@ def test_phase_377_recovery_delete_and_reimport_does_not_restore_deleted_provide
 
 
 def test_phase_377_stale_session_after_cross_provider_recovery_reads_current_statistics_only(db: Session):
-    lottery = seed_lottery(db, "PH377-D")
+    db = SessionLocal()
+    try:
+        lottery = seed_lottery(db, "PH377-D")
     draw = seed_draw(db, lottery.id, "37720", date(2026, 9, 20), [601, 602, 603], "baloto-colombia")
     stale = SessionLocal()
     try:
