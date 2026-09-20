@@ -14,11 +14,7 @@ from app.models.lottery import Lottery
 from app.models.user import User
 from app.services.lottery_draw_service import LotteryDrawService
 
-engine = create_engine(
-    "sqlite://",
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
-)
+engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
 TestingSessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 User.__table__.create(bind=engine)
 Lottery.__table__.create(bind=engine)
@@ -60,12 +56,7 @@ def clean_test_data():
 
 def seed_user(email: str, role: str) -> User:
     db = TestingSessionLocal()
-    user = User(
-        email=email,
-        password_hash=hash_password("StrongTestPassword123!"),
-        role=role,
-        is_active=True,
-    )
+    user = User(email=email, password_hash=hash_password("StrongTestPassword123!"), role=role, is_active=True)
     db.add(user)
     db.commit()
     db.refresh(user)
@@ -80,37 +71,20 @@ def auth_header(user: User) -> dict[str, str]:
 def fake_draw() -> SimpleNamespace:
     now = datetime.now(UTC)
     return SimpleNamespace(
-        id=1,
-        lottery_id=1,
-        draw_number="D-001",
-        draw_date=now.date(),
-        main_numbers=[1, 2, 3, 4, 5],
-        bonus_numbers=None,
-        source="test",
-        metadata_json=None,
-        created_at=now,
-        updated_at=now,
+        id=1, lottery_id=1, draw_number="D-001", draw_date=now.date(),
+        main_numbers=[1, 2, 3, 4, 5], bonus_numbers=None, source="test",
+        metadata_json=None, created_at=now, updated_at=now,
     )
 
 
 def test_draw_create_requires_authentication(monkeypatch):
     called = False
-
     def fake_create(**kwargs):
         nonlocal called
         called = True
         return fake_draw()
-
     monkeypatch.setattr(LotteryDrawService, "create_draw", fake_create)
-    response = client.post(
-        "/api/v1/draws",
-        json={
-            "lottery_id": 1,
-            "draw_number": "D-001",
-            "draw_date": "2026-09-02",
-            "main_numbers": [1, 2, 3, 4, 5],
-        },
-    )
+    response = client.post("/api/v1/draws", json={"lottery_id": 1, "draw_number": "D-001", "draw_date": "2026-09-02", "main_numbers": [1, 2, 3, 4, 5]})
     assert response.status_code == 401
     assert called is False
 
@@ -119,23 +93,12 @@ def test_draw_create_requires_authentication(monkeypatch):
 def test_draw_create_denies_non_admin_roles(role, monkeypatch):
     user = seed_user(f"{role}@example.com", role)
     called = False
-
     def fake_create(**kwargs):
         nonlocal called
         called = True
         return fake_draw()
-
     monkeypatch.setattr(LotteryDrawService, "create_draw", fake_create)
-    response = client.post(
-        "/api/v1/draws",
-        headers=auth_header(user),
-        json={
-            "lottery_id": 1,
-            "draw_number": "D-001",
-            "draw_date": "2026-09-02",
-            "main_numbers": [1, 2, 3, 4, 5],
-        },
-    )
+    response = client.post("/api/v1/draws", headers=auth_header(user), json={"lottery_id": 1, "draw_number": "D-001", "draw_date": "2026-09-02", "main_numbers": [1, 2, 3, 4, 5]})
     assert response.status_code == 403
     assert called is False
 
@@ -143,23 +106,12 @@ def test_draw_create_denies_non_admin_roles(role, monkeypatch):
 def test_draw_create_allows_admin(monkeypatch):
     user = seed_user("admin@example.com", "admin")
     called = False
-
     def fake_create(**kwargs):
         nonlocal called
         called = True
         return fake_draw()
-
     monkeypatch.setattr(LotteryDrawService, "create_draw", fake_create)
-    response = client.post(
-        "/api/v1/draws",
-        headers=auth_header(user),
-        json={
-            "lottery_id": 1,
-            "draw_number": "D-001",
-            "draw_date": "2026-09-02",
-            "main_numbers": [1, 2, 3, 4, 5],
-        },
-    )
+    response = client.post("/api/v1/draws", headers=auth_header(user), json={"lottery_id": 1, "draw_number": "D-001", "draw_date": "2026-09-02", "main_numbers": [1, 2, 3, 4, 5], "source": "test"})
     assert response.status_code == 201
     assert called is True
 
@@ -168,18 +120,12 @@ def test_draw_create_allows_admin(monkeypatch):
 def test_draw_update_denies_non_admin_roles(role, monkeypatch):
     user = seed_user(f"{role}@example.com", role)
     called = False
-
     def fake_update(**kwargs):
         nonlocal called
         called = True
         return fake_draw()
-
     monkeypatch.setattr(LotteryDrawService, "update_draw", fake_update)
-    response = client.put(
-        "/api/v1/draws/1",
-        headers=auth_header(user),
-        json={"draw_number": "D-002"},
-    )
+    response = client.put("/api/v1/draws/1", headers=auth_header(user), json={"draw_number": "D-002"})
     assert response.status_code == 403
     assert called is False
 
@@ -187,18 +133,12 @@ def test_draw_update_denies_non_admin_roles(role, monkeypatch):
 def test_draw_update_allows_admin(monkeypatch):
     user = seed_user("admin-update@example.com", "admin")
     called = False
-
     def fake_update(**kwargs):
         nonlocal called
         called = True
         return fake_draw()
-
     monkeypatch.setattr(LotteryDrawService, "update_draw", fake_update)
-    response = client.put(
-        "/api/v1/draws/1",
-        headers=auth_header(user),
-        json={"draw_number": "D-002"},
-    )
+    response = client.put("/api/v1/draws/1", headers=auth_header(user), json={"draw_number": "D-002"})
     assert response.status_code == 200
     assert called is True
 
@@ -207,16 +147,11 @@ def test_draw_update_allows_admin(monkeypatch):
 def test_draw_delete_denies_non_admin_roles(role, monkeypatch):
     user = seed_user(f"{role}-delete@example.com", role)
     called = False
-
     def fake_delete(**kwargs):
         nonlocal called
         called = True
-
     monkeypatch.setattr(LotteryDrawService, "delete_draw", fake_delete)
-    response = client.delete(
-        "/api/v1/draws/1",
-        headers=auth_header(user),
-    )
+    response = client.delete("/api/v1/draws/1", headers=auth_header(user))
     assert response.status_code == 403
     assert called is False
 
@@ -224,16 +159,11 @@ def test_draw_delete_denies_non_admin_roles(role, monkeypatch):
 def test_draw_delete_allows_admin(monkeypatch):
     user = seed_user("admin-delete@example.com", "admin")
     called = False
-
     def fake_delete(**kwargs):
         nonlocal called
         called = True
-
     monkeypatch.setattr(LotteryDrawService, "delete_draw", fake_delete)
-    response = client.delete(
-        "/api/v1/draws/1",
-        headers=auth_header(user),
-    )
+    response = client.delete("/api/v1/draws/1", headers=auth_header(user))
     assert response.status_code == 204
     assert called is True
 

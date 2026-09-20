@@ -22,6 +22,7 @@ from app.api.routes.tee import router as tee_router
 from app.core.config import settings
 from app.core.rate_limit import login_rate_limiter
 from app.db.session import get_db
+from app.services.statistical_service import StatisticalInputLimitError
 
 logger = logging.getLogger(__name__)
 MAX_REQUEST_BODY_BYTES = 1_048_576
@@ -36,45 +37,61 @@ def _get_request_id(request: Request) -> str:
     return str(uuid.uuid4())
 
 
+def _sanitize_log_value(value: str) -> str:
+    return re.sub(r"[\r\n\t]", " ", value)
+
+
+def _log_exception(message: str, exc: Exception) -> None:
+    safe_message = _sanitize_log_value(message)
+    if is_development:
+        logger.exception(safe_message, exc_info=exc)
+    else:
+        logger.error("%s exception_type=%s", safe_message, type(exc).__name__)
+
+
 class RequestBodyLimitMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request, call_next):
+    async def dispatch(self, request: Request, call_next):
         content_length = request.headers.get("content-length")
         if content_length is not None:
             try:
                 declared_length = int(content_length)
             except ValueError:
+                request_id = getattr(request.state, "request_id", None) or _get_request_id(request)
                 return JSONResponse(
                     status_code=400,
                     content={"detail": "Invalid Content-Length header"},
+                    headers={REQUEST_ID_HEADER: request_id},
                 )
             if declared_length < 0:
+                request_id = getattr(request.state, "request_id", None) or _get_request_id(request)
                 return JSONResponse(
                     status_code=400,
                     content={"detail": "Invalid Content-Length header"},
+                    headers={REQUEST_ID_HEADER: request_id},
                 )
             if declared_length > MAX_REQUEST_BODY_BYTES:
+                request_id = getattr(request.state, "request_id", None) or _get_request_id(request)
                 return JSONResponse(
-                    status_code=413,
+                    status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
                     content={"detail": "Request body too large"},
+                    headers={REQUEST_ID_HEADER: request_id},
                 )
         return await call_next(request)
 
 
 class RequestObservabilityMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request, call_next):
+    async def dispatch(self, request: Request, call_next):
         request_id = _get_request_id(request)
         request.state.request_id = request_id
         started = time.perf_counter()
         try:
             response = await call_next(request)
-        except Exception:
+        except Exception as exc:
             duration_ms = (time.perf_counter() - started) * 1000
-            logger.exception(
-                "request_failed request_id=%s method=%s path=%s duration_ms=%.2f",
-                request_id,
-                request.method,
-                request.url.path,
-                duration_ms,
+            _log_exception(
+                f"request_failed request_id={request_id} method={request.method} "
+                f"path={request.url.path} duration_ms={duration_ms:.2f}",
+                exc,
             )
             raise
         duration_ms = (time.perf_counter() - started) * 1000
@@ -91,7 +108,7 @@ class RequestObservabilityMiddleware(BaseHTTPMiddleware):
 
 
 class SecurityHeadersMiddleware(BaseHTTPMiddleware):
-    async def dispatch(self, request, call_next):
+    async def dispatch(self, request: Request, call_next):
         response = await call_next(request)
         response.headers["X-Content-Type-Options"] = "nosniff"
         response.headers["X-Frame-Options"] = "DENY"
@@ -128,20 +145,29 @@ if settings.cors_allowed_origins:
         CORSMiddleware,
         allow_origins=settings.cors_allowed_origins,
         allow_credentials=False,
-        allow_methods=["GET", "POST", "PUT", "DELETE"],
+        allow_methods=["GET", "POST", "PUT", "PATCH", "DELETE"],
         allow_headers=["Authorization", "Content-Type"],
         max_age=600,
+    )
+
+
+@app.exception_handler(StatisticalInputLimitError)
+async def statistical_input_limit_handler(request: Request, exc: StatisticalInputLimitError):
+    request_id = getattr(request.state, "request_id", None) or _get_request_id(request)
+    return JSONResponse(
+        status_code=status.HTTP_413_REQUEST_ENTITY_TOO_LARGE,
+        content={"detail": str(exc)},
+        headers={REQUEST_ID_HEADER: request_id},
     )
 
 
 @app.exception_handler(Exception)
 async def unhandled_exception_handler(request: Request, exc: Exception):
     request_id = getattr(request.state, "request_id", None) or _get_request_id(request)
-    logger.exception(
-        "Unhandled application exception request_id=%s on %s %s",
-        request_id,
-        request.method,
-        request.url.path,
+    _log_exception(
+        f"Unhandled application exception request_id={request_id} "
+        f"on {request.method} {request.url.path}",
+        exc,
     )
     return JSONResponse(
         status_code=500,
@@ -159,8 +185,8 @@ def root():
 def health(db: Session = Depends(get_db)):
     try:
         db.execute(text("SELECT 1"))
-    except SQLAlchemyError:
-        logger.exception("Health check failed: PostgreSQL unavailable")
+    except SQLAlchemyError as exc:
+        _log_exception("Health check failed: PostgreSQL unavailable", exc)
         return JSONResponse(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             content={"status": "unhealthy", "service": "Lotto Analítica AI"},
@@ -169,8 +195,8 @@ def health(db: Session = Depends(get_db)):
     if settings.environment.lower() == "production":
         try:
             login_rate_limiter.health_check()
-        except Exception:
-            logger.exception("Health check failed: Redis unavailable")
+        except Exception as exc:  # noqa: BLE001 - health boundary must fail closed on any Redis client failure
+            _log_exception("Health check failed: Redis unavailable", exc)
             return JSONResponse(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 content={"status": "unhealthy", "service": "Lotto Analítica AI"},
@@ -184,5 +210,5 @@ app.include_router(functional_encryption_router)
 app.include_router(tee_router)
 app.include_router(lotteries_router)
 app.include_router(lottery_draws_router)
-app.include_router(statistics_router)
 app.include_router(predictions_router)
+app.include_router(statistics_router)

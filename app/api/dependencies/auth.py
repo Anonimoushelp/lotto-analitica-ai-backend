@@ -29,6 +29,9 @@ def get_current_user(
         if payload.get("type") != "access":
             raise ValueError("Invalid token type")
         user_id = int(payload["sub"])
+        session_version = int(payload["session_version"])
+        if session_version < 0:
+            raise ValueError("Invalid session version")
     except (jwt.InvalidTokenError, KeyError, TypeError, ValueError):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -41,6 +44,12 @@ def get_current_user(
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid or inactive user",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    if session_version != user.session_version:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Session has been revoked",
             headers={"WWW-Authenticate": "Bearer"},
         )
 

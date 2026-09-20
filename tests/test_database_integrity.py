@@ -40,7 +40,7 @@ def test_lottery_code_is_unique_and_required():
     assert column.nullable is False
 
 
-def test_lottery_draw_requires_lottery_and_enforces_unique_number_and_date():
+def test_lottery_draw_requires_lottery_and_enforces_provider_scoped_unique_number_and_date():
     table = LotteryDraw.__table__
     unique_constraints = {
         tuple(constraint.columns.keys())
@@ -51,8 +51,8 @@ def test_lottery_draw_requires_lottery_and_enforces_unique_number_and_date():
     assert table.c.lottery_id.nullable is False
     assert table.c.draw_number.nullable is False
     assert table.c.draw_date.nullable is False
-    assert ("lottery_id", "draw_number") in unique_constraints
-    assert ("lottery_id", "draw_date") in unique_constraints
+    assert ("lottery_id", "source", "draw_number") in unique_constraints
+    assert ("lottery_id", "source", "draw_date") in unique_constraints
 
 
 def test_lottery_draw_foreign_key_cascades_on_lottery_delete():

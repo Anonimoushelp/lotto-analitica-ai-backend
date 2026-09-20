@@ -12,6 +12,7 @@ if TYPE_CHECKING:
 
 
 DRAW_JSON_TYPE = JSON().with_variant(JSONB, "postgresql")
+DEFAULT_DRAW_SOURCE = "legacy-import"
 
 
 class LotteryDraw(Base):
@@ -20,13 +21,15 @@ class LotteryDraw(Base):
     __table_args__ = (
         UniqueConstraint(
             "lottery_id",
+            "source",
             "draw_number",
-            name="uq_lottery_draw_number",
+            name="uq_lottery_draw_source_number",
         ),
         UniqueConstraint(
             "lottery_id",
+            "source",
             "draw_date",
-            name="uq_lottery_draw_date",
+            name="uq_lottery_draw_source_date",
         ),
         Index(
             "ix_lottery_draws_lottery_date_id",
@@ -65,9 +68,10 @@ class LotteryDraw(Base):
         nullable=True,
     )
 
-    source: Mapped[str | None] = mapped_column(
+    source: Mapped[str] = mapped_column(
         String(255),
-        nullable=True,
+        nullable=False,
+        default=DEFAULT_DRAW_SOURCE,
     )
 
     metadata_json: Mapped[dict[str, Any] | None] = mapped_column(

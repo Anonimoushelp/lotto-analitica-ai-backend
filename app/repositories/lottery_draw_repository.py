@@ -11,18 +11,28 @@ class LotteryDrawRepository:
         return db.get(LotteryDraw, draw_id)
 
     @staticmethod
+    def get_by_id_for_update(db: Session, draw_id: int) -> LotteryDraw | None:
+        """Load a draw with a row lock for transactional mutation paths."""
+        statement = select(LotteryDraw).where(LotteryDraw.id == draw_id).with_for_update()
+        return db.scalar(statement)
+
+    @staticmethod
     def list(
         db: Session,
         lottery_id: int | None = None,
+        source: str | None = None,
         limit: int = 100,
     ) -> list[LotteryDraw]:
-        statement = select(LotteryDraw).order_by(
-            LotteryDraw.draw_date.desc(),
-            LotteryDraw.id.desc(),
-        ).limit(limit)
+        statement = (
+            select(LotteryDraw)
+            .order_by(LotteryDraw.draw_date.desc(), LotteryDraw.id.desc())
+            .limit(limit)
+        )
 
         if lottery_id is not None:
             statement = statement.where(LotteryDraw.lottery_id == lottery_id)
+        if source is not None:
+            statement = statement.where(LotteryDraw.source == source)
 
         return list(db.scalars(statement).all())
 
@@ -31,11 +41,14 @@ class LotteryDrawRepository:
         db: Session,
         lottery_id: int,
         draw_number: str,
+        source: str | None = None,
     ) -> LotteryDraw | None:
         statement = select(LotteryDraw).where(
             LotteryDraw.lottery_id == lottery_id,
             LotteryDraw.draw_number == draw_number,
         )
+        if source is not None:
+            statement = statement.where(LotteryDraw.source == source)
         return db.scalar(statement)
 
     @staticmethod
@@ -43,11 +56,14 @@ class LotteryDrawRepository:
         db: Session,
         lottery_id: int,
         draw_date,
+        source: str | None = None,
     ) -> LotteryDraw | None:
         statement = select(LotteryDraw).where(
             LotteryDraw.lottery_id == lottery_id,
             LotteryDraw.draw_date == draw_date,
         )
+        if source is not None:
+            statement = statement.where(LotteryDraw.source == source)
         return db.scalar(statement)
 
     @staticmethod
