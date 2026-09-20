@@ -85,3 +85,33 @@ def test_draw_schema_rejects_oversized_metadata() -> None:
 def test_draw_update_schema_rejects_oversized_metadata() -> None:
     with pytest.raises(ValidationError, match="metadata_json cannot exceed"):
         LotteryDrawUpdate(metadata_json={"payload": "x" * MAX_METADATA_BYTES})
+
+    
+def test_draw_schema_accepts_normalized_non_numeric_result_group():
+    payload = valid_payload()
+    payload["main_numbers"] = None
+    payload["bonus_numbers"] = None
+    payload["result_groups"] = [
+        {
+            "group_code": "symbol",
+            "position": 1,
+            "value": "X",
+            "numeric_value": None,
+        }
+    ]
+
+    draw = LotteryDrawCreate(**payload)
+
+    assert draw.main_numbers is None
+    assert draw.result_groups[0].value == "X"
+
+
+def test_draw_schema_rejects_duplicate_group_positions():
+    payload = valid_payload()
+    payload["result_groups"] = [
+        {"group_code": "main", "position": 1, "value": "10"},
+        {"group_code": "main", "position": 1, "value": "11"},
+    ]
+
+    with pytest.raises(ValidationError):
+        LotteryDrawCreate(**payload)
