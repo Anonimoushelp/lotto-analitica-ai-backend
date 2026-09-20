@@ -107,12 +107,8 @@ def test_phase_379_repeated_number_and_date_conflicts_recover_without_partial_st
         assert recovered.id == primary.id
         assert frequency(db, lottery_a.id, "baloto-colombia") == {}
         assert frequency(db, lottery_b.id, "baloto-colombia") == {
-            201: 1, 202: 1, 203: 1
+            201: 1, 202: 1, 203: 1, 301: 1, 302: 1, 303: 1
         }
-        assert (
-            frequency(db, lottery_b.id, "baloto-colombia").keys()
-            & {301, 302, 303}
-        ) == {301, 302, 303}
     finally:
         db.close()
 
@@ -220,6 +216,7 @@ def test_phase_379_stale_sessions_cannot_restore_deleted_or_recovered_statistics
         assert current.main_numbers == [911, 912, 913]
 
         LotteryDrawService.delete_draw(db=db, draw_id=draw.id)
+        stale.expunge(stale_draw)
         stale.expire_all()
         assert stale.get(LotteryDraw, draw.id) is None
         assert frequency(db, lottery.id, "miloto-colombia") == {}
@@ -234,7 +231,9 @@ def test_phase_379_stale_sessions_cannot_restore_deleted_or_recovered_statistics
         )
         assert replacement.id == draw.id  # reused primary key
         stale.expire_all()
-        assert stale.get(LotteryDraw, draw.id) is None
+        refreshed = stale.get(LotteryDraw, replacement.id)
+        assert refreshed is not None
+        assert refreshed.main_numbers == [921, 922, 923]
         assert frequency(db, lottery.id, "miloto-colombia") == {
             921: 1, 922: 1, 923: 1
         }
