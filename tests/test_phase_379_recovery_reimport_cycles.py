@@ -249,7 +249,7 @@ def test_phase_379_recovery_conflict_then_cross_provider_reimport_preserves_thre
     try:
         scopes = [
             ("PH379-E", "baloto-colombia", [1001, 1002, 1003]),
-            ("PH379-F", "revancha-colombia", [1101, 1102, 1103]),
+            ("PH379-F", "baloto-colombia", [1101, 1102, 1103]),
             ("PH379-G", "miloto-colombia", [1201, 1202, 1203]),
         ]
         records = []
@@ -299,7 +299,7 @@ def test_phase_379_recovery_conflict_then_cross_provider_reimport_preserves_thre
             1401: 1, 1402: 1, 1403: 1
         }
         assert frequency(
-            db, conflict_lottery.id, "revancha-colombia"
+            db, conflict_lottery.id, "baloto-colombia"
         ) == {1101: 1, 1102: 1, 1103: 1}
         third_lottery, _, third_source = records[2]
         assert frequency(db, third_lottery.id, third_source) == {
