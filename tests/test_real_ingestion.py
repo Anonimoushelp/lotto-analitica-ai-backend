@@ -1,9 +1,28 @@
 from datetime import date
 
+import pytest
+
+from sqlalchemy import create_engine, delete
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
+
+from app.models.draw_result import DrawResult
 from app.models.lottery import Lottery
+from app.models.lottery_draw import LotteryDraw
 from app.sources.contracts import SourceDraw, SourceMetadata
 from app.sources.ingestion import build_idempotency_key
 from app.sources.persistence import ingest_and_persist
+
+
+engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+TestingSessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
+Lottery.__table__.create(bind=engine)
+LotteryDraw.__table__.create(bind=engine)
+DrawResult.__table__.create(bind=engine)
+
+
+def db_session():
+    return TestingSessionLocal()
 
 
 class FixtureAdapter:
@@ -14,6 +33,22 @@ class FixtureAdapter:
 
     def fetch_draws(self):
         return self._draws
+
+
+@pytest.fixture
+
+def db():
+    session = db_session()
+    try:
+        yield session
+    finally:
+        session.close()
+        cleanup = db_session()
+        cleanup.execute(delete(DrawResult))
+        cleanup.execute(delete(LotteryDraw))
+        cleanup.execute(delete(Lottery))
+        cleanup.commit()
+        cleanup.close()
 
 
 def seed_lottery(db):
