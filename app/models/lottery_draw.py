@@ -8,8 +8,8 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.db.base import Base
 
 if TYPE_CHECKING:
-    from app.models.lottery import Lottery
     from app.models.draw_result import DrawResult
+    from app.models.lottery import Lottery
 
 
 DRAW_JSON_TYPE = JSON().with_variant(JSONB, "postgresql")
@@ -49,7 +49,7 @@ class LotteryDraw(Base):
     # Compatibility fields. New ingestion must populate normalized results.
     main_numbers: Mapped[list[int] | None] = mapped_column(
         DRAW_JSON_TYPE,
-        nullable=False,
+        nullable=True,
     )
     bonus_numbers: Mapped[list[int] | None] = mapped_column(
         DRAW_JSON_TYPE,
