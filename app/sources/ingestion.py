@@ -17,13 +17,12 @@ class IngestionEnvelope:
 
 
 def build_idempotency_key(source_id: str, draw: SourceDraw) -> str:
-    """Build a stable key from source, draw identity and normalized groups."""
+    """Build a stable key from the immutable source draw identity."""
     canonical = normalize_source_draw(draw)
     payload: dict[str, Any] = {
         "source_id": source_id.strip(),
         "draw_number": canonical.draw_number,
         "draw_date": canonical.draw_date.isoformat(),
-        "groups": canonical.groups,
     }
     encoded = json.dumps(payload, sort_keys=True, separators=(",", ":"))
     return sha256(encoded.encode("utf-8")).hexdigest()
