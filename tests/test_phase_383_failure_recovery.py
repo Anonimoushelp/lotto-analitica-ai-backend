@@ -140,3 +140,4 @@ def test_phase_383_cross_scope_failure_recovery_preserves_other_providers():
         assert stats(db, second.id, "miloto-colombia") == {4501: 1, 4502: 1, 4503: 1}
     finally:
         db.close()
+
