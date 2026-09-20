@@ -221,8 +221,19 @@ def upgrade() -> None:
     if values:
         op.bulk_insert(draw_results, values)
 
+    op.create_unique_constraint(
+        "uq_draw_results_draw_group_position",
+        "draw_results",
+        ["draw_id", "group_code", "position"],
+    )
+
 
 def downgrade() -> None:
+    op.drop_constraint(
+        "uq_draw_results_draw_group_position",
+        "draw_results",
+        type_="unique",
+    )
     op.drop_index(
         "ix_draw_results_draw_group_position",
         table_name="draw_results",
