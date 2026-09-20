@@ -1,6 +1,6 @@
 """Phase 378 regression coverage for prolonged multi-scope transactional cycles."""
 
-from datetime import date, timedelta
+from datetime import date
 
 from fastapi import HTTPException
 from sqlalchemy.orm import Session
