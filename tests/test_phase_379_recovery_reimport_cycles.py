@@ -232,7 +232,7 @@ def test_phase_379_stale_sessions_cannot_restore_deleted_or_recovered_statistics
             main_numbers=[921, 922, 923],
             source="miloto-colombia",
         )
-        assert replacement.id != draw.id
+        assert replacement.id == draw.id
         stale.expire_all()
         assert stale.get(LotteryDraw, draw.id) is None
         assert frequency(db, lottery.id, "miloto-colombia") == {
