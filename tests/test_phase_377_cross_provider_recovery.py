@@ -4,18 +4,23 @@ from datetime import date
 
 from sqlalchemy.orm import Session
 
+from app.models.lottery import Lottery
 from app.models.lottery_draw import LotteryDraw
 from app.services.lottery_draw_service import LotteryDrawService
 from app.services.statistical_service import StatisticalService
-from tests.test_phase_375_prolonged_cycles import (
-    SessionLocal,
-    seed_draw,
-    seed_lottery,
-)
+from tests.test_phase_375_prolonged_cycles import SessionLocal, seed_draw
 
 
 def stats(db: Session, lottery_id: int, source: str) -> dict:
     return StatisticalService.overview(db=db, lottery_id=lottery_id, source=source)
+
+
+def seed_lottery(db: Session, code: str) -> Lottery:
+    lottery = Lottery(name=code, code=code, country="Colombia", currency="COP")
+    db.add(lottery)
+    db.commit()
+    db.refresh(lottery)
+    return lottery
 
 
 def test_phase_377_failed_correction_then_cross_provider_reimport_keeps_single_current_state(db: Session, monkeypatch):
