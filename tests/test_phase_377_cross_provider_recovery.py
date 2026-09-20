@@ -8,12 +8,7 @@ from app.models.lottery_draw import LotteryDraw
 from app.services.lottery_draw_service import LotteryDrawService
 from app.services.statistical_service import StatisticalService
 
-from tests.test_phase_375_prolonged_cycles import (
-    Lottery,
-    SessionLocal,
-    seed_draw,
-    seed_lottery,
-)
+from tests.test_phase_375_prolonged_cycles import Lottery, SessionLocal, seed_draw, seed_lottery
 
 
 def stats(db: Session, lottery_id: int, source: str) -> dict:
