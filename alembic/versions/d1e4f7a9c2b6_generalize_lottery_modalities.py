@@ -242,6 +242,19 @@ def downgrade() -> None:
     op.drop_index("ix_draw_results_id", table_name="draw_results")
     op.drop_table("draw_results")
 
+    connection = op.get_bind()
+    duplicate_dates = connection.execute(
+        sa.text(
+            "SELECT lottery_id, draw_date FROM lottery_draws "
+            "GROUP BY lottery_id, draw_date HAVING COUNT(*) > 1 LIMIT 1"
+        )
+    ).first()
+    if duplicate_dates is not None:
+        raise RuntimeError(
+            "Cannot downgrade d1e4f7a9c2b6: multiple draws share a lottery/date "
+            "and the legacy unique constraint cannot represent them losslessly."
+        )
+
     op.create_unique_constraint(
         "uq_lottery_draw_date",
         "lottery_draws",
