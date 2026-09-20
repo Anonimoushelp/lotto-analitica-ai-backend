@@ -73,10 +73,6 @@ def test_update_draw_rolls_back_on_concurrent_unique_conflict(monkeypatch):
         "app.services.lottery_draw_service.LotteryDrawRepository.get_by_number",
         lambda **kwargs: None,
     )
-    monkeypatch.setattr(
-        "app.services.lottery_draw_service.LotteryDrawRepository.get_by_date",
-        lambda **kwargs: None,
-    )
 
     with pytest.raises(HTTPException) as exc_info:
         LotteryDrawService.update_draw(
