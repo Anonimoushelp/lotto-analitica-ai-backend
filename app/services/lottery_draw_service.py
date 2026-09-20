@@ -33,6 +33,7 @@ class LotteryDrawService:
 
     @staticmethod
     def _build_results(
+        db: Session,
         draw: LotteryDraw,
         result_groups: list[dict[str, Any]] | None,
     ) -> None:
@@ -59,7 +60,10 @@ class LotteryDrawService:
                     for position, number in enumerate(draw.bonus_numbers, start=1)
                 )
 
-        draw.results.clear()
+        for existing_result in list(draw.results):
+            db.delete(existing_result)
+        db.flush()
+
         for item in groups:
             numeric_value = item.get("numeric_value")
             value = str(item["value"])
@@ -125,7 +129,7 @@ class LotteryDrawService:
             raw_payload=raw_payload,
             metadata_json=metadata_json,
         )
-        LotteryDrawService._build_results(draw, result_groups)
+        LotteryDrawService._build_results(db, draw, result_groups)
 
         try:
             return LotteryDrawRepository.create(db=db, draw=draw)
@@ -169,9 +173,9 @@ class LotteryDrawService:
             setattr(draw, field, value)
 
         if result_groups is not None:
-            LotteryDrawService._build_results(draw, result_groups)
+            LotteryDrawService._build_results(db, draw, result_groups)
         elif "main_numbers" in update_data or "bonus_numbers" in update_data:
-            LotteryDrawService._build_results(draw, None)
+            LotteryDrawService._build_results(db, draw, None)
 
         try:
             db.commit()
