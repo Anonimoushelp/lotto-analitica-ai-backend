@@ -14,7 +14,11 @@ from app.sources.ingestion import build_idempotency_key
 from app.sources.persistence import ingest_and_persist
 
 
-engine = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
+engine = create_engine(
+    "sqlite://",
+    connect_args={"check_same_thread": False},
+    poolclass=StaticPool,
+)
 TestingSessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 Lottery.__table__.create(bind=engine)
 LotteryDraw.__table__.create(bind=engine)
@@ -36,7 +40,6 @@ class FixtureAdapter:
 
 
 @pytest.fixture
-
 def db():
     session = db_session()
     try:
