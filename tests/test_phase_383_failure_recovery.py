@@ -105,6 +105,10 @@ def test_phase_383_cross_scope_failure_recovery_preserves_other_providers():
                 db, second.id, "38330", date(2026, 12, 12),
                 [4501, 4502, 4503], "miloto-colombia"
             ),
+            seed_draw(
+                db, second.id, "38331", date(2026, 12, 13),
+                [4551, 4552, 4553], "baloto-colombia"
+            ),
         ]
         target = draws[0]
         for cycle in range(4):
@@ -114,8 +118,8 @@ def test_phase_383_cross_scope_failure_recovery_preserves_other_providers():
                     draw_id=target.id,
                     update_data={
                         "lottery_id": second.id,
-                        "draw_number": draws[2].draw_number,
-                        "draw_date": draws[2].draw_date,
+                        "draw_number": draws[3].draw_number,
+                        "draw_date": draws[3].draw_date,
                         "main_numbers": [4600 + cycle, 4700 + cycle, 4800 + cycle],
                     },
                 )
