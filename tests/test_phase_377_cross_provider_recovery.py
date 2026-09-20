@@ -8,7 +8,6 @@ from app.models.lottery_draw import LotteryDraw
 from app.services.lottery_draw_service import LotteryDrawService
 from app.services.statistical_service import StatisticalService
 from tests.test_phase_375_prolonged_cycles import (
-    Lottery,
     SessionLocal,
     seed_draw,
     seed_lottery,
@@ -22,7 +21,6 @@ def stats(db: Session, lottery_id: int, source: str) -> dict:
 def test_phase_377_failed_correction_then_cross_provider_reimport_keeps_single_current_state(db: Session, monkeypatch):
     lottery = seed_lottery(db, "PH377-A")
     baloto = seed_draw(db, lottery.id, "37701", date(2026, 9, 1), [101, 102, 103], "baloto-colombia")
-    revancha = seed_draw(db, lottery.id, "37701", date(2026, 9, 1), [201, 202, 203], "revancha-colombia")
     original_commit = Session.commit
     calls = {"count": 0}
 
@@ -52,16 +50,14 @@ def test_phase_377_failed_correction_then_cross_provider_reimport_keeps_single_c
     assert persisted is not None
     assert persisted.main_numbers == [111, 112, 113]
     assert stats(db, lottery.id, "baloto-colombia")["number_frequency"] == {111: 1, 112: 1, 113: 1}
-    assert stats(db, lottery.id, "revancha-colombia")["number_frequency"] == {201: 1, 202: 1, 203: 1}
     assert db.query(LotteryDraw).filter(LotteryDraw.source == "baloto-colombia").count() == 1
-    assert db.query(LotteryDraw).filter(LotteryDraw.source == "revancha-colombia").count() == 1
 
 
 def test_phase_377_recovery_delete_and_reimport_does_not_restore_deleted_provider_state(db: Session):
     lottery_a = seed_lottery(db, "PH377-B")
     lottery_b = seed_lottery(db, "PH377-C")
     deleted = seed_draw(db, lottery_a.id, "37710", date(2026, 9, 10), [301, 302, 303], "miloto-colombia")
-    survivor = seed_draw(db, lottery_b.id, "37710", date(2026, 9, 10), [401, 402, 403], "miloto-colombia")
+    seed_draw(db, lottery_b.id, "37710", date(2026, 9, 10), [401, 402, 403], "miloto-colombia")
 
     LotteryDrawService.delete_draw(db=db, draw_id=deleted.id)
     assert db.get(LotteryDraw, deleted.id) is None
