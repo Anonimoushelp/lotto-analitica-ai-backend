@@ -59,6 +59,7 @@ class LotteryDraw(Base):
     source: Mapped[str | None] = mapped_column(String(255), nullable=True)
     source_type: Mapped[str | None] = mapped_column(String(50), nullable=True)
     source_reference: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    ingestion_key: Mapped[str | None] = mapped_column(String(64), nullable=True, index=True)
     raw_payload: Mapped[dict[str, Any] | None] = mapped_column(
         DRAW_JSON_TYPE,
         nullable=True,
