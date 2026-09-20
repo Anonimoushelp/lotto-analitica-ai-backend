@@ -136,7 +136,7 @@ def test_phase_383_cross_scope_failure_recovery_preserves_other_providers():
                          "main_numbers": [4901, 4902, 4903]},
         )
         assert stats(db, first.id, "baloto-colombia") == {}
-        assert stats(db, second.id, "baloto-colombia") == {4901: 1, 4902: 1, 4903: 1}
+        assert stats(db, second.id, "baloto-colombia") == {4551: 1, 4552: 1, 4553: 1, 4901: 1, 4902: 1, 4903: 1}
         assert stats(db, second.id, "miloto-colombia") == {4501: 1, 4502: 1, 4503: 1}
     finally:
         db.close()
