@@ -1,6 +1,6 @@
+import json
 from dataclasses import dataclass
 from hashlib import sha256
-import json
 from typing import Any
 
 from app.sources.contracts import CanonicalDraw, SourceDraw
