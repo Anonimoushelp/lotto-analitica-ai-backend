@@ -115,3 +115,23 @@ def test_draw_schema_rejects_duplicate_group_positions():
 
     with pytest.raises(ValidationError):
         LotteryDrawCreate(**payload)
+
+
+def test_draw_update_schema_rejects_duplicate_group_positions():
+    with pytest.raises(ValidationError):
+        LotteryDrawUpdate(
+            result_groups=[
+                {"group_code": "main", "position": 1, "value": "10"},
+                {"group_code": "main", "position": 1, "value": "11"},
+            ]
+        )
+
+
+def test_draw_schema_requires_result_representation():
+    payload = valid_payload()
+    payload["main_numbers"] = None
+    payload["bonus_numbers"] = None
+    payload["result_groups"] = []
+
+    with pytest.raises(ValidationError, match="result representation"):
+        LotteryDrawCreate(**payload)
