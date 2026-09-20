@@ -37,7 +37,7 @@ def test_phase_383_chained_integrity_failures_never_leave_partial_mutations():
             db, lottery.id, "38300", date(2026, 12, 1),
             [3701, 3702, 3703], "baloto-colombia"
         )
-        conflict = seed_draw(
+        seed_draw(
             db, lottery.id, "38301", date(2026, 12, 2),
             [3801, 3802, 3803], "baloto-colombia"
         )
