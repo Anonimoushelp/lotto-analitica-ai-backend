@@ -172,6 +172,8 @@ class LotteryDrawService:
 
         if result_groups is not None:
             LotteryDrawService._build_results(draw, result_groups)
+        elif "main_numbers" in update_data or "bonus_numbers" in update_data:
+            LotteryDrawService._build_results(draw, None)
 
         try:
             db.commit()
