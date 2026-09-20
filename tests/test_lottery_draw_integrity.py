@@ -190,7 +190,23 @@ def test_update_draw_rejects_missing_target_lottery(db):
     assert exc.value.status_code == 404
 
 
-def test_update_draw_rejects_empty_result_representation(db):\n    lottery = seed_lottery(db, "MiLoto")\n    draw = LotteryDrawService.create_draw(db=db, **draw_payload(lottery.id))\n\n    with pytest.raises(HTTPException) as exc:\n        LotteryDrawService.update_draw(\n            db=db,\n            draw_id=draw.id,\n            update_data={"main_numbers": None, "bonus_numbers": None, "result_groups": []},\n        )\n\n    assert exc.value.status_code == 422\n    assert "result representation" in exc.value.detail\n\n\ndef test_delete_draw_removes_record(db):
+def test_update_draw_rejects_empty_result_representation(db):
+    lottery = seed_lottery(db, "MiLoto")
+    draw = LotteryDrawService.create_draw(db=db, **draw_payload(lottery.id))
+
+    with pytest.raises(HTTPException) as exc:
+        LotteryDrawService.update_draw(
+            db=db,
+            draw_id=draw.id,
+            update_data={"main_numbers": None, "bonus_numbers": None, "result_groups": []},
+        )
+
+    assert exc.value.status_code == 422
+    assert "result representation" in exc.value.detail
+
+
+def test_delete_draw_removes_record(db):
+
     lottery = seed_lottery(db, "MiLoto")
     draw = LotteryDrawService.create_draw(db=db, **draw_payload(lottery.id))
 
