@@ -99,6 +99,7 @@ class LotteryDrawService:
         source_reference: str | None = None,
         raw_payload: dict[str, Any] | None = None,
         metadata_json: dict | None = None,
+        ingestion_key: str | None = None,
     ) -> LotteryDraw:
         lottery = db.get(Lottery, lottery_id)
         if lottery is None:
@@ -130,6 +131,7 @@ class LotteryDrawService:
             source_reference=source_reference,
             raw_payload=raw_payload,
             metadata_json=metadata_json,
+            ingestion_key=ingestion_key,
         )
         LotteryDrawService._build_results(db, draw, result_groups)
 
