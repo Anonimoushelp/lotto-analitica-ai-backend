@@ -23,7 +23,9 @@ def seed_lottery(db: Session, code: str) -> Lottery:
     return lottery
 
 
-def test_phase_377_failed_correction_then_cross_provider_reimport_keeps_single_current_state(db: Session, monkeypatch):
+def test_phase_377_failed_correction_then_cross_provider_reimport_keeps_single_current_state(monkeypatch):
+    db = SessionLocal()
+    try
     lottery = seed_lottery(db, "PH377-A")
     baloto = seed_draw(db, lottery.id, "37701", date(2026, 9, 1), [101, 102, 103], "baloto-colombia")
     original_commit = Session.commit
@@ -46,7 +48,7 @@ def test_phase_377_failed_correction_then_cross_provider_reimport_keeps_single_c
             db.rollback()
     finally:
         monkeypatch.setattr(Session, "commit", original_commit)
-        db.close()
+
 
     LotteryDrawService.update_draw(
         db=db, draw_id=baloto.id,
@@ -75,7 +77,9 @@ def test_phase_377_recovery_delete_and_reimport_does_not_restore_deleted_provide
         reimported = seed_draw(db, lottery_a.id, "37711", date(2026, 9, 11), [501, 502, 503], "miloto-colombia")
         assert reimported.id != deleted.id
     assert stats(db, lottery_a.id, "miloto-colombia")["number_frequency"] == {501: 1, 502: 1, 503: 1}
-    assert stats(db, lottery_b.id, "miloto-colombia")["number_frequency"] == {401: 1, 402: 1, 403: 1}
+        assert stats(db, lottery_b.id, "miloto-colombia")["number_frequency"] == {401: 1, 402: 1, 403: 1}
+    finally:
+        db.close()
 
 
 def test_phase_377_stale_session_after_cross_provider_recovery_reads_current_statistics_only(db: Session):
@@ -86,7 +90,7 @@ def test_phase_377_stale_session_after_cross_provider_recovery_reads_current_sta
         stale = SessionLocal()
         try:
             assert stale.get(LotteryDraw, draw.id) is not None
-        LotteryDrawService.update_draw(
+            LotteryDrawService.update_draw(
             db=db, draw_id=draw.id,
             update_data={"draw_number": "37721", "draw_date": date(2026, 9, 21), "main_numbers": [701, 702, 703]},
         )
