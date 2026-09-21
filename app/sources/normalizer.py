@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from app.sources.contracts import RawDrawRecord, SourceSpec
+# isort: skip_file
+
 from collections.abc import Mapping
 from datetime import date, datetime, time
 from typing import Any
