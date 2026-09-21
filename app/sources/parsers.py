@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import re
+import unicodedata
 from collections.abc import Iterable, Mapping
 from html.parser import HTMLParser
 from typing import Any, Protocol
@@ -192,5 +193,8 @@ class HtmlTableParser:
 
     @staticmethod
     def _draw_type(value: str) -> str:
-        normalized = re.sub(r"[^a-z0-9]+", "_", value.casefold()).strip("_")
+        ascii_value = unicodedata.normalize("NFKD", value).encode(
+            "ascii", "ignore"
+        ).decode("ascii")
+        normalized = re.sub(r"[^a-z0-9]+", "_", ascii_value.casefold()).strip("_")
         return normalized.upper()
