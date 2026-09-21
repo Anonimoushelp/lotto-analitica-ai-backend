@@ -22,6 +22,9 @@ class Settings(BaseSettings):
 
     secret_key: str = Field(min_length=32)
     gemini_api_key: str = ""
+    loteriaya_api_key: str = ""
+    loteriaya_base_url: str = "https://www.loteriaya.com.co"
+    loteriaya_timeout: float = Field(default=20.0, gt=0, le=60)
     functional_encryption_provider: str = "none"
     allow_initial_registration: bool = False
     cors_allowed_origins: list[str] = Field(default_factory=list)
