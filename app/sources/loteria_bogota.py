@@ -28,7 +28,7 @@ class BogotaLotteryAdapter(OfficialSourceAdapter):
             "septiembre": 9, "octubre": 10, "noviembre": 11, "diciembre": 12,
         }
         raw_date = re.sub(r"\s+de\s+", " de ", match.group("date").lower())
-        day, month, year = raw_date.split(" de ")
+        day, _, month, year = raw_date.split()
         number = match.group("number")
         if number == "0000" or match.group("series") == "000":
             raise SourceValidationError("Bogotá placeholder result rejected")
