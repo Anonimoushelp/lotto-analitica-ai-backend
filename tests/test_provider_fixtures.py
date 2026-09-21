@@ -1,13 +1,17 @@
 import json
 from pathlib import Path
 
-from app.sources.adapters import BalotoAdapter, MiLotoAdapter, RevanchaAdapter, SuperAstroAdapter
+from app.sources.adapters import (
+    BalotoAdapter,
+    MiLotoAdapter,
+    RevanchaAdapter,
+    SuperAstroAdapter,
+)
 from app.sources.provider_parsers import (
     BalotoFamilyJsonParser,
     MiLotoJsonParser,
     SuperAstroJsonParser,
 )
-
 
 FIXTURES = Path(__file__).parent / "fixtures" / "providers"
 
