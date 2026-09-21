@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
+from app.db.session import engine
 from app.models.ingestion_run import IngestionRun
 from app.services.official_ingestion_service import OfficialIngestionService
 from app.sources.base import SourceValidationError
@@ -19,35 +20,40 @@ class OfficialIngestionRunner:
 
     @staticmethod
     def run_all(db: Session) -> list[IngestionRun]:
-        locked = db.scalar(
-            text("SELECT pg_try_advisory_lock(:key)"),
-            {"key": INGESTION_LOCK_KEY},
-        )
-        if not locked:
-            run = IngestionRun(
-                source="all",
-                status="skipped",
-                started_at=datetime.now(UTC),
-                finished_at=datetime.now(UTC),
-                error_message="another official ingestion run is already active",
-            )
-            db.add(run)
-            db.commit()
-            return [run]
-
-        results: list[IngestionRun] = []
+        lock_connection = engine.connect()
         try:
-            for source, adapter_factory in OFFICIAL_SOURCE_ADAPTERS.items():
-                results.append(
-                    OfficialIngestionRunner.run_source(db, source, adapter_factory)
-                )
-            return results
-        finally:
-            db.execute(
-                text("SELECT pg_advisory_unlock(:key)"),
+            locked = lock_connection.scalar(
+                text("SELECT pg_try_advisory_lock(:key)"),
                 {"key": INGESTION_LOCK_KEY},
             )
-            db.commit()
+            if not locked:
+                run = IngestionRun(
+                    source="all",
+                    status="skipped",
+                    started_at=datetime.now(UTC),
+                    finished_at=datetime.now(UTC),
+                    error_message="another official ingestion run is already active",
+                )
+                db.add(run)
+                db.commit()
+                return [run]
+
+            lock_connection.commit()
+            results: list[IngestionRun] = []
+            try:
+                for source, adapter_factory in OFFICIAL_SOURCE_ADAPTERS.items():
+                    results.append(
+                        OfficialIngestionRunner.run_source(db, source, adapter_factory)
+                    )
+                return results
+            finally:
+                lock_connection.execute(
+                    text("SELECT pg_advisory_unlock(:key)"),
+                    {"key": INGESTION_LOCK_KEY},
+                )
+                lock_connection.commit()
+        finally:
+            lock_connection.close()
 
     @staticmethod
     def run_source(db: Session, source: str, adapter_factory) -> IngestionRun:
