@@ -101,19 +101,30 @@ def test_run_source_is_idempotent_on_existing_draw(db):
     assert db.query(IngestionRun).count() == 2
 
 
-def test_runner_skips_when_global_lock_is_held(db, monkeypatch):
-    class LockedResult:
+def test_runner_skips_when_global_lock_is_held(monkeypatch):
+    class LockedConnection:
         def scalar(self, *args, **kwargs):
             return False
 
+        def close(self):
+            pass
+
+    class LockedEngine:
+        def connect(self):
+            return LockedConnection()
+
+    class FakeDb:
         def add(self, obj):
             self.obj = obj
 
         def commit(self):
             pass
 
-    fake_db = LockedResult()
-    run = OfficialIngestionRunner.run_all(fake_db)
+    monkeypatch.setattr(
+        "app.services.official_ingestion_runner.engine",
+        LockedEngine(),
+    )
+    run = OfficialIngestionRunner.run_all(FakeDb())
 
     assert run[0].status == "skipped"
     assert run[0].source == "all"
