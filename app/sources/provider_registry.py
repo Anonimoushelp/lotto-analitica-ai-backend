@@ -1,3 +1,5 @@
+# isort: skip_file
+
 from app.sources.four_digit_adapters import (
     AntioquenitaAdapter,
     CafeteritoAdapter,
