@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from datetime import date, datetime, time
-from typing import Any, Mapping
+from typing import Any
 
 from app.sources.contracts import RawDrawRecord, SourceSpec
 
@@ -13,12 +14,7 @@ class SourceNormalizationError(ValueError):
 class MappingSourceAdapter:
     """Normalize provider dictionaries without coupling providers to persistence."""
 
-    def __init__(
-        self,
-        spec: SourceSpec,
-        *,
-        field_map: Mapping[str, str] | None = None,
-    ) -> None:
+    def __init__(self, spec: SourceSpec, *, field_map: Mapping[str, str] | None = None) -> None:
         self.spec = spec
         self.field_map = dict(field_map or {})
 
@@ -26,25 +22,17 @@ class MappingSourceAdapter:
         lottery_code = str(self._get(payload, "lottery_code", self.spec.lottery_code))
         draw_type = str(self._get(payload, "draw_type"))
         if draw_type not in self.spec.draw_types:
-            raise SourceNormalizationError(
-                f"Unsupported draw type '{draw_type}' for {lottery_code}"
-            )
-
+            raise SourceNormalizationError(f"Unsupported draw type '{draw_type}' for {lottery_code}")
         draw_number = str(self._get(payload, "draw_number"))
         draw_date = self._coerce_date(self._get(payload, "draw_date"))
         draw_time = self._coerce_time(self._get(payload, "draw_time", None))
         main_numbers = self._coerce_numbers(self._get(payload, "main_numbers"), "main_numbers")
         bonus_value = self._get(payload, "bonus_numbers", None)
-        bonus_numbers = (
-            self._coerce_numbers(bonus_value, "bonus_numbers")
-            if bonus_value is not None
-            else None
-        )
+        bonus_numbers = self._coerce_numbers(bonus_value, "bonus_numbers") if bonus_value is not None else None
         metadata = dict(self._get(payload, "metadata", {}))
         source_name = str(self._get(payload, "source_name", self.spec.primary_name))
         source_url = self._get(payload, "source_url", self.spec.primary_url)
         source_timestamp = self._get(payload, "source_timestamp", None)
-
         return RawDrawRecord(
             lottery_code=lottery_code,
             draw_type=draw_type,
