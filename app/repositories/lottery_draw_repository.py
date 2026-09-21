@@ -16,10 +16,14 @@ class LotteryDrawRepository:
         lottery_id: int | None = None,
         limit: int = 100,
     ) -> list[LotteryDraw]:
-        statement = select(LotteryDraw).order_by(
-            LotteryDraw.draw_date.desc(),
-            LotteryDraw.id.desc(),
-        ).limit(limit)
+        statement = (
+            select(LotteryDraw)
+            .order_by(
+                LotteryDraw.draw_date.desc(),
+                LotteryDraw.id.desc(),
+            )
+            .limit(limit)
+        )
 
         if lottery_id is not None:
             statement = statement.where(LotteryDraw.lottery_id == lottery_id)
@@ -30,10 +34,12 @@ class LotteryDrawRepository:
     def get_by_number(
         db: Session,
         lottery_id: int,
+        draw_type: str,
         draw_number: str,
     ) -> LotteryDraw | None:
         statement = select(LotteryDraw).where(
             LotteryDraw.lottery_id == lottery_id,
+            LotteryDraw.draw_type == draw_type,
             LotteryDraw.draw_number == draw_number,
         )
         return db.scalar(statement)
@@ -42,10 +48,12 @@ class LotteryDrawRepository:
     def get_by_date(
         db: Session,
         lottery_id: int,
+        draw_type: str,
         draw_date,
     ) -> LotteryDraw | None:
         statement = select(LotteryDraw).where(
             LotteryDraw.lottery_id == lottery_id,
+            LotteryDraw.draw_type == draw_type,
             LotteryDraw.draw_date == draw_date,
         )
         return db.scalar(statement)
