@@ -4,7 +4,7 @@ from typing import Any
 
 from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, field_validator
 
-MAX_NUMBER_VALUE = 1000
+MAX_NUMBER_VALUE = 9999
 MAX_MAIN_NUMBERS = 20
 MAX_BONUS_NUMBERS = 10
 MAX_METADATA_BYTES = 16 * 1024
