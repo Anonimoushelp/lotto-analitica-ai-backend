@@ -30,7 +30,17 @@ class SourceIngestionPipeline:
         try:
             fetched = self.fetcher.fetch(url)
             payloads = self.parser.parse(fetched)
-            return [self.adapter.normalize(payload) for payload in payloads]
+            enriched_payloads = [
+                {
+                    **payload,
+                    "source_url": payload.get("source_url", fetched.url),
+                    "source_timestamp": payload.get(
+                        "source_timestamp", fetched.fetched_at
+                    ),
+                }
+                for payload in payloads
+            ]
+            return [self.adapter.normalize(payload) for payload in enriched_payloads]
         except Exception as exc:
             if isinstance(exc, SourceIngestionError):
                 raise
