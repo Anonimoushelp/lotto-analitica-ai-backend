@@ -101,3 +101,41 @@ def test_ingestion_pipeline_wraps_fetch_errors() -> None:
 def test_http_fetcher_rejects_non_positive_timeout() -> None:
     with pytest.raises(ValueError, match="timeout"):
         HttpSourceFetcher(timeout=0)
+
+
+def test_html_json_ld_parser_extracts_records():
+    from app.sources.parsers import HtmlJsonLdParser
+
+    result = SourceFetchResult(
+        url="https://example.test/results",
+        status_code=200,
+        content=(
+            b'<html><script type="application/ld+json">'
+            b'{"results":[{"draw_number":1,"draw_date":"2026-09-20",'
+            b'"result":"0153"}]}'
+            b'</script></html>'
+        ),
+        content_type="text/html",
+        fetched_at=datetime.now(UTC),
+    )
+
+    records = list(HtmlJsonLdParser(records_key="results").parse(result))
+
+    assert records == [
+        {"draw_number": 1, "draw_date": "2026-09-20", "result": "0153"}
+    ]
+
+
+def test_html_json_ld_parser_rejects_html_without_json_ld():
+    from app.sources.parsers import HtmlJsonLdParser
+
+    result = SourceFetchResult(
+        url="https://example.test/results",
+        status_code=200,
+        content=b"<html><body>results</body></html>",
+        content_type="text/html",
+        fetched_at=datetime.now(UTC),
+    )
+
+    with pytest.raises(SourceParseError, match="JSON-LD"):
+        list(HtmlJsonLdParser().parse(result))
