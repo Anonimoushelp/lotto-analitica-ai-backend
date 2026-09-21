@@ -213,11 +213,6 @@ def test_draw_creation_is_idempotency_safe_for_repeated_draw_number(monkeypatch)
     )
     monkeypatch.setattr(
         LotteryDrawRepository,
-        "get_by_date",
-        lambda **kwargs: None,
-    )
-    monkeypatch.setattr(
-        LotteryDrawRepository,
         "create",
         lambda **kwargs: pytest.fail("duplicate draw must not be inserted"),
     )
@@ -235,48 +230,33 @@ def test_draw_creation_is_idempotency_safe_for_repeated_draw_number(monkeypatch)
     assert exc_info.value.detail == "Draw number already exists for this lottery"
 
 
-def test_draw_creation_is_idempotency_safe_for_repeated_draw_date(monkeypatch):
+def test_draw_creation_allows_repeated_draw_date(monkeypatch):
     class FakeSession:
         def get(self, model, identifier):
             assert model is Lottery
             assert identifier == 1
             return Lottery(id=1, code="TEST", name="Test Lottery")
 
-    existing = LotteryDraw(
+    monkeypatch.setattr(LotteryDrawRepository, "get_by_number", lambda **kwargs: None)
+    created = LotteryDraw(
         id=11,
         lottery_id=1,
         draw_number="RECOVERY-004",
         draw_date="2026-09-11",
         main_numbers=[6, 7, 8, 9, 10],
     )
-    monkeypatch.setattr(
-        LotteryDrawRepository,
-        "get_by_number",
-        lambda **kwargs: None,
-    )
-    monkeypatch.setattr(
-        LotteryDrawRepository,
-        "get_by_date",
-        lambda **kwargs: existing,
-    )
-    monkeypatch.setattr(
-        LotteryDrawRepository,
-        "create",
-        lambda **kwargs: pytest.fail("duplicate draw must not be inserted"),
+    monkeypatch.setattr(LotteryDrawRepository, "create", lambda **kwargs: created)
+
+    result = LotteryDrawService.create_draw(
+        db=FakeSession(),
+        lottery_id=1,
+        draw_number="RECOVERY-005",
+        draw_date="2026-09-11",
+        main_numbers=[11, 12, 13, 14, 15],
     )
 
-    with pytest.raises(HTTPException) as exc_info:
-        LotteryDrawService.create_draw(
-            db=FakeSession(),
-            lottery_id=1,
-            draw_number="RECOVERY-004",
-            draw_date="2026-09-11",
-            main_numbers=[6, 7, 8, 9, 10],
-        )
-
-    assert exc_info.value.status_code == 409
-    assert exc_info.value.detail == "Draw date already exists for this lottery"
-
+    assert result.draw_date == "2026-09-11"
+    assert result.draw_number == "RECOVERY-004"
 
 def test_draw_creation_translates_integrity_error_from_race_condition(monkeypatch):
     class FakeSession:
@@ -286,7 +266,6 @@ def test_draw_creation_translates_integrity_error_from_race_condition(monkeypatc
             return Lottery(id=1, code="TEST", name="Test Lottery")
 
     monkeypatch.setattr(LotteryDrawRepository, "get_by_number", lambda **kwargs: None)
-    monkeypatch.setattr(LotteryDrawRepository, "get_by_date", lambda **kwargs: None)
     monkeypatch.setattr(
         LotteryDrawRepository,
         "create",

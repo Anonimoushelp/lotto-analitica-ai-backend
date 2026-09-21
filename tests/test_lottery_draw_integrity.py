@@ -6,6 +6,7 @@ from sqlalchemy import create_engine, delete
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
+from app.models.draw_result import DrawResult
 from app.models.lottery import Lottery
 from app.models.lottery_draw import LotteryDraw
 from app.services.lottery_draw_service import LotteryDrawService
@@ -18,6 +19,7 @@ engine = create_engine(
 TestingSessionLocal = sessionmaker(bind=engine, autoflush=False, autocommit=False)
 Lottery.__table__.create(bind=engine)
 LotteryDraw.__table__.create(bind=engine)
+DrawResult.__table__.create(bind=engine)
 
 
 def db_session():
@@ -57,6 +59,7 @@ def db():
     finally:
         session.close()
         cleanup = db_session()
+        cleanup.execute(delete(DrawResult))
         cleanup.execute(delete(LotteryDraw))
         cleanup.execute(delete(Lottery))
         cleanup.commit()
@@ -96,18 +99,17 @@ def test_create_draw_rejects_duplicate_number_per_lottery(db):
     assert "draw number" in exc.value.detail.lower()
 
 
-def test_create_draw_rejects_duplicate_date_per_lottery(db):
+def test_create_draw_allows_multiple_draws_on_same_date(db):
     lottery = seed_lottery(db, "MiLoto")
-    LotteryDrawService.create_draw(db=db, **draw_payload(lottery.id))
+    first = LotteryDrawService.create_draw(db=db, **draw_payload(lottery.id))
 
-    with pytest.raises(HTTPException) as exc:
-        LotteryDrawService.create_draw(
-            db=db,
-            **draw_payload(lottery.id, draw_number="D-002"),
-        )
+    second = LotteryDrawService.create_draw(
+        db=db,
+        **draw_payload(lottery.id, draw_number="D-002"),
+    )
 
-    assert exc.value.status_code == 409
-    assert "draw date" in exc.value.detail.lower()
+    assert first.id != second.id
+    assert first.draw_date == second.draw_date
 
 
 def test_same_number_and_date_are_allowed_for_different_lotteries(db):
@@ -157,7 +159,7 @@ def test_update_draw_rejects_duplicate_number(db):
     assert exc.value.status_code == 409
 
 
-def test_update_draw_rejects_duplicate_date(db):
+def test_update_draw_allows_same_date_for_distinct_draw_numbers(db):
     lottery = seed_lottery(db, "MiLoto")
     first = LotteryDrawService.create_draw(db=db, **draw_payload(lottery.id))
     second = LotteryDrawService.create_draw(
@@ -165,14 +167,13 @@ def test_update_draw_rejects_duplicate_date(db):
         **draw_payload(lottery.id, draw_number="D-002", draw_date=date(2026, 9, 3)),
     )
 
-    with pytest.raises(HTTPException) as exc:
-        LotteryDrawService.update_draw(
-            db=db,
-            draw_id=second.id,
-            update_data={"draw_date": first.draw_date},
-        )
+    updated = LotteryDrawService.update_draw(
+        db=db,
+        draw_id=second.id,
+        update_data={"draw_date": first.draw_date},
+    )
 
-    assert exc.value.status_code == 409
+    assert updated.draw_date == first.draw_date
 
 
 def test_update_draw_rejects_missing_target_lottery(db):
@@ -189,7 +190,23 @@ def test_update_draw_rejects_missing_target_lottery(db):
     assert exc.value.status_code == 404
 
 
+def test_update_draw_rejects_empty_result_representation(db):
+    lottery = seed_lottery(db, "MiLoto")
+    draw = LotteryDrawService.create_draw(db=db, **draw_payload(lottery.id))
+
+    with pytest.raises(HTTPException) as exc:
+        LotteryDrawService.update_draw(
+            db=db,
+            draw_id=draw.id,
+            update_data={"main_numbers": None, "bonus_numbers": None, "result_groups": []},
+        )
+
+    assert exc.value.status_code == 422
+    assert "result representation" in exc.value.detail
+
+
 def test_delete_draw_removes_record(db):
+
     lottery = seed_lottery(db, "MiLoto")
     draw = LotteryDrawService.create_draw(db=db, **draw_payload(lottery.id))
 
@@ -221,3 +238,26 @@ def test_list_draws_filters_by_lottery_and_orders_by_date(db):
 
     assert [item.draw_number for item in draws] == ["D-002", "D-001"]
     assert all(item.lottery_id == first.id for item in draws)
+
+    
+def test_create_draw_normalizes_multiple_result_groups(db):
+    lottery = seed_lottery(db, "MultiModal")
+    draw = LotteryDrawService.create_draw(
+        db=db,
+        lottery_id=lottery.id,
+        draw_number="D-100",
+        draw_date=date(2026, 9, 2),
+        main_numbers=None,
+        bonus_numbers=None,
+        result_groups=[
+            {"group_code": "main", "position": 1, "value": "12", "numeric_value": 12},
+            {"group_code": "main", "position": 2, "value": "34", "numeric_value": 34},
+            {"group_code": "bonus", "position": 1, "value": "X", "numeric_value": None},
+        ],
+    )
+
+    assert [(item.group_code, item.position, item.value) for item in draw.results] == [
+        ("bonus", 1, "X"),
+        ("main", 1, "12"),
+        ("main", 2, "34"),
+    ]

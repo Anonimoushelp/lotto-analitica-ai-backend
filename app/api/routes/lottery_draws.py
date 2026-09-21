@@ -23,19 +23,11 @@ router = APIRouter(
 @router.get("", response_model=list[LotteryDrawResponse])
 def list_draws(
     lottery_id: int | None = Query(default=None, gt=0),
-    limit: int = Query(
-        default=DEFAULT_DRAW_LIST_LIMIT,
-        ge=1,
-        le=MAX_DRAW_LIST_LIMIT,
-    ),
+    limit: int = Query(default=DEFAULT_DRAW_LIST_LIMIT, ge=1, le=MAX_DRAW_LIST_LIMIT),
     db: Session = Depends(get_db),
     current_user=Depends(require_admin_or_analyst),
 ):
-    return LotteryDrawService.list_draws(
-        db=db,
-        lottery_id=lottery_id,
-        limit=limit,
-    )
+    return LotteryDrawService.list_draws(db=db, lottery_id=lottery_id, limit=limit)
 
 
 @router.get("/{draw_id}", response_model=LotteryDrawResponse)
@@ -58,17 +50,17 @@ def create_draw(
         lottery_id=payload.lottery_id,
         draw_number=payload.draw_number,
         draw_date=payload.draw_date,
+        draw_datetime=payload.draw_datetime,
         main_numbers=payload.main_numbers,
         bonus_numbers=payload.bonus_numbers,
+        result_groups=[item.model_dump() for item in payload.result_groups],
         source=payload.source,
+        source_type=payload.source_type,
+        source_reference=payload.source_reference,
+        raw_payload=payload.raw_payload,
         metadata_json=payload.metadata_json,
     )
-    log_mutation(
-        action="create",
-        resource="draw",
-        resource_id=draw.id,
-        actor=current_user,
-    )
+    log_mutation(action="create", resource="draw", resource_id=draw.id, actor=current_user)
     return draw
 
 
@@ -80,17 +72,8 @@ def update_draw(
     current_user=Depends(require_admin),
 ):
     update_data = payload.model_dump(exclude_unset=True)
-    draw = LotteryDrawService.update_draw(
-        db=db,
-        draw_id=draw_id,
-        update_data=update_data,
-    )
-    log_mutation(
-        action="update",
-        resource="draw",
-        resource_id=draw.id,
-        actor=current_user,
-    )
+    draw = LotteryDrawService.update_draw(db=db, draw_id=draw_id, update_data=update_data)
+    log_mutation(action="update", resource="draw", resource_id=draw.id, actor=current_user)
     return draw
 
 
@@ -101,9 +84,4 @@ def delete_draw(
     current_user=Depends(require_admin),
 ):
     LotteryDrawService.delete_draw(db=db, draw_id=draw_id)
-    log_mutation(
-        action="delete",
-        resource="draw",
-        resource_id=draw_id,
-        actor=current_user,
-    )
+    log_mutation(action="delete", resource="draw", resource_id=draw_id, actor=current_user)

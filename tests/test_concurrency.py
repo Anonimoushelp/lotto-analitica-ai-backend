@@ -41,10 +41,6 @@ def test_create_draw_maps_concurrent_unique_conflict(monkeypatch):
         lambda **kwargs: None,
     )
     monkeypatch.setattr(
-        "app.services.lottery_draw_service.LotteryDrawRepository.get_by_date",
-        lambda **kwargs: None,
-    )
-    monkeypatch.setattr(
         "app.services.lottery_draw_service.LotteryDrawRepository.create",
         lambda **kwargs: (_ for _ in ()).throw(
             IntegrityError("statement", {}, Exception("unique violation"))
@@ -75,10 +71,6 @@ def test_update_draw_rolls_back_on_concurrent_unique_conflict(monkeypatch):
 
     monkeypatch.setattr(
         "app.services.lottery_draw_service.LotteryDrawRepository.get_by_number",
-        lambda **kwargs: None,
-    )
-    monkeypatch.setattr(
-        "app.services.lottery_draw_service.LotteryDrawRepository.get_by_date",
         lambda **kwargs: None,
     )
 

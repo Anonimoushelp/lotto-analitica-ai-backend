@@ -1,13 +1,18 @@
 from datetime import UTC, datetime
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import Boolean, DateTime, String
+from sqlalchemy import JSON, Boolean, DateTime, String
+from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 
 if TYPE_CHECKING:
     from app.models.lottery_draw import LotteryDraw
+    from app.models.lottery_rule import LotteryRule
+
+
+JSON_TYPE = JSON().with_variant(JSONB, "postgresql")
 
 
 class Lottery(Base):
@@ -32,10 +37,28 @@ class Lottery(Base):
         nullable=False,
     )
 
+    modality_code: Mapped[str] = mapped_column(
+        String(50),
+        nullable=False,
+        default="lotto",
+        index=True,
+    )
+
+    timezone: Mapped[str] = mapped_column(
+        String(64),
+        nullable=False,
+        default="America/Bogota",
+    )
+
     active: Mapped[bool] = mapped_column(
         Boolean,
         nullable=False,
         default=True,
+    )
+
+    metadata_json: Mapped[dict[str, Any] | None] = mapped_column(
+        JSON_TYPE,
+        nullable=True,
     )
 
     created_at: Mapped[datetime] = mapped_column(
@@ -54,4 +77,10 @@ class Lottery(Base):
     draws: Mapped[list["LotteryDraw"]] = relationship(
         back_populates="lottery",
         cascade="all, delete-orphan",
+    )
+
+    rules: Mapped[list["LotteryRule"]] = relationship(
+        back_populates="lottery",
+        cascade="all, delete-orphan",
+        order_by="LotteryRule.version.desc()",
     )
