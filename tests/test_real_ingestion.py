@@ -1,9 +1,10 @@
 from datetime import date
 
-import pytest
 from sqlalchemy import create_engine, delete
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
+
+import pytest
 
 from app.models.draw_result import DrawResult
 from app.models.lottery import Lottery
