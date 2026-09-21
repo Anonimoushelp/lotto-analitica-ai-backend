@@ -1,4 +1,5 @@
 from datetime import date, time
+
 from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -99,7 +100,7 @@ class LotteryDrawService:
             main_numbers=main_numbers,
             bonus_numbers=bonus_numbers,
             source=source,
-            source_url=source_url,
+            source_url=str(source_url) if source_url is not None else None,
             source_timestamp=source_timestamp,
             metadata_json=metadata_json,
             validation_json=validation_json,
@@ -160,7 +161,14 @@ class LotteryDrawService:
                 detail="Draw date already exists for this lottery and draw type",
             )
 
-        for field, value in update_data.items():
+        normalized_update_data = dict(update_data)
+        if "source_url" in normalized_update_data:
+            source_url = normalized_update_data["source_url"]
+            normalized_update_data["source_url"] = (
+                str(source_url) if source_url is not None else None
+            )
+
+        for field, value in normalized_update_data.items():
             setattr(draw, field, value)
 
         try:
