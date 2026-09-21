@@ -1,13 +1,13 @@
-from datetime import UTC, datetime
 import logging
+from datetime import UTC, datetime
 
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.models.ingestion_run import IngestionRun
-from app.sources.registry import OFFICIAL_SOURCE_ADAPTERS
-from app.sources.base import SourceValidationError
 from app.services.official_ingestion_service import OfficialIngestionService
+from app.sources.base import SourceValidationError
+from app.sources.registry import OFFICIAL_SOURCE_ADAPTERS
 
 logger = logging.getLogger(__name__)
 
@@ -38,7 +38,9 @@ class OfficialIngestionRunner:
         results: list[IngestionRun] = []
         try:
             for source, adapter_factory in OFFICIAL_SOURCE_ADAPTERS.items():
-                results.append(OfficialIngestionRunner.run_source(db, source, adapter_factory))
+                results.append(
+                    OfficialIngestionRunner.run_source(db, source, adapter_factory)
+                )
             return results
         finally:
             db.execute(
@@ -63,7 +65,7 @@ class OfficialIngestionRunner:
                 "draw_number": draw.draw_number,
                 "draw_date": draw.draw_date.isoformat(),
             }
-        except (SourceValidationError, Exception) as exc:
+        except SourceValidationError as exc:
             db.rollback()
             run = db.get(IngestionRun, run.id)
             if run is None:
@@ -71,6 +73,23 @@ class OfficialIngestionRunner:
             run.status = "failed"
             run.finished_at = datetime.now(UTC)
             run.error_message = str(exc)[:1000]
-            logger.exception("Official ingestion failed source=%s run_id=%s", source, run.id)
+            logger.exception(
+                "Official ingestion failed source=%s run_id=%s",
+                source,
+                run.id,
+            )
+        except Exception as exc:
+            db.rollback()
+            run = db.get(IngestionRun, run.id)
+            if run is None:
+                raise
+            run.status = "failed"
+            run.finished_at = datetime.now(UTC)
+            run.error_message = str(exc)[:1000]
+            logger.exception(
+                "Unexpected official ingestion failure source=%s run_id=%s",
+                source,
+                run.id,
+            )
         db.commit()
         return run
