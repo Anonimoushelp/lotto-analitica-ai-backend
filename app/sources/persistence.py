@@ -3,11 +3,11 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from app.repositories.lottery_draw_repository import LotteryDrawRepository
 from app.services.lottery_draw_service import LotteryDrawService
 from app.sources.contracts import CanonicalDraw
 from app.sources.ingestion import IngestionEnvelope, ingest_draws
 from app.sources.protocols import LotterySourceAdapter
-from app.repositories.lottery_draw_repository import LotteryDrawRepository
 
 
 @dataclass(frozen=True, slots=True)
