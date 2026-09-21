@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from datetime import date
+from datetime import UTC, date, datetime
 
 
 class SourceValidationError(ValueError):
@@ -18,12 +18,12 @@ class NormalizedDraw:
     metadata_json: dict = field(default_factory=dict)
     source: str = ""
 
-    def validate(self) -> "NormalizedDraw":
+    def validate(self) -> NormalizedDraw:
         if not self.lottery_code.strip():
             raise SourceValidationError("lottery_code is required")
         if not self.draw_number.strip() or self.draw_number == "0":
             raise SourceValidationError("invalid draw number")
-        if self.draw_date > date.today():
+        if self.draw_date > datetime.now(tz=UTC).date():
             raise SourceValidationError("draw date cannot be in the future")
         if not self.main_numbers:
             raise SourceValidationError("at least one main number is required")
@@ -46,7 +46,7 @@ class OfficialSourceAdapter:
     def parse(self, payload: str) -> NormalizedDraw:
         raise NotImplementedError
 
-    def fetch(self, client: "SourceClient") -> NormalizedDraw:
+    def fetch(self, client: SourceClient) -> NormalizedDraw:
         return self.parse(client.get(self.source_url))
 
 
@@ -61,7 +61,9 @@ class SourceClient:
             response = httpx.get(url, timeout=self.timeout, follow_redirects=True)
             response.raise_for_status()
         except httpx.HTTPError as exc:
-            raise SourceValidationError(f"official source unavailable: {url}") from exc
+            raise SourceValidationError(
+                f"official source unavailable: {url}"
+            ) from exc
         if not response.text.strip():
             raise SourceValidationError("official source returned an empty response")
         return response.text
