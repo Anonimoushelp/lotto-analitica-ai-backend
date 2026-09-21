@@ -26,11 +26,12 @@ class SourceIngestionPipeline:
         self.parser = parser
         self.adapter = adapter
 
-    def run(self, url: str) -> list[RawDrawRecord]:
+    def extract(self, url: str) -> list[Mapping[str, Any]]:
+        """Execute fetch -> parse and preserve source fields without normalization."""
         try:
             fetched = self.fetcher.fetch(url)
             payloads = self.parser.parse(fetched)
-            enriched_payloads = [
+            return [
                 {
                     **payload,
                     "source_url": payload.get("source_url", fetched.url),
@@ -40,7 +41,15 @@ class SourceIngestionPipeline:
                 }
                 for payload in payloads
             ]
-            return [self.adapter.normalize(payload) for payload in enriched_payloads]
+        except Exception as exc:
+            if isinstance(exc, SourceIngestionError):
+                raise
+            raise SourceIngestionError("Source extraction failed") from exc
+
+    def run(self, url: str) -> list[RawDrawRecord]:
+        try:
+            payloads = self.extract(url)
+            return [self.adapter.normalize(payload) for payload in payloads]
         except Exception as exc:
             if isinstance(exc, SourceIngestionError):
                 raise
