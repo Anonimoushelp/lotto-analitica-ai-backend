@@ -5,7 +5,10 @@ import pytest
 from app.sources.contracts import RawDrawRecord
 from app.sources.fetchers import SourceFetchResult
 from app.sources.ingestion import SourceIngestionPipeline
-from app.sources.provider_registry import build_provider_components
+from app.sources.provider_registry import (
+    build_html_provider_parser,
+    build_provider_components,
+)
 
 
 @pytest.mark.parametrize(
@@ -107,3 +110,59 @@ def test_four_digit_provider_is_wired_into_ingestion(
 def test_provider_registry_rejects_unknown_lottery() -> None:
     with pytest.raises(KeyError, match="No four-digit provider components"):
         build_provider_components("UNKNOWN")
+
+
+@pytest.mark.parametrize(
+    ("lottery_code", "chance", "date_text", "result_text"),
+    [
+        ("ANTIOQUENITA", "Antioqueñita 1", "20 de Septiembre del 2026", "0153"),
+        ("CAFETERITO", "Cafeterito Noche", "20 de Septiembre del 2026", "3312"),
+    ],
+)
+def test_html_provider_extraction_preserves_source_without_draw_number(
+    lottery_code: str,
+    chance: str,
+    date_text: str,
+    result_text: str,
+) -> None:
+    fetched_at = datetime(2026, 9, 21, 16, 0, tzinfo=UTC)
+    html = (
+        "<html><body><table>"
+        "<thead><tr><th>Chance</th><th>Fecha</th><th>Resultado</th></tr></thead>"
+        f"<tbody><tr><td>{chance}</td><td>{date_text}</td><td>{result_text}</td></tr></tbody>"
+        "</table></body></html>"
+    )
+
+    class FakeFetcher:
+        def fetch(self, url: str) -> SourceFetchResult:
+            return SourceFetchResult(
+                url=url,
+                status_code=200,
+                content=html.encode("utf-8"),
+                content_type="text/html",
+                fetched_at=fetched_at,
+            )
+
+    parser = build_html_provider_parser(lottery_code)
+    pipeline = SourceIngestionPipeline(
+        fetcher=FakeFetcher(),
+        parser=parser,
+        adapter=build_provider_components(lottery_code)[1],
+    )
+    extracted = pipeline.extract("https://example.test/results")
+
+    assert len(extracted) == 1
+    assert extracted[0]["draw_type"] in {
+        "ANTIOQUENITA_1",
+        "CAFETERITO_NOCHE",
+    }
+    assert extracted[0]["number"] == result_text
+    assert extracted[0]["draw_date"] == date_text
+    assert "draw_number" not in extracted[0]
+    assert extracted[0]["source_url"] == "https://example.test/results"
+    assert extracted[0]["source_timestamp"] == fetched_at
+
+
+def test_html_provider_registry_rejects_unknown_lottery() -> None:
+    with pytest.raises(KeyError, match="No HTML provider parser configured"):
+        build_html_provider_parser("UNKNOWN")
