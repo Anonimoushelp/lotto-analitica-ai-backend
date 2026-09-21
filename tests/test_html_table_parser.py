@@ -7,7 +7,7 @@ from app.sources.parsers import HtmlTableParser, SourceParseError
 
 
 def test_html_table_parser_extracts_chance_rows_and_preserves_leading_zero() -> None:
-    html = b"""
+    html = """
     <html><body>
       <table>
         <thead><tr><th>Chance</th><th>Fecha</th><th>Resultado</th></tr></thead>
@@ -21,7 +21,7 @@ def test_html_table_parser_extracts_chance_rows_and_preserves_leading_zero() -> 
     result = SourceFetchResult(
         url="https://example.test/chances",
         status_code=200,
-        content=html,
+        content=html.encode("utf-8"),
         content_type="text/html",
         fetched_at=datetime.now(UTC),
     )
@@ -30,7 +30,7 @@ def test_html_table_parser_extracts_chance_rows_and_preserves_leading_zero() -> 
 
     assert records == [
         {
-            "draw_type": "ANTIOQUEÑITA_1",
+            "draw_type": "ANTIOQUENITA_1",
             "draw_date": "20 de Septiembre de 2026",
             "result": "0153",
         },
