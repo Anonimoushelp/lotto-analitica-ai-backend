@@ -1,0 +1,25 @@
+{
+  "results": [
+    {
+      "tipo": "ASTRO_SOL",
+      "sorteo": 5534,
+      "fecha": "2026-09-19",
+      "resultado": "8874",
+      "sign": "Cancer"
+    },
+    {
+      "tipo": "ASTRO_LUNA",
+      "sorteo": 8249,
+      "fecha": "2026-09-20",
+      "resultado": "1305",
+      "sign": "Libra"
+    },
+    {
+      "tipo": "ASTRO_SOL",
+      "sorteo": 5528,
+      "fecha": "2026-09-13",
+      "resultado": "0982",
+      "sign": "Virgo"
+    }
+  ]
+}
