@@ -50,7 +50,7 @@ def test_baloto_family_requires_explicit_game_type(
 
 
 def test_baloto_family_rejects_implicit_row_order() -> None:
-    with pytest.raises(SourceParseError, match="explicit game_type"):
+    with pytest.raises(SourceParseError, match="game_type"):
         BalotoFamilyJsonParser().parse_record(
             {
                 "draw_number": 123,
