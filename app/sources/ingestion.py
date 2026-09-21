@@ -44,7 +44,9 @@ class SourceIngestionPipeline:
         except Exception as exc:
             if isinstance(exc, SourceIngestionError):
                 raise
-            raise SourceIngestionError(\n                f"Source extraction failed for {self.adapter.spec.lottery_code}"\n            ) from exc
+            raise SourceIngestionError(
+                f"Source extraction failed for {self.adapter.spec.lottery_code}"
+            ) from exc
 
     def run(self, url: str) -> list[RawDrawRecord]:
         try:
