@@ -24,14 +24,24 @@ from app.sources.four_digit_parsers import (
         (
             AntioquenitaJsonParser(),
             AntioquenitaAdapter(),
-            {"tipo": "ANTIOQUENITA_2", "sorteo": 101, "fecha": "2026-09-20", "resultado": "0153"},
+            {
+                "tipo": "ANTIOQUENITA_2",
+                "sorteo": 101,
+                "fecha": "2026-09-20",
+                "resultado": "0153",
+            },
             "ANTIOQUENITA_2",
             "0153",
         ),
         (
             ChonticoJsonParser(),
             ChonticoAdapter(),
-            {"tipo": "CHONTICO_DIA", "sorteo": 6725, "fecha": "2026-09-20", "resultado": "6725"},
+            {
+                "tipo": "CHONTICO_DIA",
+                "sorteo": 6725,
+                "fecha": "2026-09-20",
+                "resultado": "6725",
+            },
             "CHONTICO_DIA",
             "6725",
         ),
@@ -51,7 +61,12 @@ from app.sources.four_digit_parsers import (
         (
             CafeteritoJsonParser(),
             CafeteritoAdapter(),
-            {"tipo": "CAFETERITO_TARDE", "sorteo": 674, "fecha": "2026-09-19", "resultado": "0674"},
+            {
+                "tipo": "CAFETERITO_TARDE",
+                "sorteo": 674,
+                "fecha": "2026-09-19",
+                "resultado": "0674",
+            },
             "CAFETERITO_TARDE",
             "0674",
         ),
@@ -127,18 +142,33 @@ def test_dorado_does_not_promote_additional_value_to_bonus():
     [
         (
             AntioquenitaJsonParser(),
-            {"tipo": "ANTIOQUENITA_1", "sorteo": 1, "fecha": "2026-09-20", "resultado": "123"},
+            {
+                "tipo": "ANTIOQUENITA_1",
+                "sorteo": 1,
+                "fecha": "2026-09-20",
+                "resultado": "123",
+            },
         ),
         (
             ChonticoJsonParser(),
-            {"tipo": "CHONTICO_DIA", "sorteo": 1, "fecha": "2026-09-20", "resultado": "12345"},
+            {
+                "tipo": "CHONTICO_DIA",
+                "sorteo": 1,
+                "fecha": "2026-09-20",
+                "resultado": "12345",
+            },
         ),
         (
             PaisitaJsonParser(),
-            {"tipo": "PAISITA_DIA", "sorteo": 1, "fecha": "2026-09-20", "resultado": "12A4"},
+            {
+                "tipo": "PAISITA_DIA",
+                "sorteo": 1,
+                "fecha": "2026-09-20",
+                "resultado": "12A4",
+            },
         ),
     ],
 )
 def test_four_digit_parser_rejects_invalid_result(parser, payload):
-    with pytest.raises(Exception, match="four digits"):
+    with pytest.raises(Exception, match="four-digit result"):
         parser.parse_record(payload)
