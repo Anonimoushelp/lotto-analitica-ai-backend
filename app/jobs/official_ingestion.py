@@ -4,6 +4,8 @@ import sys
 from app.db.session import SessionLocal
 from app.services.official_ingestion_runner import OfficialIngestionRunner
 
+logger = logging.getLogger(__name__)
+
 logging.basicConfig(
     level=logging.INFO,
     format="%(asctime)s %(levelname)s %(name)s %(message)s",
@@ -17,12 +19,18 @@ def main() -> int:
         failed = [run for run in runs if run.status == "failed"]
         skipped = [run for run in runs if run.status == "skipped"]
         if skipped:
-            logging.warning("Official ingestion skipped: concurrent run detected")
+            logger.warning("Official ingestion skipped: concurrent run detected")
             return 0
         if failed:
-            logging.error("Official ingestion completed with %s failed source(s)", len(failed))
+            logger.error(
+                "Official ingestion completed with %s failed source(s)",
+                len(failed),
+            )
             return 1
-        logging.info("Official ingestion completed successfully for %s source(s)", len(runs))
+        logger.info(
+            "Official ingestion completed successfully for %s source(s)",
+            len(runs),
+        )
         return 0
     finally:
         db.close()
