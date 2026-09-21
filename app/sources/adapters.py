@@ -24,6 +24,8 @@ class BalotoAdapter(MappingSourceAdapter):
 
     def normalize(self, payload: Mapping[str, Any]) -> RawDrawRecord:
         payload = dict(payload)
+        if "bonus_numbers" not in payload and "superbalota" in payload:
+            payload["bonus_numbers"] = payload["superbalota"]
         payload.setdefault("draw_type", "BALOTO")
         return super().normalize(payload)
 
@@ -38,12 +40,13 @@ class RevanchaAdapter(MappingSourceAdapter):
                 "draw_number": "draw_number",
                 "draw_date": "draw_date",
                 "main_numbers": "main_numbers",
-                "bonus_numbers": "revancha_bonus",
             },
         )
 
     def normalize(self, payload: Mapping[str, Any]) -> RawDrawRecord:
         payload = dict(payload)
+        if "bonus_numbers" not in payload and "revancha_bonus" in payload:
+            payload["bonus_numbers"] = payload["revancha_bonus"]
         payload.setdefault("draw_type", "REVANCHA")
         return super().normalize(payload)
 
