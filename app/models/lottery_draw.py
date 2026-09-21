@@ -1,7 +1,16 @@
 from datetime import UTC, date, datetime, time
 from typing import TYPE_CHECKING, Any
 
-from sqlalchemy import JSON, Date, DateTime, ForeignKey, Index, String, Time, UniqueConstraint
+from sqlalchemy import (
+    JSON,
+    Date,
+    DateTime,
+    ForeignKey,
+    Index,
+    String,
+    Time,
+    UniqueConstraint,
+)
 from sqlalchemy.dialects.postgresql import JSONB
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
