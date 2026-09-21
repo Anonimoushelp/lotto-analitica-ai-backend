@@ -1,10 +1,11 @@
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.models.lottery import Lottery
 from app.models.lottery_draw import LotteryDraw
 from app.repositories.lottery_draw_repository import LotteryDrawRepository
 from app.services.lottery_draw_service import LotteryDrawService
-from app.sources.base import NormalizedDraw, OfficialSourceAdapter, SourceValidationError, SourceClient
+from app.sources.base import OfficialSourceAdapter, SourceClient, SourceValidationError
 
 
 class OfficialIngestionService:
@@ -19,9 +20,7 @@ class OfficialIngestionService:
     ) -> LotteryDraw:
         normalized = adapter.fetch(client or SourceClient()).validate()
         lottery = db.scalar(
-            __import__("sqlalchemy").select(Lottery).where(
-                Lottery.code == normalized.lottery_code
-            )
+            select(Lottery).where(Lottery.code == normalized.lottery_code)
         )
         if lottery is None:
             raise SourceValidationError(
