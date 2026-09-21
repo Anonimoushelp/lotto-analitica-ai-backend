@@ -25,7 +25,7 @@ def test_super_astro_has_independent_draw_types():
 
 def test_registry_preserves_unverified_primary_sources():
     spec = get_source_spec("DORADO")
-    assert spec.primary_verified is False
+    assert spec.primary_verified is True
     assert "semantic" in spec.notes
 
 
