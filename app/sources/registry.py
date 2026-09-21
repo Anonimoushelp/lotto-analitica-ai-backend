@@ -1,6 +1,5 @@
 from app.sources.contracts import SourceSpec
 
-
 SOURCE_SPECS: tuple[SourceSpec, ...] = (
     SourceSpec(lottery_code="MILOTO", draw_types=("MILOTO",), primary_name="Baloto", primary_url="https://baloto.com/miloto/resultados/", primary_verified=True, notes="Five main numbers."),
     SourceSpec(lottery_code="BALOTO", draw_types=("BALOTO",), primary_name="Baloto", primary_url="https://www.baloto.com/verificador-resultados", primary_verified=True, notes="Five main numbers plus Superbalota."),
