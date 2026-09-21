@@ -70,9 +70,11 @@ def test_create_draw_persists_valid_record(db):
 
     assert draw.id is not None
     assert draw.lottery_id == lottery.id
+    assert draw.draw_type == "DEFAULT"
     assert draw.draw_number == "D-001"
     assert draw.main_numbers == [1, 2, 3, 4, 5]
     assert draw.bonus_numbers == [6]
+    assert draw.validation_json is None
 
 
 def test_create_draw_rejects_missing_lottery(db):
@@ -221,3 +223,50 @@ def test_list_draws_filters_by_lottery_and_orders_by_date(db):
 
     assert [item.draw_number for item in draws] == ["D-002", "D-001"]
     assert all(item.lottery_id == first.id for item in draws)
+
+
+def test_same_date_is_allowed_for_different_draw_types(db):
+    lottery = seed_lottery(db, "Super Astro")
+    payload = draw_payload(lottery.id)
+
+    first = LotteryDrawService.create_draw(
+        db=db,
+        **payload,
+        draw_type="ASTRO_SOL",
+        draw_time=None,
+        source_url="https://example.com/sol",
+        validation_json={"source_verified": True, "format_valid": True},
+    )
+    second = LotteryDrawService.create_draw(
+        db=db,
+        **payload,
+        draw_type="ASTRO_LUNA",
+        draw_time=None,
+        source_url="https://example.com/luna",
+        validation_json={"source_verified": True, "format_valid": True},
+    )
+
+    assert first.id != second.id
+    assert first.draw_type == "ASTRO_SOL"
+    assert second.draw_type == "ASTRO_LUNA"
+    assert first.source_url == "https://example.com/sol"
+    assert second.source_url == "https://example.com/luna"
+
+
+def test_same_number_is_rejected_within_same_draw_type(db):
+    lottery = seed_lottery(db, "Super Astro")
+    LotteryDrawService.create_draw(
+        db=db,
+        **draw_payload(lottery.id),
+        draw_type="ASTRO_SOL",
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        LotteryDrawService.create_draw(
+            db=db,
+            **draw_payload(lottery.id, draw_date=date(2026, 9, 3)),
+            draw_type="ASTRO_SOL",
+        )
+
+    assert exc.value.status_code == 409
+    assert "draw number" in exc.value.detail.lower()
