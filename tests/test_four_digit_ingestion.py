@@ -1,0 +1,109 @@
+from datetime import UTC, datetime
+
+import pytest
+
+from app.sources.contracts import RawDrawRecord
+from app.sources.fetchers import SourceFetchResult
+from app.sources.ingestion import SourceIngestionPipeline
+from app.sources.provider_registry import build_provider_components
+
+
+@pytest.mark.parametrize(
+    ("lottery_code", "payload"),
+    [
+        (
+            "ANTIOQUENITA",
+            {
+                "tipo": "ANTIOQUENITA_1",
+                "sorteo": 1,
+                "fecha": "2026-09-20",
+                "resultado": "0153",
+            },
+        ),
+        (
+            "CHONTICO",
+            {
+                "tipo": "CHONTICO_NOCHE",
+                "sorteo": 2,
+                "fecha": "2026-09-20",
+                "resultado": "2958",
+            },
+        ),
+        (
+            "DORADO",
+            {
+                "tipo": "DORADO_TARDE",
+                "sorteo": 3,
+                "fecha": "2026-09-20",
+                "resultado": "0982",
+                "additional_value": 7,
+            },
+        ),
+        (
+            "CAFETERITO",
+            {
+                "tipo": "CAFETERITO_NOCHE",
+                "sorteo": 4,
+                "fecha": "2026-09-20",
+                "resultado": "3312",
+            },
+        ),
+        (
+            "PAISITA",
+            {
+                "tipo": "PAISITA_NOCHE",
+                "sorteo": 5,
+                "fecha": "2026-09-20",
+                "resultado": "3946",
+                "animal": "Caballo",
+            },
+        ),
+        (
+            "FANTASTICA",
+            {
+                "tipo": "FANTASTICA_DIA",
+                "sorteo": 6,
+                "fecha": "2026-09-21",
+                "resultado": "0512",
+                "additional_value": 8,
+            },
+        ),
+    ],
+)
+def test_four_digit_provider_is_wired_into_ingestion(
+    lottery_code: str, payload: dict
+) -> None:
+    parser, adapter = build_provider_components(lottery_code)
+    fetched_at = datetime(2026, 9, 21, 16, 0, tzinfo=UTC)
+
+    class FakeFetcher:
+        def fetch(self, url: str) -> SourceFetchResult:
+            import json
+
+            return SourceFetchResult(
+                url=url,
+                status_code=200,
+                content=json.dumps({"results": [payload]}).encode(),
+                content_type="application/json",
+                fetched_at=fetched_at,
+            )
+
+    pipeline = SourceIngestionPipeline(
+        fetcher=FakeFetcher(),
+        parser=parser,
+        adapter=adapter,
+    )
+    records = pipeline.run("https://example.test/results")
+
+    assert len(records) == 1
+    assert isinstance(records[0], RawDrawRecord)
+    assert records[0].lottery_code == lottery_code
+    assert records[0].metadata["raw_result"] == payload["resultado"]
+    assert records[0].metadata["digit_count"] == 4
+    assert records[0].source_url == "https://example.test/results"
+    assert records[0].source_timestamp == fetched_at
+
+
+def test_provider_registry_rejects_unknown_lottery() -> None:
+    with pytest.raises(KeyError, match="No four-digit provider components"):
+        build_provider_components("UNKNOWN")
