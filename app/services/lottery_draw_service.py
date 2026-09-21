@@ -1,3 +1,4 @@
+from datetime import date, time
 from fastapi import HTTPException, status
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
@@ -44,13 +45,17 @@ class LotteryDrawService:
         db: Session,
         lottery_id: int,
         draw_number: str,
-        draw_date,
+        draw_date: date,
         main_numbers: list[int],
+        draw_type: str = "DEFAULT",
+        draw_time: time | None = None,
         bonus_numbers: list[int] | None = None,
         source: str | None = None,
+        source_url: str | None = None,
+        source_timestamp=None,
         metadata_json: dict | None = None,
+        validation_json: dict | None = None,
     ) -> LotteryDraw:
-
         lottery = db.get(Lottery, lottery_id)
 
         if lottery is None:
@@ -62,42 +67,46 @@ class LotteryDrawService:
         existing_number = LotteryDrawRepository.get_by_number(
             db=db,
             lottery_id=lottery_id,
+            draw_type=draw_type,
             draw_number=draw_number,
         )
 
         if existing_number is not None:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="Draw number already exists for this lottery",
+                detail="Draw number already exists for this lottery and draw type",
             )
 
         existing_date = LotteryDrawRepository.get_by_date(
             db=db,
             lottery_id=lottery_id,
+            draw_type=draw_type,
             draw_date=draw_date,
         )
 
         if existing_date is not None:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="Draw date already exists for this lottery",
+                detail="Draw date already exists for this lottery and draw type",
             )
 
         draw = LotteryDraw(
             lottery_id=lottery_id,
+            draw_type=draw_type,
             draw_number=draw_number,
             draw_date=draw_date,
+            draw_time=draw_time,
             main_numbers=main_numbers,
             bonus_numbers=bonus_numbers,
             source=source,
+            source_url=source_url,
+            source_timestamp=source_timestamp,
             metadata_json=metadata_json,
+            validation_json=validation_json,
         )
 
         try:
-            return LotteryDrawRepository.create(
-                db=db,
-                draw=draw,
-            )
+            return LotteryDrawRepository.create(db=db, draw=draw)
         except IntegrityError as exc:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -110,26 +119,12 @@ class LotteryDrawService:
         draw_id: int,
         update_data: dict,
     ) -> LotteryDraw:
+        draw = LotteryDrawService.get_draw(db=db, draw_id=draw_id)
 
-        draw = LotteryDrawService.get_draw(
-            db=db,
-            draw_id=draw_id,
-        )
-
-        new_lottery_id = update_data.get(
-            "lottery_id",
-            draw.lottery_id,
-        )
-
-        new_draw_number = update_data.get(
-            "draw_number",
-            draw.draw_number,
-        )
-
-        new_draw_date = update_data.get(
-            "draw_date",
-            draw.draw_date,
-        )
+        new_lottery_id = update_data.get("lottery_id", draw.lottery_id)
+        new_draw_type = update_data.get("draw_type", draw.draw_type)
+        new_draw_number = update_data.get("draw_number", draw.draw_number)
+        new_draw_date = update_data.get("draw_date", draw.draw_date)
 
         lottery = db.get(Lottery, new_lottery_id)
 
@@ -142,31 +137,27 @@ class LotteryDrawService:
         existing_number = LotteryDrawRepository.get_by_number(
             db=db,
             lottery_id=new_lottery_id,
+            draw_type=new_draw_type,
             draw_number=new_draw_number,
         )
 
-        if (
-            existing_number is not None
-            and existing_number.id != draw_id
-        ):
+        if existing_number is not None and existing_number.id != draw_id:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="Draw number already exists for this lottery",
+                detail="Draw number already exists for this lottery and draw type",
             )
 
         existing_date = LotteryDrawRepository.get_by_date(
             db=db,
             lottery_id=new_lottery_id,
+            draw_type=new_draw_type,
             draw_date=new_draw_date,
         )
 
-        if (
-            existing_date is not None
-            and existing_date.id != draw_id
-        ):
+        if existing_date is not None and existing_date.id != draw_id:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
-                detail="Draw date already exists for this lottery",
+                detail="Draw date already exists for this lottery and draw type",
             )
 
         for field, value in update_data.items():
@@ -189,17 +180,10 @@ class LotteryDrawService:
         db: Session,
         draw_id: int,
     ) -> None:
-
-        draw = LotteryDrawService.get_draw(
-            db=db,
-            draw_id=draw_id,
-        )
+        draw = LotteryDrawService.get_draw(db=db, draw_id=draw_id)
 
         try:
-            LotteryDrawRepository.delete(
-                db=db,
-                draw=draw,
-            )
+            LotteryDrawRepository.delete(db=db, draw=draw)
         except IntegrityError as exc:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
