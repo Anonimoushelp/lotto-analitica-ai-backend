@@ -8,8 +8,8 @@ from sqlalchemy.pool import StaticPool
 from app.models.lottery import Lottery
 from app.models.lottery_draw import LotteryDraw
 from app.services.official_ingestion_service import OfficialIngestionService
-from app.sources.base import SourceValidationError
 from app.sources.baloto import BalotoAdapter
+from app.sources.base import SourceValidationError
 from app.sources.loteria_bogota import BogotaLotteryAdapter
 from app.sources.loteria_medellin import MedellinLotteryAdapter
 from app.sources.selae import SelaeAdapter
