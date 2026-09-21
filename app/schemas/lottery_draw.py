@@ -1,13 +1,14 @@
 import json
-from datetime import date, datetime
+from datetime import date, datetime, time
 from typing import Any
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import AnyHttpUrl, BaseModel, ConfigDict, Field, field_validator
 
 MAX_NUMBER_VALUE = 1000
 MAX_MAIN_NUMBERS = 20
 MAX_BONUS_NUMBERS = 10
 MAX_METADATA_BYTES = 16 * 1024
+MAX_VALIDATION_BYTES = 8 * 1024
 
 
 def _validate_numbers(
@@ -35,23 +36,28 @@ def _validate_numbers(
     return value
 
 
-def _validate_metadata(value: dict[str, Any] | None) -> dict[str, Any] | None:
+def _validate_json_size(
+    value: dict[str, Any] | None,
+    *,
+    field_name: str,
+    max_bytes: int,
+) -> dict[str, Any] | None:
     if value is None:
         return None
 
     serialized = json.dumps(value, ensure_ascii=False, separators=(",", ":"))
-    if len(serialized.encode("utf-8")) > MAX_METADATA_BYTES:
-        raise ValueError(
-            f"metadata_json cannot exceed {MAX_METADATA_BYTES} bytes"
-        )
+    if len(serialized.encode("utf-8")) > max_bytes:
+        raise ValueError(f"{field_name} cannot exceed {max_bytes} bytes")
 
     return value
 
 
 class LotteryDrawBase(BaseModel):
     lottery_id: int = Field(gt=0)
+    draw_type: str = Field(default="DEFAULT", min_length=1, max_length=50)
     draw_number: str = Field(min_length=1, max_length=50)
     draw_date: date
+    draw_time: time | None = None
     main_numbers: list[int] = Field(
         min_length=1,
         max_length=MAX_MAIN_NUMBERS,
@@ -61,7 +67,10 @@ class LotteryDrawBase(BaseModel):
         max_length=MAX_BONUS_NUMBERS,
     )
     source: str | None = Field(default=None, max_length=255)
+    source_url: AnyHttpUrl | None = None
+    source_timestamp: datetime | None = None
     metadata_json: dict[str, Any] | None = None
+    validation_json: dict[str, Any] | None = None
 
     _validate_main_numbers = field_validator("main_numbers")(
         lambda value: _validate_numbers(
@@ -77,7 +86,20 @@ class LotteryDrawBase(BaseModel):
             max_items=MAX_BONUS_NUMBERS,
         )
     )
-    _validate_metadata_json = field_validator("metadata_json")(_validate_metadata)
+    _validate_metadata_json = field_validator("metadata_json")(
+        lambda value: _validate_json_size(
+            value,
+            field_name="metadata_json",
+            max_bytes=MAX_METADATA_BYTES,
+        )
+    )
+    _validate_validation_json = field_validator("validation_json")(
+        lambda value: _validate_json_size(
+            value,
+            field_name="validation_json",
+            max_bytes=MAX_VALIDATION_BYTES,
+        )
+    )
 
 
 class LotteryDrawCreate(LotteryDrawBase):
@@ -86,8 +108,10 @@ class LotteryDrawCreate(LotteryDrawBase):
 
 class LotteryDrawUpdate(BaseModel):
     lottery_id: int | None = Field(default=None, gt=0)
+    draw_type: str | None = Field(default=None, min_length=1, max_length=50)
     draw_number: str | None = Field(default=None, min_length=1, max_length=50)
     draw_date: date | None = None
+    draw_time: time | None = None
     main_numbers: list[int] | None = Field(
         default=None,
         min_length=1,
@@ -98,7 +122,10 @@ class LotteryDrawUpdate(BaseModel):
         max_length=MAX_BONUS_NUMBERS,
     )
     source: str | None = Field(default=None, max_length=255)
+    source_url: AnyHttpUrl | None = None
+    source_timestamp: datetime | None = None
     metadata_json: dict[str, Any] | None = None
+    validation_json: dict[str, Any] | None = None
 
     _validate_main_numbers = field_validator("main_numbers")(
         lambda value: _validate_numbers(
@@ -114,7 +141,20 @@ class LotteryDrawUpdate(BaseModel):
             max_items=MAX_BONUS_NUMBERS,
         )
     )
-    _validate_metadata_json = field_validator("metadata_json")(_validate_metadata)
+    _validate_metadata_json = field_validator("metadata_json")(
+        lambda value: _validate_json_size(
+            value,
+            field_name="metadata_json",
+            max_bytes=MAX_METADATA_BYTES,
+        )
+    )
+    _validate_validation_json = field_validator("validation_json")(
+        lambda value: _validate_json_size(
+            value,
+            field_name="validation_json",
+            max_bytes=MAX_VALIDATION_BYTES,
+        )
+    )
 
 
 class LotteryDrawResponse(LotteryDrawBase):
