@@ -18,7 +18,7 @@ class BalotoAdapter(MappingSourceAdapter):
                 "draw_number": "draw_number",
                 "draw_date": "draw_date",
                 "main_numbers": "main_numbers",
-                "bonus_numbers": "superbalota",
+                "bonus_numbers": "bonus_numbers",
             },
         )
 
@@ -40,6 +40,7 @@ class RevanchaAdapter(MappingSourceAdapter):
                 "draw_number": "draw_number",
                 "draw_date": "draw_date",
                 "main_numbers": "main_numbers",
+                "bonus_numbers": "bonus_numbers",
             },
         )
 
