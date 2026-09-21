@@ -170,5 +170,5 @@ def test_dorado_does_not_promote_additional_value_to_bonus():
     ],
 )
 def test_four_digit_parser_rejects_invalid_result(parser, payload):
-    with pytest.raises(Exception, match="four-digit result"):
+    with pytest.raises(Exception, match="Four-digit result"):
         parser.parse_record(payload)
