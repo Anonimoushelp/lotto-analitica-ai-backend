@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -15,7 +15,7 @@ def test_json_source_parser_returns_record_list() -> None:
         status_code=200,
         content=b'{"results":[{"draw_number":609,"draw_date":"2026-09-18","main_numbers":[10,15,31,33,39]}]}',
         content_type="application/json",
-        fetched_at=datetime.now(timezone.utc),
+        fetched_at=datetime.now(UTC),
     )
 
     records = list(JsonSourceParser(records_key="results").parse(result))
@@ -35,7 +35,7 @@ def test_json_source_parser_rejects_invalid_payload() -> None:
         status_code=200,
         content=b"not-json",
         content_type="application/json",
-        fetched_at=datetime.now(timezone.utc),
+        fetched_at=datetime.now(UTC),
     )
 
     with pytest.raises(SourceParseError):
@@ -51,7 +51,7 @@ def test_ingestion_pipeline_keeps_fetch_parse_and_normalize_separate() -> None:
                 status_code=200,
                 content=b"{}",
                 content_type="application/json",
-                fetched_at=datetime.now(timezone.utc),
+                fetched_at=datetime.now(UTC),
             )
 
     class FakeParser:
