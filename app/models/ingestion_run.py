@@ -1,5 +1,5 @@
-from datetime import UTC, datetime
 from typing import Any
+from datetime import UTC, datetime
 
 from sqlalchemy import JSON, DateTime, Integer, String
 from sqlalchemy.dialects.postgresql import JSONB
