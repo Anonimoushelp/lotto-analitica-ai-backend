@@ -120,7 +120,7 @@ def test_calendar_only_catalog_schedule_is_executable_on_official_weekday():
     attempts = SchedulerRunner(
         lambda code, draw: calls.append((code, draw)) or "controlled",
         schedules=(risaralda,),
-    ).run_once(datetime(2026, 9, 21, 10, 0, tzinfo=COLOMBIA_TZ)
+    ).run_once(datetime(2026, 9, 25, 10, 0, tzinfo=COLOMBIA_TZ)
     )
     assert attempts[0].status == SchedulerStatus.SUCCESS
     assert calls == [("LOTERIA_RISARALDA", "LOTERIA_RISARALDA_ORDINARY")]
