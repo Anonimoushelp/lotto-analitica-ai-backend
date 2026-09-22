@@ -31,12 +31,12 @@ def test_html_table_parser_extracts_chance_rows_and_preserves_leading_zero() -> 
     assert records == [
         {
             "draw_type": "ANTIOQUENITA_1",
-            "draw_date": "20 de Septiembre de 2026",
+            "draw_date": "2026-09-20",
             "result": "0153",
         },
         {
             "draw_type": "CAFETERITO_NOCHE",
-            "draw_date": "20 de Septiembre de 2026",
+            "draw_date": "2026-09-20",
             "result": "3312",
         },
     ]
