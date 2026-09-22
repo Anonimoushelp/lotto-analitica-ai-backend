@@ -9,7 +9,15 @@ from app.sources.parsers import SourceParser
 
 
 class SourceIngestionError(RuntimeError):
-    """Raised when extraction, parsing, or normalization fails."""
+    """Raised when source ingestion cannot produce a canonical record."""
+
+
+class SourceExtractionError(SourceIngestionError):
+    """Raised when fetching or parsing the primary source fails."""
+
+
+class SourceNormalizationError(SourceIngestionError):
+    """Raised when provider data cannot be normalized."""
 
 
 class SourceIngestionPipeline:
@@ -44,7 +52,7 @@ class SourceIngestionPipeline:
         except Exception as exc:
             if isinstance(exc, SourceIngestionError):
                 raise
-            raise SourceIngestionError(
+            raise SourceExtractionError(
                 f"Source extraction failed for {self.adapter.spec.lottery_code}"
             ) from exc
 
@@ -55,7 +63,7 @@ class SourceIngestionPipeline:
         except Exception as exc:
             if isinstance(exc, SourceIngestionError):
                 raise
-            raise SourceIngestionError(
+            raise SourceNormalizationError(
                 f"Source ingestion failed for {self.adapter.spec.lottery_code}"
             ) from exc
 
