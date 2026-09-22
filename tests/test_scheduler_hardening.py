@@ -1,4 +1,4 @@
-from datetime import datetime, time
+from datetime import date, datetime, time
 
 from fastapi import HTTPException
 
@@ -24,8 +24,8 @@ def test_scheduler_keeps_unknown_errors_isolated():
 def test_dated_schedule_supports_super_astro_variable_times():
     schedule = DatedSchedule(
         (
-            DatedDrawTime(datetime(2026, 9, 21).date(), "ASTRO_SOL", time(13, 0)),
-            DatedDrawTime(datetime(2026, 9, 21).date(), "ASTRO_LUNA", time(22, 0)),
+            DatedDrawTime(date(2026, 9, 21), "ASTRO_SOL", time(13, 0)),
+            DatedDrawTime(date(2026, 9, 21), "ASTRO_LUNA", time(22, 0)),
         )
     )
     assert schedule.is_due(
@@ -45,12 +45,12 @@ def test_dated_schedule_supports_super_astro_variable_times():
 def test_dated_schedule_rejects_duplicate_calendar_entries():
     schedule = DatedSchedule(
         (
-            DatedDrawTime(datetime(2026, 9, 21).date(), "ASTRO_SOL", time(13, 0)),
-            DatedDrawTime(datetime(2026, 9, 21).date(), "ASTRO_SOL", time(14, 0)),
+            DatedDrawTime(date(2026, 9, 21), "ASTRO_SOL", time(13, 0)),
+            DatedDrawTime(date(2026, 9, 21), "ASTRO_SOL", time(14, 0)),
         )
     )
     try:
-        schedule.for_date(datetime(2026, 9, 21).date(), "ASTRO_SOL")
+        schedule.for_date(date(2026, 9, 21), "ASTRO_SOL")
     except ValueError as exc:
         assert "Duplicate dated schedule" in str(exc)
     else:
