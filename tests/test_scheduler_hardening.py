@@ -9,6 +9,7 @@ from app.scheduler.catalog_integration import (
 )
 from app.scheduler.dated_schedule import DatedDrawTime, DatedSchedule
 from app.scheduler.draw_schedule import COLOMBIA_TZ, ScheduledDraw
+from app.scheduler.executor import ControlledIngestionExecutor
 from app.scheduler.runner import (
     SchedulerRunner,
     SchedulerStatus,
@@ -24,7 +25,6 @@ from app.sources.ingestion import (
 )
 from app.sources.parsers import SourceParseError
 from scripts.run_scheduler import FAILURE_STATUSES, build_ingest_executor
-from app.scheduler.executor import ControlledIngestionExecutor
 
 
 def test_scheduler_classifies_source_errors():
