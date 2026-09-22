@@ -37,7 +37,10 @@ from app.sources.four_digit_parsers import (
 )
 from app.sources.ingestion import SourceIngestionPipeline
 from app.sources.parsers import HtmlTableParser
-from app.sources.provider_parser_adapter import HtmlProviderParserAdapter, ProviderParserAdapter
+from app.sources.provider_parser_adapter import (
+    HtmlProviderParserAdapter,
+    ProviderParserAdapter,
+)
 from app.sources.provider_parsers import (
     BalotoFamilyJsonParser,
     MiLotoJsonParser,
