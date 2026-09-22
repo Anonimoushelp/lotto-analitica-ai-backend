@@ -115,10 +115,34 @@ def test_provider_registry_rejects_unknown_lottery() -> None:
 @pytest.mark.parametrize(
     ("lottery_code", "chance", "date_text", "result_text", "expected_draw_type"),
     [
-        ("ANTIOQUENITA", "Antioqueñita 1", "20 de Septiembre del 2026", "0153", "ANTIOQUENITA_1"),
-        ("CAFETERITO", "Cafeterito Noche", "20 de Septiembre del 2026", "3312", "CAFETERITO_NOCHE"),
-        ("CHONTICO", "Super Chontico Noche", "20 de Septiembre del 2026", "4531", "CHONTICO_SUPER_NOCHE"),
-        ("DORADO", "Dorado Mañana", "21 de Septiembre del 2026", "7279", "DORADO_DIA"),
+        (
+            "ANTIOQUENITA",
+            "Antioqueñita 1",
+            "20 de Septiembre del 2026",
+            "0153",
+            "ANTIOQUENITA_1",
+        ),
+        (
+            "CAFETERITO",
+            "Cafeterito Noche",
+            "20 de Septiembre del 2026",
+            "3312",
+            "CAFETERITO_NOCHE",
+        ),
+        (
+            "CHONTICO",
+            "Super Chontico Noche",
+            "20 de Septiembre del 2026",
+            "4531",
+            "CHONTICO_SUPER_NOCHE",
+        ),
+        (
+            "DORADO",
+            "Dorado Mañana",
+            "21 de Septiembre del 2026",
+            "7279",
+            "DORADO_DIA",
+        ),
     ],
 )
 def test_html_provider_extraction_preserves_source_without_draw_number(
@@ -154,10 +178,13 @@ def test_html_provider_extraction_preserves_source_without_draw_number(
     )
     extracted = pipeline.extract("https://example.test/results")
 
+    expected_iso_date = (
+        "2026-09-21" if lottery_code == "DORADO" else "2026-09-20"
+    )
     assert len(extracted) == 1
     assert extracted[0]["draw_type"] == expected_draw_type
     assert extracted[0]["number"] == result_text
-    assert extracted[0]["draw_date"] == date_text and extracted[0]["draw_date"] in {"2026-09-20", "2026-09-21"}
+    assert extracted[0]["draw_date"] == expected_iso_date
     assert "draw_number" not in extracted[0]
     assert extracted[0]["source_url"] == "https://example.test/results"
     assert extracted[0]["source_timestamp"] == fetched_at
@@ -165,7 +192,7 @@ def test_html_provider_extraction_preserves_source_without_draw_number(
     records = pipeline.run("https://example.test/results")
     assert len(records) == 1
     assert records[0].draw_number is None
-    assert records[0].draw_date.isoformat() == ("2026-09-21" if lottery_code == "DORADO" else "2026-09-20")
+    assert records[0].draw_date.isoformat() == expected_iso_date
     assert records[0].main_numbers == [int(result_text)]
 
 
