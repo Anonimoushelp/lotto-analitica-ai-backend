@@ -45,7 +45,7 @@ class LotteryDrawService:
     def create_draw(
         db: Session,
         lottery_id: int,
-        draw_number: str,
+        draw_number: str | None,
         draw_date: date,
         main_numbers: list[int],
         draw_type: str = "DEFAULT",
@@ -65,18 +65,19 @@ class LotteryDrawService:
                 detail="Lottery not found",
             )
 
-        existing_number = LotteryDrawRepository.get_by_number(
-            db=db,
-            lottery_id=lottery_id,
-            draw_type=draw_type,
-            draw_number=draw_number,
-        )
-
-        if existing_number is not None:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Draw number already exists for this lottery and draw type",
+        if draw_number is not None:
+            existing_number = LotteryDrawRepository.get_by_number(
+                db=db,
+                lottery_id=lottery_id,
+                draw_type=draw_type,
+                draw_number=draw_number,
             )
+
+            if existing_number is not None:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Draw number already exists for this lottery and draw type",
+                )
 
         existing_date = LotteryDrawRepository.get_by_date(
             db=db,
@@ -135,18 +136,19 @@ class LotteryDrawService:
                 detail="Lottery not found",
             )
 
-        existing_number = LotteryDrawRepository.get_by_number(
-            db=db,
-            lottery_id=new_lottery_id,
-            draw_type=new_draw_type,
-            draw_number=new_draw_number,
-        )
-
-        if existing_number is not None and existing_number.id != draw_id:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail="Draw number already exists for this lottery and draw type",
+        if new_draw_number is not None:
+            existing_number = LotteryDrawRepository.get_by_number(
+                db=db,
+                lottery_id=new_lottery_id,
+                draw_type=new_draw_type,
+                draw_number=new_draw_number,
             )
+
+            if existing_number is not None and existing_number.id != draw_id:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Draw number already exists for this lottery and draw type",
+                )
 
         existing_date = LotteryDrawRepository.get_by_date(
             db=db,
