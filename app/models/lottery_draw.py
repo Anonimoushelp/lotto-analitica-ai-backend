@@ -70,7 +70,7 @@ class LotteryDraw(Base):
 
     draw_number: Mapped[str | None] = mapped_column(
         String(50),
-        nullable=False,
+        nullable=True,
     )
 
     draw_date: Mapped[date] = mapped_column(
