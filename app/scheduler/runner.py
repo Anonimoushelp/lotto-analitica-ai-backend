@@ -4,7 +4,10 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
 
+from fastapi import HTTPException
+
 from app.scheduler.draw_schedule import COLOMBIA_TZ, ScheduledDraw, due_draws
+from app.sources.ingestion import SourceExtractionError, SourceNormalizationError
 
 
 @dataclass(frozen=True)
@@ -13,6 +16,16 @@ class IngestionAttempt:
     draw_type: str
     status: str
     message: str
+
+
+def classify_ingestion_error(exc: Exception) -> str:
+    if isinstance(exc, HTTPException) and exc.status_code == 409:
+        return "DUPLICATE"
+    if isinstance(exc, SourceExtractionError):
+        return "SOURCE_ERROR"
+    if isinstance(exc, SourceNormalizationError):
+        return "VALIDATION_ERROR"
+    return "ERROR"
 
 
 class SchedulerRunner:
@@ -41,7 +54,7 @@ class SchedulerRunner:
                 message = self.ingest(*key)
             except Exception as exc:  # noqa: BLE001 - isolate one scheduled draw failure
                 attempts.append(
-                    IngestionAttempt(*key, "ERROR", str(exc))
+                    IngestionAttempt(*key, classify_ingestion_error(exc), str(exc))
                 )
             else:
                 attempts.append(IngestionAttempt(*key, "SUCCESS", message))
