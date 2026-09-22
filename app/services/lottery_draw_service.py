@@ -205,6 +205,7 @@ class LotteryDrawService:
                 "format_valid": True,
                 "date_valid": True,
                 "duplicate": False,
+                "source_verified": bool(record.metadata.get("source_verified", False)),
             },
         )
 
