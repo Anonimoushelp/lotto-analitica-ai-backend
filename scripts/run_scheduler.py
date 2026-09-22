@@ -4,6 +4,7 @@ import logging
 import os
 from datetime import datetime
 
+from app.scheduler.catalog_integration import build_catalog_scheduler_bindings, ready_catalog_schedules
 from app.scheduler.draw_schedule import DRAW_SCHEDULES
 from app.scheduler.runner import SchedulerRunner
 
@@ -12,16 +13,14 @@ logger = logging.getLogger(__name__)
 
 
 def ingest_one(lottery_code: str, draw_type: str) -> str:
-    # Persistence wiring is intentionally isolated here. The scheduler never
-    # chooses a source globally; it passes lottery + draw_type to the ingestion
-    # service, which must select the registered primary source and validator.
-    raise NotImplementedError(
-        f"Ingestion executor not wired yet for {lottery_code}/{draw_type}"
-    )
+    # Persistence wiring remains intentionally isolated and is not production-ready.
+    raise NotImplementedError(f"Ingestion executor not wired yet for {lottery_code}/{draw_type}")
 
 
 def main() -> int:
-    runner = SchedulerRunner(ingest_one, schedules=DRAW_SCHEDULES)
+    bindings = build_catalog_scheduler_bindings()
+    schedules = DRAW_SCHEDULES + ready_catalog_schedules(bindings)
+    runner = SchedulerRunner(ingest_one, schedules=schedules)
     attempts = runner.run_once(datetime.now().astimezone())
     for attempt in attempts:
         logger.info(
