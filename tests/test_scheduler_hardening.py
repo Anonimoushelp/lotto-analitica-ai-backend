@@ -15,9 +15,16 @@ from app.scheduler.runner import (
     classify_ingestion_error,
     evaluate_schedule,
 )
-from app.sources.ingestion import SourceExtractionError, SourceNormalizationError
+from app.sources.contracts import RawDrawRecord, SourceSpec
+from app.sources.fetchers import SourceFetchResult
+from app.sources.ingestion import (
+    SourceExtractionError,
+    SourceIngestionPipeline,
+    SourceNormalizationError,
+)
 from app.sources.parsers import SourceParseError
 from scripts.run_scheduler import FAILURE_STATUSES, build_ingest_executor
+from app.scheduler.executor import ControlledIngestionExecutor
 
 
 def test_scheduler_classifies_source_errors():
