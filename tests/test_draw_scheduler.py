@@ -1,4 +1,4 @@
-from datetime import datetime, time
+from datetime import date, datetime, time
 
 from app.scheduler.draw_schedule import (
     COLOMBIA_TZ,
@@ -40,7 +40,7 @@ def test_due_draws_respects_weekdays():
 
 def test_expected_window_is_timezone_aware():
     schedule = ScheduledDraw("TEST", "DIA", time(13, 0), tolerance_minutes=45)
-    start, end = expected_window(schedule, datetime(2026, 9, 21).date())
+    start, end = expected_window(schedule, date(2026, 9, 21))
     assert start.tzinfo == COLOMBIA_TZ
     assert (end - start).seconds == 45 * 60
 
@@ -92,7 +92,7 @@ def test_due_draws_uses_holiday_specific_time():
         holiday_times=(time(19, 28),),
         skip_on_holiday=True,
     )
-    holiday = frozenset({datetime(2026, 9, 20).date()})
+    holiday = frozenset({date(2026, 9, 20)})
 
     assert due_draws(
         dt("2026-09-20T19:28:00"),
