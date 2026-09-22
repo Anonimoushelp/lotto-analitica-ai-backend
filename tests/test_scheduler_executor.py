@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from types import SimpleNamespace
 
 import pytest
@@ -17,7 +17,7 @@ class FakeFetcher:
             status_code=200,
             content=self.content.encode(),
             content_type="text/html",
-            fetched_at=datetime(2026, 9, 25, 12, 0),
+            fetched_at=datetime(2026, 9, 25, 12, 0, tzinfo=timezone.utc),
         )
 
 
