@@ -173,10 +173,13 @@ class HtmlTableParser:
                 match = self._NUMBER_RE.search(result_text)
                 if not match or not self._DATE_RE.search(date_text) or not chance:
                     continue
+                parsed_date = self._parse_date(date_text)
+                if parsed_date is None:
+                    continue
                 records.append(
                     {
                         "draw_type": self._draw_type(chance),
-                        "draw_date": date_text,
+                        "draw_date": parsed_date,
                         "result": match.group(1),
                     }
                 )
@@ -186,6 +189,37 @@ class HtmlTableParser:
                 "HTML source does not contain a supported lottery result table"
             )
         return records
+
+    @classmethod
+    def _parse_date(cls, value: str) -> str | None:
+        match = cls._DATE_RE.search(value)
+        if not match:
+            return None
+        months = {
+            "enero": "01",
+            "febrero": "02",
+            "marzo": "03",
+            "abril": "04",
+            "mayo": "05",
+            "junio": "06",
+            "julio": "07",
+            "agosto": "08",
+            "septiembre": "09",
+            "setiembre": "09",
+            "octubre": "10",
+            "noviembre": "11",
+            "diciembre": "12",
+        }
+        month_name = (
+            unicodedata.normalize("NFKD", match.group("month"))
+            .encode("ascii", "ignore")
+            .decode("ascii")
+            .casefold()
+        )
+        month = months.get(month_name)
+        if month is None:
+            return None
+        return f"{match.group('year')}-{month}-{int(match.group('day')):02d}"
 
     @staticmethod
     def _normalize_header(value: str) -> str:
