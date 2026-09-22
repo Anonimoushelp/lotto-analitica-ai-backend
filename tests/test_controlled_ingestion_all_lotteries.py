@@ -155,21 +155,7 @@ def test_controlled_ingestion_covers_all_ten_lotteries(
     db.commit()
     db.refresh(lottery)
 
-    persisted = LotteryDrawService.create_draw(
-        db=db,
-        lottery_id=lottery.id,
-        draw_number=normalized.draw_number,
-        draw_date=normalized.draw_date,
-        draw_time=normalized.draw_time,
-        main_numbers=normalized.main_numbers,
-        bonus_numbers=normalized.bonus_numbers,
-        draw_type=normalized.draw_type,
-        source=normalized.source_name,
-        source_url=normalized.source_url,
-        source_timestamp=normalized.source_timestamp,
-        metadata_json=normalized.metadata,
-        validation_json={"format_valid": True, "date_valid": True, "duplicate": False, "source_verified": spec.primary_verified},
-    )
+    persisted = LotteryDrawService.persist_raw_record(db=db, record=normalized)
 
     assert persisted.id is not None
     assert persisted.draw_type == normalized.draw_type
@@ -236,24 +222,7 @@ def test_controlled_ingestion_covers_all_verified_traditional_lotteries(
     db.commit()
     db.refresh(lottery)
 
-    persisted = LotteryDrawService.create_draw(
-        db=db,
-        lottery_id=lottery.id,
-        draw_number=normalized.draw_number,
-        draw_date=normalized.draw_date,
-        main_numbers=normalized.main_numbers,
-        draw_type=normalized.draw_type,
-        source=normalized.source_name,
-        source_url=normalized.source_url,
-        source_timestamp=normalized.source_timestamp,
-        metadata_json=normalized.metadata,
-        validation_json={
-            "format_valid": True,
-            "date_valid": True,
-            "duplicate": False,
-            "source_verified": True,
-        },
-    )
+    persisted = LotteryDrawService.persist_raw_record(db=db, record=normalized)
 
     assert persisted.id is not None
     assert persisted.draw_number == "4187"
@@ -284,3 +253,61 @@ def test_controlled_ingestion_allows_html_source_without_draw_number(db):
 
     assert persisted.draw_number is None
     assert persisted.draw_type == "ANTIOQUENITA_1"
+
+
+def test_raw_record_persistence_is_idempotent(db):
+    lottery = Lottery(name="MiLoto", code="miloto", country="Colombia")
+    db.add(lottery)
+    db.commit()
+
+    record = MiLotoAdapter().normalize(
+        {
+            "draw_number": "609",
+            "draw_date": "2026-09-18",
+            "main_numbers": [10, 15, 31, 33, 39],
+            "source_name": "MiLoto",
+            "source_url": "https://example.test/miloto",
+            "source_timestamp": datetime(2026, 9, 21, 16, 0, tzinfo=UTC),
+        }
+    )
+
+    first = LotteryDrawService.persist_raw_record(db=db, record=record)
+    second = LotteryDrawService.persist_raw_record(db=db, record=record)
+
+    assert second.id == first.id
+    assert db.query(LotteryDraw).count() == 1
+    assert second.source == record.source_name
+    assert second.source_timestamp == record.source_timestamp.replace(tzinfo=None)
+
+
+def test_raw_record_persistence_rejects_conflicting_duplicate(db):
+    lottery = Lottery(name="MiLoto", code="miloto", country="Colombia")
+    db.add(lottery)
+    db.commit()
+
+    first = MiLotoAdapter().normalize(
+        {
+            "draw_number": "609",
+            "draw_date": "2026-09-18",
+            "main_numbers": [10, 15, 31, 33, 39],
+            "source_name": "MiLoto",
+            "source_url": "https://example.test/miloto",
+        }
+    )
+    conflicting = MiLotoAdapter().normalize(
+        {
+            "draw_number": "609",
+            "draw_date": "2026-09-18",
+            "main_numbers": [1, 2, 3, 4, 5],
+            "source_name": "MiLoto",
+            "source_url": "https://example.test/miloto",
+        }
+    )
+
+    LotteryDrawService.persist_raw_record(db=db, record=first)
+
+    with pytest.raises(Exception) as exc:
+        LotteryDrawService.persist_raw_record(db=db, record=conflicting)
+
+    assert getattr(exc.value, "status_code", None) == 409
+    assert db.query(LotteryDraw).count() == 1
