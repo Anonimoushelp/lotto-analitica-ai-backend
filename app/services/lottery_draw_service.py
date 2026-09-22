@@ -1,12 +1,14 @@
 from datetime import date, time
 
 from fastapi import HTTPException, status
+from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.models.lottery import Lottery
 from app.models.lottery_draw import LotteryDraw
 from app.repositories.lottery_draw_repository import LotteryDrawRepository
+from app.sources.contracts import RawDrawRecord
 
 
 class LotteryDrawService:
@@ -114,6 +116,83 @@ class LotteryDrawService:
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Lottery draw conflicts with an existing record",
             ) from exc
+
+    @staticmethod
+    def persist_raw_record(
+        db: Session,
+        record: RawDrawRecord,
+    ) -> LotteryDraw:
+        """Persist a canonical source record with deterministic idempotency.
+
+        An exact repeat of the same canonical record returns the existing row.
+        A conflicting payload for the same lottery/draw identity is rejected.
+        """
+        lottery = db.scalar(
+            select(Lottery).where(Lottery.code == record.lottery_code.lower())
+        )
+
+        if lottery is None:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"Lottery not found for source code: {record.lottery_code}",
+            )
+
+        existing = None
+        if record.draw_number is not None:
+            existing = LotteryDrawRepository.get_by_number(
+                db=db,
+                lottery_id=lottery.id,
+                draw_type=record.draw_type,
+                draw_number=record.draw_number,
+            )
+
+        if existing is None:
+            existing = LotteryDrawRepository.get_by_date(
+                db=db,
+                lottery_id=lottery.id,
+                draw_type=record.draw_type,
+                draw_date=record.draw_date,
+            )
+
+        if existing is not None:
+            same_record = (
+                existing.draw_number == record.draw_number
+                and existing.draw_date == record.draw_date
+                and existing.draw_time == record.draw_time
+                and existing.main_numbers == record.main_numbers
+                and existing.bonus_numbers == record.bonus_numbers
+                and existing.source == record.source_name
+                and existing.source_url == record.source_url
+                and existing.source_timestamp == record.source_timestamp
+                and existing.metadata_json == record.metadata
+            )
+            if same_record:
+                return existing
+
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Conflicting draw payload for an existing lottery/draw identity",
+            )
+
+        return LotteryDrawService.create_draw(
+            db=db,
+            lottery_id=lottery.id,
+            draw_number=record.draw_number,
+            draw_date=record.draw_date,
+            draw_time=record.draw_time,
+            main_numbers=record.main_numbers,
+            draw_type=record.draw_type,
+            bonus_numbers=record.bonus_numbers,
+            source=record.source_name,
+            source_url=record.source_url,
+            source_timestamp=record.source_timestamp,
+            metadata_json=record.metadata,
+            validation_json={
+                "format_valid": True,
+                "date_valid": True,
+                "duplicate": False,
+            },
+        )
 
     @staticmethod
     def update_draw(
