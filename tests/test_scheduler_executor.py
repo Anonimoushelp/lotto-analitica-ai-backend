@@ -38,6 +38,36 @@ def test_controlled_executor_rejects_unverified_source():
         executor("LOTERIA_META", "LOTERIA_META_ORDINARY")
 
 
+def test_controlled_executor_rejects_empty_source_result(monkeypatch):
+    class EmptyPipeline:
+        def __init__(self, **_kwargs):
+            pass
+
+        def run(self, _url):
+            return []
+
+    monkeypatch.setattr("app.scheduler.executor.SourceIngestionPipeline", EmptyPipeline)
+    executor = ControlledIngestionExecutor(fetcher=FakeFetcher(""))
+    with pytest.raises(RuntimeError, match="No draw record extracted"):
+        executor("LOTERIA_RISARALDA", "LOTERIA_RISARALDA_ORDINARY")
+
+
+def test_controlled_executor_rejects_multiple_matching_records(monkeypatch):
+    record = SimpleNamespace(draw_type="LOTERIA_RISARALDA_ORDINARY")
+
+    class MultiplePipeline:
+        def __init__(self, **_kwargs):
+            pass
+
+        def run(self, _url):
+            return [record, record]
+
+    monkeypatch.setattr("app.scheduler.executor.SourceIngestionPipeline", MultiplePipeline)
+    executor = ControlledIngestionExecutor(fetcher=FakeFetcher(""))
+    with pytest.raises(RuntimeError, match="multiple records"):
+        executor("LOTERIA_RISARALDA", "LOTERIA_RISARALDA_ORDINARY")
+
+
 def test_controlled_executor_extracts_and_persists_verified_result(monkeypatch):
     html = """
     <html><body>
