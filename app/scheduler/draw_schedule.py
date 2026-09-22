@@ -155,13 +155,12 @@ def due_draws(
     for schedule in schedules:
         if not schedule.enabled or local_now.weekday() not in schedule.weekdays:
             continue
-        if is_holiday and schedule.skip_on_holiday and not schedule.holiday_times:
+        if is_holiday and schedule.skip_on_holiday and schedule.holiday_times:
+            expected_times = schedule.holiday_times
+        elif is_holiday and schedule.skip_on_holiday:
             continue
-        expected_times = (
-            schedule.holiday_times
-            if is_holiday and schedule.holiday_times
-            else (schedule.expected_time,)
-        )
+        else:
+            expected_times = (schedule.expected_time,)
         for expected_time in expected_times:
             expected = datetime.combine(
                 local_now.date(), expected_time, COLOMBIA_TZ
@@ -187,7 +186,3 @@ def expected_window(
     )
     expected = datetime.combine(draw_date, expected_time, COLOMBIA_TZ)
     return expected, expected + timedelta(minutes=draw.tolerance_minutes)
-
-# Official holiday-specific times are deliberately not encoded as weekdays.
-# Dorado Noche uses a separate holiday time (19:28) that requires a Colombia
-# holiday calendar before the scheduler can select it safely.
