@@ -32,7 +32,10 @@ class TraditionalLotteryHtmlParser:
         re.IGNORECASE,
     )
 
-    def parse(self, result: SourceFetchResult, lottery_code: str) -> Iterable[Mapping[str, object]]:
+    def __init__(self, lottery_code: str) -> None:
+        self.lottery_code = lottery_code.upper()
+
+    def parse(self, result: SourceFetchResult) -> Iterable[Mapping[str, object]]:
         try:
             html = result.content.decode("utf-8")
         except UnicodeDecodeError as exc:
@@ -73,8 +76,8 @@ class TraditionalLotteryHtmlParser:
 
         return [
             {
-                "lottery_code": lottery_code,
-                "draw_type": f"{lottery_code}_ORDINARY",
+                "lottery_code": self.lottery_code,
+                "draw_type": f"{self.lottery_code}_ORDINARY",
                 "draw_number": draw_number,
                 "draw_date": draw_date,
                 "main_numbers": [int(raw_number)],
