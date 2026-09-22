@@ -25,20 +25,20 @@ class ColombiaLottery2026:
 # The ordinary 2026 calendar is kept separate from exceptional
 # reprogramming. Extraordinary draws must never be inferred here.
 COLOMBIA_LOTTERIES_2026: tuple[ColombiaLottery2026, ...] = (
-    ColombiaLottery2026("LOTERIA_CUNDINAMARCA", "Lotería de Cundinamarca", "Cundinamarca", LotteryStatus.ACTIVE, 0),
-    ColombiaLottery2026("LOTERIA_TOLIMA", "Lotería del Tolima", "Tolima", LotteryStatus.ACTIVE, 0),
+    ColombiaLottery2026("LOTERIA_CUNDINAMARCA", "Lotería de Cundinamarca", "Cundinamarca", LotteryStatus.ACTIVE, 0, True),
+    ColombiaLottery2026("LOTERIA_TOLIMA", "Lotería del Tolima", "Tolima", LotteryStatus.ACTIVE, 0, True),
     ColombiaLottery2026("LOTERIA_CRUZ_ROJA", "Lotería de la Cruz Roja Colombiana", "Nacional", LotteryStatus.ACTIVE, 1),
-    ColombiaLottery2026("LOTERIA_HUILA", "Lotería del Huila", "Huila", LotteryStatus.ACTIVE, 1),
-    ColombiaLottery2026("LOTERIA_MANIZALES", "Lotería de Manizales", "Caldas", LotteryStatus.ACTIVE, 2),
-    ColombiaLottery2026("LOTERIA_VALLE", "Lotería del Valle", "Valle del Cauca", LotteryStatus.ACTIVE, 2),
+    ColombiaLottery2026("LOTERIA_HUILA", "Lotería del Huila", "Huila", LotteryStatus.ACTIVE, 1, True),
+    ColombiaLottery2026("LOTERIA_MANIZALES", "Lotería de Manizales", "Caldas", LotteryStatus.ACTIVE, 2, True),
+    ColombiaLottery2026("LOTERIA_VALLE", "Lotería del Valle", "Valle del Cauca", LotteryStatus.ACTIVE, 2, True),
     ColombiaLottery2026("LOTERIA_META", "Lotería del Meta", "Meta", LotteryStatus.ACTIVE, 2),
-    ColombiaLottery2026("LOTERIA_BOGOTA", "Lotería de Bogotá", "Bogotá D.C.", LotteryStatus.ACTIVE, 3),
-    ColombiaLottery2026("LOTERIA_QUINDIO", "Lotería del Quindío", "Quindío", LotteryStatus.SUSPENDED_ORDINARY, 3),
-    ColombiaLottery2026("LOTERIA_MEDELLIN", "Lotería de Medellín", "Antioquia", LotteryStatus.ACTIVE, 4),
-    ColombiaLottery2026("LOTERIA_SANTANDER", "Lotería de Santander", "Santander", LotteryStatus.ACTIVE, 4),
-    ColombiaLottery2026("LOTERIA_RISARALDA", "Lotería de Risaralda", "Risaralda", LotteryStatus.ACTIVE, 4),
+    ColombiaLottery2026("LOTERIA_BOGOTA", "Lotería de Bogotá", "Bogotá D.C.", LotteryStatus.ACTIVE, 3, True),
+    ColombiaLottery2026("LOTERIA_QUINDIO", "Lotería del Quindío", "Quindío", LotteryStatus.SUSPENDED_ORDINARY, 3, True),
+    ColombiaLottery2026("LOTERIA_MEDELLIN", "Lotería de Medellín", "Antioquia", LotteryStatus.ACTIVE, 4, True),
+    ColombiaLottery2026("LOTERIA_SANTANDER", "Lotería de Santander", "Santander", LotteryStatus.ACTIVE, 4, True),
+    ColombiaLottery2026("LOTERIA_RISARALDA", "Lotería de Risaralda", "Risaralda", LotteryStatus.ACTIVE, 4, True),
     ColombiaLottery2026("LOTERIA_BOYACA", "Lotería de Boyacá", "Boyacá", LotteryStatus.ACTIVE, 5),
-    ColombiaLottery2026("LOTERIA_CAUCA", "Lotería del Cauca", "Cauca", LotteryStatus.ACTIVE, 5),
+    ColombiaLottery2026("LOTERIA_CAUCA", "Lotería del Cauca", "Cauca", LotteryStatus.ACTIVE, 5, True),
     ColombiaLottery2026("EXTRA_COLOMBIA", "Extra de Colombia", "Nacional", LotteryStatus.EXTRAORDINARY_ONLY, None),
 )
 
