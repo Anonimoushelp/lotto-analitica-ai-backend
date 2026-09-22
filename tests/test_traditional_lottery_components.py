@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import pytest
 
@@ -14,7 +14,7 @@ def _result(html: str) -> SourceFetchResult:
     return SourceFetchResult(
         url="https://example.test/resultados",
         content=html.encode(),
-        fetched_at=datetime(2026, 9, 21, tzinfo=timezone.utc),
+        fetched_at=datetime(2026, 9, 21, tzinfo=UTC),
     )
 
 
