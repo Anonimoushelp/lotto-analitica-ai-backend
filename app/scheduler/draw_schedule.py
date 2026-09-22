@@ -15,6 +15,8 @@ class ScheduledDraw:
     weekdays: frozenset[int] = frozenset(range(7))
     tolerance_minutes: int = 30
     enabled: bool = True
+    holiday_times: tuple[time, ...] = ()
+    skip_on_holiday: bool = False
 
 
 # Times are expected publication/draw windows, not guarantees. Keep the registry
@@ -91,6 +93,8 @@ DRAW_SCHEDULES: tuple[ScheduledDraw, ...] = (
         time(19, 25),
         frozenset({6}),
         90,
+        holiday_times=(time(19, 28),),
+        skip_on_holiday=True,
     ),
     # Cafeterito explicitly publishes Tarde Mon-Sat and Noche every day.
     ScheduledDraw(
@@ -143,25 +147,45 @@ def due_draws(
     now: datetime,
     *,
     schedules: tuple[ScheduledDraw, ...] = DRAW_SCHEDULES,
+    holiday_dates: frozenset[date] = frozenset(),
 ) -> list[ScheduledDraw]:
     local_now = now.astimezone(COLOMBIA_TZ)
+    is_holiday = local_now.date() in holiday_dates
     result: list[ScheduledDraw] = []
     for schedule in schedules:
         if not schedule.enabled or local_now.weekday() not in schedule.weekdays:
             continue
-        expected = datetime.combine(local_now.date(), schedule.expected_time, COLOMBIA_TZ)
-        lower = expected
-        upper = expected + timedelta(minutes=schedule.tolerance_minutes)
-        if lower <= local_now <= upper:
-            result.append(schedule)
+        if is_holiday and schedule.skip_on_holiday and not schedule.holiday_times:
+            continue
+        expected_times = (
+            schedule.holiday_times
+            if is_holiday and schedule.holiday_times
+            else (schedule.expected_time,)
+        )
+        for expected_time in expected_times:
+            expected = datetime.combine(
+                local_now.date(), expected_time, COLOMBIA_TZ
+            )
+            lower = expected
+            upper = expected + timedelta(minutes=schedule.tolerance_minutes)
+            if lower <= local_now <= upper:
+                result.append(schedule)
+                break
     return result
 
 
 def expected_window(
     draw: ScheduledDraw,
     draw_date: date,
+    *,
+    holiday_dates: frozenset[date] = frozenset(),
 ) -> tuple[datetime, datetime]:
-    expected = datetime.combine(draw_date, draw.expected_time, COLOMBIA_TZ)
+    expected_time = (
+        draw.holiday_times[0]
+        if draw_date in holiday_dates and draw.holiday_times
+        else draw.expected_time
+    )
+    expected = datetime.combine(draw_date, expected_time, COLOMBIA_TZ)
     return expected, expected + timedelta(minutes=draw.tolerance_minutes)
 
 # Official holiday-specific times are deliberately not encoded as weekdays.
