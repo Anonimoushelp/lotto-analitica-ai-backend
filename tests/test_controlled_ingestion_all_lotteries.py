@@ -215,7 +215,7 @@ def test_controlled_ingestion_covers_all_verified_traditional_lotteries(
 
     pipeline = SourceIngestionPipeline(
         fetcher=FakeFetcher(),
-        parser=TraditionalLotteryHtmlParser(),
+        parser=TraditionalLotteryHtmlParser(lottery_code),
         adapter=TraditionalLotteryAdapter(lottery_code),
     )
     normalized = pipeline.run(source_url)[0]
@@ -260,7 +260,7 @@ def test_controlled_ingestion_covers_all_verified_traditional_lotteries(
     assert persisted.draw_date == date(2026, 9, 22)
     assert persisted.main_numbers == [6845]
     assert persisted.metadata_json["series"] == "031"
-    assert persisted.source_url == source_url
+    assert persisted.source_url == normalized.source_url
     assert persisted.validation_json["source_verified"] is True
 
 
