@@ -17,6 +17,7 @@ from app.scheduler.runner import (
 )
 from app.sources.ingestion import SourceExtractionError, SourceNormalizationError
 from app.sources.parsers import SourceParseError
+from scripts.run_scheduler import build_ingest_executor, FAILURE_STATUSES
 
 
 def test_scheduler_classifies_source_errors():
@@ -196,3 +197,24 @@ def test_fixed_schedule_remains_outside_window():
         lambda *_: "persisted", schedules=(schedule,)
     ).run_once(datetime(2026, 9, 21, 14, 0, tzinfo=COLOMBIA_TZ))
     assert attempts[0].status == SchedulerStatus.OUTSIDE_TOLERANCE
+
+
+def test_scheduler_script_keeps_ingestion_disabled_by_default(monkeypatch):
+    monkeypatch.delenv("SCHEDULER_ENABLE_INGESTION", raising=False)
+    executor = build_ingest_executor()
+    with pytest.raises(RuntimeError, match="ingestion is disabled"):
+        executor("LOTERIA_RISARALDA", "LOTERIA_RISARALDA_ORDINARY")
+
+
+@pytest.mark.parametrize(
+    "status",
+    [
+        SchedulerStatus.SOURCE_ERROR,
+        SchedulerStatus.PARSE_ERROR,
+        SchedulerStatus.VALIDATION_ERROR,
+        "ERROR",
+    ],
+)
+def test_scheduler_script_marks_operational_failures_as_process_failure(status):
+    assert status in FAILURE_STATUSES
+    assert SchedulerStatus.DUPLICATE not in FAILURE_STATUSES
