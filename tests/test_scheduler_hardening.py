@@ -218,3 +218,140 @@ def test_scheduler_script_keeps_ingestion_disabled_by_default(monkeypatch):
 def test_scheduler_script_marks_operational_failures_as_process_failure(status):
     assert status in FAILURE_STATUSES
     assert SchedulerStatus.DUPLICATE not in FAILURE_STATUSES
+
+
+class FakeFetcher:
+    def fetch(self, url: str) -> SourceFetchResult:
+        return SourceFetchResult(
+            url=url,
+            status_code=200,
+            content=b"payload",
+            content_type="application/json",
+            fetched_at=datetime(2026, 9, 21, 13, 0, tzinfo=COLOMBIA_TZ),
+        )
+
+
+class FakeParser:
+    def parse(self, fetched: SourceFetchResult) -> list[dict[str, object]]:
+        return [{"draw_number": "123", "draw_date": date(2026, 9, 21)}]
+
+
+class FakeAdapter:
+    spec = SourceSpec(
+        lottery_code="TEST",
+        draw_types=("TEST_DIA",),
+        primary_name="Test",
+        primary_url="https://example.test/result",
+        primary_verified=True,
+    )
+
+    def normalize(self, payload):
+        return RawDrawRecord(
+            lottery_code="TEST",
+            draw_type="TEST_DIA",
+            draw_number=payload["draw_number"],
+            draw_date=payload["draw_date"],
+            draw_time=time(13, 0),
+            main_numbers=[1, 2, 3, 4, 5],
+            bonus_numbers=[6],
+            metadata={"fixture": True},
+            source_name="Test",
+            source_url=payload["source_url"],
+            source_timestamp=payload["source_timestamp"],
+        )
+
+
+def test_ingestion_preserves_source_provenance_through_normalization():
+    pipeline = SourceIngestionPipeline(
+        fetcher=FakeFetcher(),
+        parser=FakeParser(),
+        adapter=FakeAdapter(),
+    )
+    records = pipeline.run("https://example.test/result")
+    assert records[0].source_url == "https://example.test/result"
+    assert records[0].source_timestamp == datetime(
+        2026, 9, 21, 13, 0, tzinfo=COLOMBIA_TZ
+    )
+
+
+def test_controlled_executor_orchestrates_verified_ingestion_and_persistence(monkeypatch):
+    from app.scheduler import executor as executor_module
+
+    persisted = {}
+
+    class FakeLottery:
+        id = 77
+        code = "TEST"
+
+    class FakeDB:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, exc_type, exc, tb):
+            return False
+
+        def scalar(self, statement):
+            return FakeLottery()
+
+    def fake_create_draw(**kwargs):
+        persisted.update(kwargs)
+        return type(
+            "Draw", (), {"id": 9001, "draw_date": date(2026, 9, 21)}
+        )()
+
+    monkeypatch.setattr(
+        executor_module,
+        "get_traditional_source",
+        lambda code: type(
+            "Profile",
+            (),
+            {
+                "verified": True,
+                "result_url": "https://example.test/result",
+            },
+        )(),
+    )
+    monkeypatch.setattr(
+        executor_module,
+        "build_traditional_lottery_components",
+        lambda code: (FakeParser(), FakeAdapter()),
+    )
+    monkeypatch.setattr(
+        executor_module,
+        "LotteryDrawService",
+        type("FakeService", (), {"create_draw": staticmethod(fake_create_draw)}),
+    )
+
+    executor = ControlledIngestionExecutor(
+        session_factory=FakeDB,
+        fetcher=FakeFetcher(),
+    )
+    message = executor("test", "TEST_DIA")
+
+    assert "persisted draw_id=9001" in message
+    assert persisted["lottery_id"] == 77
+    assert persisted["draw_number"] == "123"
+    assert persisted["draw_type"] == "TEST_DIA"
+    assert persisted["main_numbers"] == [1, 2, 3, 4, 5]
+    assert persisted["bonus_numbers"] == [6]
+    assert persisted["source_url"] == "https://example.test/result"
+
+
+def test_controlled_executor_rejects_unverified_source(monkeypatch):
+    from app.scheduler import executor as executor_module
+
+    monkeypatch.setattr(
+        executor_module,
+        "get_traditional_source",
+        lambda code: type(
+            "Profile",
+            (),
+            {"verified": False, "result_url": "https://example.test/result"},
+        )(),
+    )
+    executor = ControlledIngestionExecutor(
+        session_factory=lambda: pytest.fail("database must not be opened"),
+        fetcher=FakeFetcher(),
+    )
+    with pytest.raises(RuntimeError, match="source is not verified"):
+        executor("test", "TEST_DIA")
