@@ -124,7 +124,7 @@ class HtmlTableParser:
 
     _DATE_RE = re.compile(
         r"(?P<day>\d{1,2})\s+(?:de\s+)?"
-        r"(?P<month>[A-Za-zÁÉÍÓÚáéíóúñÑ]+)(?:\s+de)?\s+(?P<year>\d{4})",
+        r"(?P<month>[A-Za-zÁÉÍÓÚáéíóúñÑ]+)(?:\s+(?:de|del))?\s+(?P<year>\d{4})",
         re.IGNORECASE,
     )
     _NUMBER_RE = re.compile(r"(?<!\d)(\d{4})(?!\d)")
