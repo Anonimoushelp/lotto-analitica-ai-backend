@@ -37,7 +37,10 @@ class MappingSourceAdapter:
             raise SourceNormalizationError(
                 f"Unsupported draw type '{draw_type}' for {lottery_code}"
             )
-        draw_number = str(self._get(payload, "draw_number"))
+        draw_number_value = self._get(payload, "draw_number", None)
+        draw_number = (
+            str(draw_number_value) if draw_number_value is not None else None
+        )
         draw_date = self._coerce_date(self._get(payload, "draw_date"))
         draw_time = self._coerce_time(self._get(payload, "draw_time", None))
         main_numbers = self._coerce_numbers(
