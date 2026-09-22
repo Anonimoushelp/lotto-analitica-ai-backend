@@ -28,11 +28,11 @@ _PROFILES = {
         True,
     ),
     "LOTERIA_CRUZ_ROJA": TraditionalLotterySource(
-        "Lotería de la Cruz Roja — fuente primaria pendiente",
-        None,
+        "Lotería de la Cruz Roja — resultados",
+        "https://lotecruz.org.co/resultados/",
         "traditional_result_page",
         "traditional_four_digit_series",
-        False,
+        True,
     ),
     "LOTERIA_HUILA": TraditionalLotterySource(
         "Lotería del Huila — sorteos",
@@ -102,11 +102,11 @@ _PROFILES = {
         "https://www.loteriadeboyaca.com/resultados/",
         "traditional_result_page",
         "traditional_four_digit_series",
-        False,
+        True,
     ),
     "LOTERIA_CAUCA": TraditionalLotterySource(
         "Lotería del Cauca — resultados",
-        "https://www.loteriadelcauca.gov.co/",
+        "https://www.loteriadelcauca.gov.co/la-loteria/ultimos-resultados",
         "traditional_result_page",
         "traditional_four_digit_series",
         True,
