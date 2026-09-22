@@ -23,7 +23,11 @@ class TraditionalLotteryHtmlParser:
         re.IGNORECASE,
     )
     _RESULT_RE = re.compile(
-        r"\b(?:numero|resultado|result)\s*[:#-]?\s*(\d{4})\b",
+        r"\b(?:resultado|result)\s*[:#-]?\s*(\d{4})\b",
+        re.IGNORECASE,
+    )
+    _LABELED_NUMBER_RE = re.compile(
+        r"\bnumero\s*[:#-]?\s*(\d{4})\b",
         re.IGNORECASE,
     )
     _NUMBER_RE = re.compile(r"\b(\d{4})\b")
@@ -50,16 +54,24 @@ class TraditionalLotteryHtmlParser:
         draw_match = self._DRAW_RE.search(search_text)
         date_match = self._DATE_RE.search(text)
         result_match = self._RESULT_RE.search(search_text)
+        labeled_number_matches = self._LABELED_NUMBER_RE.findall(search_text)
         number_matches = self._NUMBER_RE.findall(text)
         series_match = self._SERIES_RE.search(search_text)
 
-        if not date_match or (not result_match and not number_matches):
+        if not date_match or (
+            not result_match and not labeled_number_matches and not number_matches
+        ):
             raise SourceParseError(
                 "Traditional lottery source does not expose a recognizable date/result"
             )
 
         draw_number = draw_match.group(1) if draw_match else None
         raw_number = result_match.group(1) if result_match else None
+        if raw_number is None:
+            for candidate in labeled_number_matches:
+                if draw_number is None or candidate != draw_number:
+                    raw_number = candidate
+                    break
         if raw_number is None:
             for candidate in number_matches:
                 if draw_number is None or candidate != draw_number:
