@@ -52,10 +52,15 @@ class HtmlProviderParserAdapter:
         parser: Any,
         allowed_draw_types: set[str],
         metadata_keys: tuple[str, ...] = (),
+        draw_type_aliases: Mapping[str, str] | None = None,
     ) -> None:
         self.parser = parser
         self.allowed_draw_types = allowed_draw_types
         self.metadata_keys = metadata_keys
+        self.draw_type_aliases = {
+            str(key).upper(): str(value).upper()
+            for key, value in (draw_type_aliases or {}).items()
+        }
 
     def parse(self, result: Any) -> Iterable[Mapping[str, Any]]:
         records = self.parser.parse(result)
@@ -63,6 +68,7 @@ class HtmlProviderParserAdapter:
 
         for record in records:
             draw_type = str(record.get("draw_type", "")).strip().upper()
+            draw_type = self.draw_type_aliases.get(draw_type, draw_type)
             if draw_type not in self.allowed_draw_types:
                 raise SourceParseError(
                     f"Unsupported draw type {draw_type}; expected one of "
