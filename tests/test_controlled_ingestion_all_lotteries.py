@@ -196,7 +196,7 @@ def test_controlled_ingestion_covers_all_verified_traditional_lotteries(
     fetched_at = datetime(2026, 9, 22, 8, 0, tzinfo=UTC)
     html = (
         "<html><body>"
-        f"<h1>Sorteo número 4187</h1>"
+        "<h1>Sorteo número 4187</h1>"
         "<div>22 de septiembre de 2026</div>"
         "<div>Número: 6845</div>"
         "<div>Serie: 031</div>"
