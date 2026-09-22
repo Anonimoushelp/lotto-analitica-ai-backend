@@ -6,6 +6,7 @@ from enum import StrEnum
 
 class LotteryStatus(StrEnum):
     ACTIVE = "ACTIVE"
+    SUSPENDED_ORDINARY = "SUSPENDED_ORDINARY"
     EXTRAORDINARY_ONLY = "EXTRAORDINARY_ONLY"
 
 
@@ -32,7 +33,7 @@ COLOMBIA_LOTTERIES_2026: tuple[ColombiaLottery2026, ...] = (
     ColombiaLottery2026("LOTERIA_VALLE", "Lotería del Valle", "Valle del Cauca", LotteryStatus.ACTIVE, 2),
     ColombiaLottery2026("LOTERIA_META", "Lotería del Meta", "Meta", LotteryStatus.ACTIVE, 2),
     ColombiaLottery2026("LOTERIA_BOGOTA", "Lotería de Bogotá", "Bogotá D.C.", LotteryStatus.ACTIVE, 3),
-    ColombiaLottery2026("LOTERIA_QUINDIO", "Lotería del Quindío", "Quindío", LotteryStatus.ACTIVE, 3),
+    ColombiaLottery2026("LOTERIA_QUINDIO", "Lotería del Quindío", "Quindío", LotteryStatus.SUSPENDED_ORDINARY, 3),
     ColombiaLottery2026("LOTERIA_MEDELLIN", "Lotería de Medellín", "Antioquia", LotteryStatus.ACTIVE, 4),
     ColombiaLottery2026("LOTERIA_SANTANDER", "Lotería de Santander", "Santander", LotteryStatus.ACTIVE, 4),
     ColombiaLottery2026("LOTERIA_RISARALDA", "Lotería de Risaralda", "Risaralda", LotteryStatus.ACTIVE, 4),
