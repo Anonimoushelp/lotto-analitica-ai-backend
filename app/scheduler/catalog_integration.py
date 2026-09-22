@@ -145,12 +145,16 @@ def validate_catalog_scheduler_bindings(
 
         if binding.calendar_rule is None:
             errors.append(f"{binding.lottery_code}: missing ordinary calendar rule")
-        elif lottery.ordinary_weekday is not None:
-            if binding.calendar_rule.weekdays != frozenset({lottery.ordinary_weekday}):
-                errors.append(f"{binding.lottery_code}: calendar weekday mismatch")
+        elif (
+            lottery.ordinary_weekday is not None
+            and binding.calendar_rule.weekdays != frozenset({lottery.ordinary_weekday})
+        ):
+            errors.append(f"{binding.lottery_code}: calendar weekday mismatch")
 
-        if lottery.status is LotteryStatus.SUSPENDED_ORDINARY:
-            if binding.integration_status is not IntegrationStatus.SUSPENDED:
-                errors.append(f"{binding.lottery_code}: suspension not propagated")
+        if (
+            lottery.status is LotteryStatus.SUSPENDED_ORDINARY
+            and binding.integration_status is not IntegrationStatus.SUSPENDED
+        ):
+            errors.append(f"{binding.lottery_code}: suspension not propagated")
 
     return errors
