@@ -1,5 +1,5 @@
-from httpx import MockTransport, Response
 import pytest
+from httpx import MockTransport, Response
 
 from app.sources.fetchers import HttpSourceFetcher, SourceFetchError
 
