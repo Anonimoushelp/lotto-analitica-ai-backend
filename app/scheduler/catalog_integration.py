@@ -4,14 +4,13 @@ from dataclasses import dataclass
 from enum import StrEnum
 from urllib.parse import urlparse
 
-from app.sources.traditional_lottery import get_traditional_source
-
 from app.catalog.colombia_lotteries_2026 import (
     COLOMBIA_LOTTERIES_2026,
     ColombiaLottery2026,
     LotteryStatus,
 )
 from app.scheduler.draw_schedule import ScheduledDraw
+from app.sources.traditional_lottery import get_traditional_source
 
 
 class IntegrationStatus(StrEnum):
