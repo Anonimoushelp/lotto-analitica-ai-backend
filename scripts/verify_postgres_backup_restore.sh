@@ -43,7 +43,7 @@ restored_tables="$(psql --host="$PGHOST" --port="$PGPORT" --username="$PGUSER" -
 
 [[ "$restored_marker" == "bcp-restore-ok" ]]
 [[ "$restored_payload" == "v1" ]]
-[[ "$restored_migration" == "c8e5f2a7d1b4" ]]
+[[ "$restored_migration" == "d4f7a9c2e6b1" ]]
 [[ "$restored_tables" == "3" ]]
 
 echo "PostgreSQL backup/restore verification passed."
