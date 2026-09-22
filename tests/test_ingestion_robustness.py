@@ -115,7 +115,7 @@ class StaticParser:
         return [self.payload]
 
 
-class TestAdapter(SourceAdapter):
+class FixtureAdapter(SourceAdapter):
     spec = MiLotoAdapter().spec
 
     def normalize(self, payload):
@@ -139,7 +139,7 @@ def test_ingestion_classifies_normalization_failure_separately():
             )
 
     pipeline = SourceIngestionPipeline(
-        fetcher=SuccessfulFetcher(), parser=StaticParser({"draw_number": "609"}), adapter=TestAdapter()
+        fetcher=SuccessfulFetcher(), parser=StaticParser({"draw_number": "609"}), adapter=FixtureAdapter()
     )
     with pytest.raises(SourceIngestionError, match="Source ingestion failed"):
         pipeline.run("https://example.test/results")
@@ -164,16 +164,16 @@ def test_full_ingestion_duplicate_is_rejected_at_persistence_boundary():
         persist(
             db,
             lottery.id,
-            draw_number=first["draw_number"],
-            draw_date=first["draw_date"],
+            draw_number=first.draw_number,
+            draw_date=first.draw_date,
             draw_type=first["draw_type"],
         )
         with pytest.raises(HTTPException) as exc:
             persist(
                 db,
                 lottery.id,
-                draw_number=first["draw_number"],
-                draw_date=first["draw_date"],
+                draw_number=first.draw_number,
+                draw_date=first.draw_date,
                 draw_type=first["draw_type"],
             )
         assert exc.value.status_code == 409
@@ -243,8 +243,8 @@ def test_same_ingestion_date_can_persist_for_different_draw_types():
         saved_second = persist(
             db,
             lottery.id,
-            draw_number=second["draw_number"],
-            draw_date=second["draw_date"],
+            draw_number=second.draw_number,
+            draw_date=second.draw_date,
             draw_type="REVANCHA",
         )
         assert saved_first.id != saved_second.id
