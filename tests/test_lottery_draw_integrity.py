@@ -77,6 +77,24 @@ def test_create_draw_persists_valid_record(db):
     assert draw.validation_json is None
 
 
+def test_create_draw_allows_missing_draw_number(db):
+    lottery = seed_lottery(db, "Antioqueñita")
+
+    draw = LotteryDrawService.create_draw(
+        db=db,
+        lottery_id=lottery.id,
+        draw_number=None,
+        draw_date=date(2026, 9, 20),
+        main_numbers=[153],
+        draw_type="ANTIOQUENITA_1",
+        source="official-html",
+    )
+
+    assert draw.id is not None
+    assert draw.draw_number is None
+    assert draw.draw_type == "ANTIOQUENITA_1"
+
+
 def test_create_draw_rejects_missing_lottery(db):
     with pytest.raises(HTTPException) as exc:
         LotteryDrawService.create_draw(db=db, **draw_payload(999))
