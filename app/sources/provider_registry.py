@@ -44,10 +44,12 @@ HTML_PROVIDER_COMPONENTS = {
             "CHONTICO_NOCHE",
             "CHONTICO_SUPER_NOCHE",
         },
+        draw_type_aliases={"SUPER_CHONTICO_NOCHE": "CHONTICO_SUPER_NOCHE"},
     ),
     "DORADO": HtmlProviderParserAdapter(
         parser=HtmlTableParser(),
         allowed_draw_types={"DORADO_DIA", "DORADO_TARDE", "DORADO_NOCHE"},
+        draw_type_aliases={"DORADO_MANANA": "DORADO_DIA"},
         metadata_keys=("additional_value", "raw_additional_value"),
     ),
     "CAFETERITO": HtmlProviderParserAdapter(
