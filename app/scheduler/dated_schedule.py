@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass
-from datetime import date, datetime, time
+from datetime import date, datetime, time, timedelta
 
 from app.scheduler.draw_schedule import COLOMBIA_TZ, ScheduledDraw
 
@@ -67,6 +67,4 @@ class DatedSchedule:
         expected = datetime.combine(
             local_now.date(), schedule.expected_time, COLOMBIA_TZ
         )
-        return expected <= local_now <= expected.replace(
-            minute=expected.minute + tolerance_minutes
-        )
+        return expected <= local_now <= expected + timedelta(minutes=tolerance_minutes)
