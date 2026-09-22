@@ -166,7 +166,7 @@ def test_full_ingestion_duplicate_is_rejected_at_persistence_boundary():
             lottery.id,
             draw_number=first.draw_number,
             draw_date=first.draw_date,
-            draw_type=first["draw_type"],
+            draw_type=first.draw_type,
         )
         with pytest.raises(HTTPException) as exc:
             persist(
@@ -174,7 +174,7 @@ def test_full_ingestion_duplicate_is_rejected_at_persistence_boundary():
                 lottery.id,
                 draw_number=first.draw_number,
                 draw_date=first.draw_date,
-                draw_type=first["draw_type"],
+                draw_type=first.draw_type,
             )
         assert exc.value.status_code == 409
         assert exc.value.detail == "Draw number already exists for this lottery and draw type"
@@ -236,8 +236,8 @@ def test_same_ingestion_date_can_persist_for_different_draw_types():
         saved_first = persist(
             db,
             lottery.id,
-            draw_number=first["draw_number"],
-            draw_date=first["draw_date"],
+            draw_number=first.draw_number,
+            draw_date=first.draw_date,
             draw_type="BALOTO",
         )
         saved_second = persist(
