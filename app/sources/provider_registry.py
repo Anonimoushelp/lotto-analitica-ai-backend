@@ -95,10 +95,19 @@ def build_html_provider_parser(lottery_code: str) -> HtmlProviderParserAdapter:
 
 
 TRADITIONAL_LOTTERY_CODES = {
-    "LOTERIA_CUNDINAMARCA", "LOTERIA_TOLIMA", "LOTERIA_CRUZ_ROJA",
-    "LOTERIA_HUILA", "LOTERIA_MANIZALES", "LOTERIA_VALLE", "LOTERIA_META",
-    "LOTERIA_BOGOTA", "LOTERIA_QUINDIO", "LOTERIA_MEDELLIN",
-    "LOTERIA_SANTANDER", "LOTERIA_RISARALDA", "LOTERIA_BOYACA",
+    "LOTERIA_CUNDINAMARCA",
+    "LOTERIA_TOLIMA",
+    "LOTERIA_CRUZ_ROJA",
+    "LOTERIA_HUILA",
+    "LOTERIA_MANIZALES",
+    "LOTERIA_VALLE",
+    "LOTERIA_META",
+    "LOTERIA_BOGOTA",
+    "LOTERIA_QUINDIO",
+    "LOTERIA_MEDELLIN",
+    "LOTERIA_SANTANDER",
+    "LOTERIA_RISARALDA",
+    "LOTERIA_BOYACA",
     "LOTERIA_CAUCA",
 }
 
@@ -106,5 +115,7 @@ TRADITIONAL_LOTTERY_CODES = {
 def build_traditional_lottery_components(lottery_code: str):
     code = lottery_code.upper()
     if code not in TRADITIONAL_LOTTERY_CODES:
-        raise KeyError(f"No traditional lottery components configured for {lottery_code}")
-    return TraditionalLotteryHtmlParser(), TraditionalLotteryAdapter(code)
+        raise KeyError(
+            f"No traditional lottery components configured for {lottery_code}"
+        )
+    return TraditionalLotteryHtmlParser(code), TraditionalLotteryAdapter(code)
