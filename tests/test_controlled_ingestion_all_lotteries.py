@@ -52,120 +52,16 @@ Lottery.__table__.create(bind=ENGINE)
 LotteryDraw.__table__.create(bind=ENGINE)
 
 CASES = [
-    (
-        "MILOTO",
-        MiLotoJsonParser(),
-        MiLotoAdapter(),
-        {
-            "draw_number": "609",
-            "draw_date": "2026-09-18",
-            "main_numbers": [10, 15, 31, 33, 39],
-        },
-    ),
-    (
-        "BALOTO",
-        BalotoFamilyJsonParser(),
-        BalotoAdapter(),
-        {
-            "game_type": "BALOTO",
-            "draw_number": "1234",
-            "draw_date": "2026-09-20",
-            "main_numbers": [5, 12, 23, 31, 42],
-            "superbalota": [7],
-        },
-    ),
-    (
-        "REVANCHA",
-        BalotoFamilyJsonParser(),
-        RevanchaAdapter(),
-        {
-            "game_type": "REVANCHA",
-            "draw_number": "1234",
-            "draw_date": "2026-09-20",
-            "main_numbers": [5, 12, 23, 31, 42],
-            "revancha_bonus": [7],
-        },
-    ),
-    (
-        "SUPER_ASTRO",
-        SuperAstroJsonParser(),
-        SuperAstroAdapter(),
-        {
-            "draw_type": "ASTRO_SOL",
-            "draw_number": "9876",
-            "draw_date": "2026-09-20",
-            "number": "0982",
-            "sign": "Virgo",
-        },
-    ),
-    (
-        "ANTIOQUENITA",
-        AntioquenitaJsonParser(),
-        AntioquenitaAdapter(),
-        {
-            "tipo": "ANTIOQUENITA_2",
-            "sorteo": "20260920-2",
-            "fecha": "2026-09-20",
-            "resultado": "1054",
-        },
-    ),
-    (
-        "CHONTICO",
-        ChonticoJsonParser(),
-        ChonticoAdapter(),
-        {
-            "tipo": "CHONTICO_DIA",
-            "sorteo": "20260920-D",
-            "fecha": "2026-09-20",
-            "resultado": "6725",
-        },
-    ),
-    (
-        "DORADO",
-        DoradoJsonParser(),
-        DoradoAdapter(),
-        {
-            "tipo": "DORADO_DIA",
-            "sorteo": "20260921-D",
-            "fecha": "2026-09-21",
-            "resultado": "7279",
-            "additional_value": 5,
-        },
-    ),
-    (
-        "CAFETERITO",
-        CafeteritoJsonParser(),
-        CafeteritoAdapter(),
-        {
-            "tipo": "CAFETERITO_NOCHE",
-            "sorteo": "20260920-N",
-            "fecha": "2026-09-20",
-            "resultado": "3312",
-        },
-    ),
-    (
-        "PAISITA",
-        PaisitaJsonParser(),
-        PaisitaAdapter(),
-        {
-            "tipo": "PAISITA_NOCHE",
-            "sorteo": "20260920-N",
-            "fecha": "2026-09-20",
-            "resultado": "3946",
-            "animal": "Caballo",
-        },
-    ),
-    (
-        "FANTASTICA",
-        FantasticaJsonParser(),
-        FantasticaAdapter(),
-        {
-            "tipo": "FANTASTICA_NOCHE",
-            "sorteo": "20260920-N",
-            "fecha": "2026-09-20",
-            "resultado": "2977",
-        },
-    ),
+    ("MILOTO", MiLotoJsonParser(), MiLotoAdapter(), {"draw_number": "609", "draw_date": "2026-09-18", "main_numbers": [10, 15, 31, 33, 39]}),
+    ("BALOTO", BalotoFamilyJsonParser(), BalotoAdapter(), {"game_type": "BALOTO", "draw_number": "1234", "draw_date": "2026-09-20", "main_numbers": [5, 12, 23, 31, 42], "superbalota": [7]}),
+    ("REVANCHA", BalotoFamilyJsonParser(), RevanchaAdapter(), {"game_type": "REVANCHA", "draw_number": "1234", "draw_date": "2026-09-20", "main_numbers": [5, 12, 23, 31, 42], "revancha_bonus": [7]}),
+    ("SUPER_ASTRO", SuperAstroJsonParser(), SuperAstroAdapter(), {"draw_type": "ASTRO_SOL", "draw_number": "9876", "draw_date": "2026-09-20", "number": "0982", "sign": "Virgo"}),
+    ("ANTIOQUENITA", AntioquenitaJsonParser(), AntioquenitaAdapter(), {"tipo": "ANTIOQUENITA_2", "sorteo": "20260920-2", "fecha": "2026-09-20", "resultado": "1054"}),
+    ("CHONTICO", ChonticoJsonParser(), ChonticoAdapter(), {"tipo": "CHONTICO_DIA", "sorteo": "20260920-D", "fecha": "2026-09-20", "resultado": "6725"}),
+    ("DORADO", DoradoJsonParser(), DoradoAdapter(), {"tipo": "DORADO_DIA", "sorteo": "20260921-D", "fecha": "2026-09-21", "resultado": "7279", "additional_value": 5}),
+    ("CAFETERITO", CafeteritoJsonParser(), CafeteritoAdapter(), {"tipo": "CAFETERITO_NOCHE", "sorteo": "20260920-N", "fecha": "2026-09-20", "resultado": "3312"}),
+    ("PAISITA", PaisitaJsonParser(), PaisitaAdapter(), {"tipo": "PAISITA_NOCHE", "sorteo": "20260920-N", "fecha": "2026-09-20", "resultado": "3946", "animal": "Caballo"}),
+    ("FANTASTICA", FantasticaJsonParser(), FantasticaAdapter(), {"tipo": "FANTASTICA_NOCHE", "sorteo": "20260920-N", "fecha": "2026-09-20", "resultado": "2977"}),
 ]
 
 
@@ -218,15 +114,7 @@ def test_controlled_ingestion_covers_all_ten_lotteries(
     assert normalized.source_url == source_url
     assert normalized.source_timestamp == fetched_at
 
-    if lottery_code in {
-        "SUPER_ASTRO",
-        "ANTIOQUENITA",
-        "CHONTICO",
-        "DORADO",
-        "CAFETERITO",
-        "PAISITA",
-        "FANTASTICA",
-    }:
+    if lottery_code in {"SUPER_ASTRO", "ANTIOQUENITA", "CHONTICO", "DORADO", "CAFETERITO", "PAISITA", "FANTASTICA"}:
         expected_raw = payload.get("number", payload.get("resultado"))
         assert normalized.metadata["raw_result"] == expected_raw
         assert normalized.metadata["digit_count"] == 4
@@ -242,11 +130,7 @@ def test_controlled_ingestion_covers_all_ten_lotteries(
     if lottery_code == "DORADO":
         assert normalized.metadata["additional_value"] == 5
 
-    lottery = Lottery(
-        name=lottery_code,
-        code=lottery_code.lower(),
-        country="Colombia",
-    )
+    lottery = Lottery(name=lottery_code, code=lottery_code.lower(), country="Colombia")
     db.add(lottery)
     db.commit()
     db.refresh(lottery)
@@ -264,12 +148,7 @@ def test_controlled_ingestion_covers_all_ten_lotteries(
         source_url=normalized.source_url,
         source_timestamp=normalized.source_timestamp,
         metadata_json=normalized.metadata,
-        validation_json={
-            "format_valid": True,
-            "date_valid": True,
-            "duplicate": False,
-            "source_verified": spec.primary_verified,
-        },
+        validation_json={"format_valid": True, "date_valid": True, "duplicate": False, "source_verified": spec.primary_verified},
     )
 
     assert persisted.id is not None
@@ -280,16 +159,12 @@ def test_controlled_ingestion_covers_all_ten_lotteries(
     assert persisted.bonus_numbers == normalized.bonus_numbers
     assert persisted.metadata_json == normalized.metadata
     assert persisted.source_url == normalized.source_url
-    assert persisted.source_timestamp == normalized.source_timestamp
+    assert persisted.source_timestamp == normalized.source_timestamp.replace(tzinfo=None)
     assert persisted.validation_json["format_valid"] is True
 
 
 def test_controlled_ingestion_allows_html_source_without_draw_number(db):
-    lottery = Lottery(
-        name="Antioquenita",
-        code="antioquenita",
-        country="Colombia",
-    )
+    lottery = Lottery(name="Antioquenita", code="antioquenita", country="Colombia")
     db.add(lottery)
     db.commit()
     db.refresh(lottery)
@@ -303,11 +178,7 @@ def test_controlled_ingestion_allows_html_source_without_draw_number(db):
         draw_type="ANTIOQUENITA_1",
         source="Antioquenita",
         source_url="https://antioquenita.co/",
-        validation_json={
-            "format_valid": True,
-            "date_valid": True,
-            "source_verified": False,
-        },
+        validation_json={"format_valid": True, "date_valid": True, "source_verified": False},
     )
 
     assert persisted.draw_number is None
