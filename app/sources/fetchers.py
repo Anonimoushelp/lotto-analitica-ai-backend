@@ -35,6 +35,7 @@ class HttpSourceFetcher:
         user_agent: str = "Lotto-Analitica-AI/1.0",
         allowed_hosts: set[str] | None = None,
         max_response_bytes: int = 2_000_000,
+        transport: httpx.BaseTransport | None = None,
     ) -> None:
         if timeout <= 0:
             raise ValueError("timeout must be greater than zero")
@@ -44,6 +45,7 @@ class HttpSourceFetcher:
         self.user_agent = user_agent
         self.allowed_hosts = {host.casefold() for host in (allowed_hosts or set())}
         self.max_response_bytes = max_response_bytes
+        self.transport = transport
 
     def _validate_url(self, url: str) -> None:
         parsed = urlparse(url)
@@ -61,6 +63,7 @@ class HttpSourceFetcher:
                 timeout=self.timeout,
                 follow_redirects=True,
                 headers={"User-Agent": self.user_agent},
+                transport=self.transport,
             ) as client:
                 with client.stream("GET", url) as response:
                     response.raise_for_status()
