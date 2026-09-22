@@ -55,7 +55,7 @@ def _validate_json_size(
 class LotteryDrawBase(BaseModel):
     lottery_id: int = Field(gt=0)
     draw_type: str = Field(default="DEFAULT", min_length=1, max_length=50)
-    draw_number: str = Field(min_length=1, max_length=50)
+    draw_number: str | None = Field(default=None, min_length=1, max_length=50)
     draw_date: date
     draw_time: time | None = None
     main_numbers: list[int] = Field(
