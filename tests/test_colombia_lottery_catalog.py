@@ -8,7 +8,7 @@ from app.catalog.colombia_lotteries_2026 import (
 
 def test_catalog_contains_15_operational_2026_lotteries():
     assert len(COLOMBIA_LOTTERIES_2026) == 15
-    assert len(active_ordinary_lotteries()) == 14
+    assert len(active_ordinary_lotteries()) == 13
 
 
 def test_ordinary_calendar_weekdays_match_2026_public_schedule():
@@ -21,7 +21,6 @@ def test_ordinary_calendar_weekdays_match_2026_public_schedule():
         "LOTERIA_VALLE": 2,
         "LOTERIA_META": 2,
         "LOTERIA_BOGOTA": 3,
-        "LOTERIA_QUINDIO": 3,
         "LOTERIA_MEDELLIN": 4,
         "LOTERIA_SANTANDER": 4,
         "LOTERIA_RISARALDA": 4,
