@@ -5,16 +5,16 @@ import unicodedata
 from collections.abc import Iterable, Mapping
 
 from app.sources.contracts import SourceSpec
+from app.sources.fetchers import SourceFetchResult
 from app.sources.normalizer import MappingSourceAdapter, SourceNormalizationError
 from app.sources.parsers import SourceParseError
-from app.sources.fetchers import SourceFetchResult
 from app.sources.traditional_lottery import get_traditional_source
 
 
 class TraditionalLotteryHtmlParser:
     """Extract a four-digit major result plus series from a lottery result page."""
 
-    _DRAW_RE = re.compile(r"\b(?:sorteo|draw)\s*(?:n[úu]mero|no\.?|#)?\s*(\d{1,6})", re.I)
+    _DRAW_RE = re.compile(r"\b(?:sorteo|draw)\s*(?:n[úu]mero|no\.?|#)?\s*(\d{1,6})", re.IGNORECASE)
     _DATE_RE = re.compile(
         r"(\d{1,2})\s*(?:de\s+)?([A-Za-zÁÉÍÓÚáéíóúñÑ]+)\s*(?:de\s+)?(\d{4})",
         re.I,
