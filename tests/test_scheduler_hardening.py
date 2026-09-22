@@ -9,6 +9,7 @@ from app.scheduler.runner import (
     SchedulerStatus,
     classify_ingestion_error,
     evaluate_schedule,
+    SchedulerRunner,
 )
 from app.sources.ingestion import SourceExtractionError, SourceNormalizationError
 from app.sources.parsers import SourceParseError
@@ -98,10 +99,7 @@ def test_scheduler_isolates_same_lottery_different_draw_types():
         ScheduledDraw("TEST", "DIA", time(13, 0)),
         ScheduledDraw("TEST", "NOCHE", time(13, 0)),
     )
-    runner = __import__("app.scheduler.runner", fromlist=["SchedulerRunner"]).SchedulerRunner(
-        ingest,
-        schedules=schedules,
-    )
+    runner = SchedulerRunner(ingest, schedules=schedules)
     attempts = runner.run_once(
         datetime(2026, 9, 21, 13, 10, tzinfo=COLOMBIA_TZ)
     )
