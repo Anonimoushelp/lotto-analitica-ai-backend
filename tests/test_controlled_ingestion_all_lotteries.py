@@ -41,6 +41,11 @@ from app.sources.provider_parsers import (
     SuperAstroJsonParser,
 )
 from app.sources.registry import get_source_spec
+from app.sources.traditional_lottery import get_traditional_source
+from app.sources.traditional_lottery_components import (
+    TraditionalLotteryAdapter,
+    TraditionalLotteryHtmlParser,
+)
 
 ENGINE = create_engine(
     "sqlite://",
@@ -63,6 +68,21 @@ CASES = [
     ("PAISITA", PaisitaJsonParser(), PaisitaAdapter(), {"tipo": "PAISITA_NOCHE", "sorteo": "20260920-N", "fecha": "2026-09-20", "resultado": "3946", "animal": "Caballo"}),
     ("FANTASTICA", FantasticaJsonParser(), FantasticaAdapter(), {"tipo": "FANTASTICA_NOCHE", "sorteo": "20260920-N", "fecha": "2026-09-20", "resultado": "2977"}),
 ]
+
+TRADITIONAL_READY = (
+    "LOTERIA_CUNDINAMARCA",
+    "LOTERIA_TOLIMA",
+    "LOTERIA_CRUZ_ROJA",
+    "LOTERIA_HUILA",
+    "LOTERIA_MANIZALES",
+    "LOTERIA_VALLE",
+    "LOTERIA_BOGOTA",
+    "LOTERIA_MEDELLIN",
+    "LOTERIA_SANTANDER",
+    "LOTERIA_RISARALDA",
+    "LOTERIA_BOYACA",
+    "LOTERIA_CAUCA",
+)
 
 
 @pytest.fixture
@@ -161,6 +181,87 @@ def test_controlled_ingestion_covers_all_ten_lotteries(
     assert persisted.source_url == normalized.source_url
     assert persisted.source_timestamp == normalized.source_timestamp.replace(tzinfo=None)
     assert persisted.validation_json["format_valid"] is True
+
+
+@pytest.mark.parametrize("lottery_code", TRADITIONAL_READY)
+def test_controlled_ingestion_covers_all_verified_traditional_lotteries(
+    lottery_code: str,
+    db,
+):
+    profile = get_traditional_source(lottery_code)
+    assert profile.verified is True
+    assert profile.result_url is not None
+
+    source_url = profile.result_url
+    fetched_at = datetime(2026, 9, 22, 8, 0, tzinfo=UTC)
+    html = (
+        "<html><body>"
+        f"<h1>Sorteo número 4187</h1>"
+        "<div>22 de septiembre de 2026</div>"
+        "<div>Número: 6845</div>"
+        "<div>Serie: 031</div>"
+        "</body></html>"
+    )
+
+    class FakeFetcher:
+        def fetch(self, url: str) -> SourceFetchResult:
+            return SourceFetchResult(
+                url=url,
+                status_code=200,
+                content=html.encode(),
+                content_type="text/html",
+                fetched_at=fetched_at,
+            )
+
+    pipeline = SourceIngestionPipeline(
+        fetcher=FakeFetcher(),
+        parser=TraditionalLotteryHtmlParser(),
+        adapter=TraditionalLotteryAdapter(lottery_code),
+    )
+    normalized = pipeline.run(source_url)[0]
+
+    assert normalized.lottery_code == lottery_code
+    assert normalized.draw_type == f"{lottery_code}_ORDINARY"
+    assert normalized.draw_number == "4187"
+    assert normalized.draw_date == date(2026, 9, 22)
+    assert normalized.main_numbers == [6845]
+    assert normalized.metadata["raw_result"] == "6845"
+    assert normalized.metadata["digit_count"] == 4
+    assert normalized.metadata["series"] == "031"
+    assert normalized.source_url == source_url
+    assert normalized.source_timestamp == fetched_at
+
+    lottery = Lottery(name=lottery_code, code=lottery_code.lower(), country="Colombia")
+    db.add(lottery)
+    db.commit()
+    db.refresh(lottery)
+
+    persisted = LotteryDrawService.create_draw(
+        db=db,
+        lottery_id=lottery.id,
+        draw_number=normalized.draw_number,
+        draw_date=normalized.draw_date,
+        main_numbers=normalized.main_numbers,
+        draw_type=normalized.draw_type,
+        source=normalized.source_name,
+        source_url=normalized.source_url,
+        source_timestamp=normalized.source_timestamp,
+        metadata_json=normalized.metadata,
+        validation_json={
+            "format_valid": True,
+            "date_valid": True,
+            "duplicate": False,
+            "source_verified": True,
+        },
+    )
+
+    assert persisted.id is not None
+    assert persisted.draw_number == "4187"
+    assert persisted.draw_date == date(2026, 9, 22)
+    assert persisted.main_numbers == [6845]
+    assert persisted.metadata_json["series"] == "031"
+    assert persisted.source_url == source_url
+    assert persisted.validation_json["source_verified"] is True
 
 
 def test_controlled_ingestion_allows_html_source_without_draw_number(db):
