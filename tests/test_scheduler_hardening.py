@@ -17,7 +17,7 @@ from app.scheduler.runner import (
 )
 from app.sources.ingestion import SourceExtractionError, SourceNormalizationError
 from app.sources.parsers import SourceParseError
-from scripts.run_scheduler import build_ingest_executor, FAILURE_STATUSES
+from scripts.run_scheduler import FAILURE_STATUSES, build_ingest_executor
 
 
 def test_scheduler_classifies_source_errors():
