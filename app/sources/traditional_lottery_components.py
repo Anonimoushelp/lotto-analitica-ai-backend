@@ -14,13 +14,23 @@ from app.sources.traditional_lottery import get_traditional_source
 class TraditionalLotteryHtmlParser:
     """Extract a four-digit major result plus series from a lottery result page."""
 
-    _DRAW_RE = re.compile(r"\b(?:sorteo|draw)\s*(?:n[úu]mero|no\.?|#)?\s*(\d{1,6})", re.IGNORECASE)
+    _DRAW_RE = re.compile(
+        r"\b(?:sorteo|draw)\s*(?:n[úu]mero|no\.?|#)?\s*(\d{1,6})",
+        re.IGNORECASE,
+    )
     _DATE_RE = re.compile(
         r"(\d{1,2})\s*(?:de\s+)?([A-Za-zÁÉÍÓÚáéíóúñÑ]+)\s*(?:de\s+)?(\d{4})",
         re.IGNORECASE,
     )
+    _RESULT_RE = re.compile(
+        r"\b(?:n[úu]mero|resultado|result)\s*[:#-]?\s*(\d{4})\b",
+        re.IGNORECASE,
+    )
     _NUMBER_RE = re.compile(r"\b(\d{4})\b")
-    _SERIES_RE = re.compile(r"(?:serie|series)\s*[:#-]?\s*(\d{1,4})", re.IGNORECASE)
+    _SERIES_RE = re.compile(
+        r"(?:serie|series)\s*[:#-]?\s*(\d{1,4})",
+        re.IGNORECASE,
+    )
 
     def parse(self, result: SourceFetchResult, lottery_code: str) -> Iterable[Mapping[str, object]]:
         try:
@@ -31,16 +41,27 @@ class TraditionalLotteryHtmlParser:
         text = " ".join(re.sub(r"<[^>]+>", " ", html).split())
         draw_match = self._DRAW_RE.search(text)
         date_match = self._DATE_RE.search(text)
+        result_match = self._RESULT_RE.search(text)
         number_matches = self._NUMBER_RE.findall(text)
         series_match = self._SERIES_RE.search(text)
 
-        if not date_match or not number_matches:
+        if not date_match or (not result_match and not number_matches):
             raise SourceParseError(
                 "Traditional lottery source does not expose a recognizable date/result"
             )
 
         draw_number = draw_match.group(1) if draw_match else None
-        raw_number = number_matches[0]
+        raw_number = result_match.group(1) if result_match else None
+        if raw_number is None:
+            for candidate in number_matches:
+                if draw_number is None or candidate != draw_number:
+                    raw_number = candidate
+                    break
+        if raw_number is None:
+            raise SourceParseError(
+                "Traditional lottery source does not expose a recognizable four-digit result"
+            )
+
         month = self._month(date_match.group(2))
         if month is None:
             raise SourceParseError("Traditional lottery source has an unsupported month")
@@ -50,16 +71,18 @@ class TraditionalLotteryHtmlParser:
         if series_match:
             metadata["series"] = series_match.group(1)
 
-        return [{
-            "lottery_code": lottery_code,
-            "draw_type": f"{lottery_code}_ORDINARY",
-            "draw_number": draw_number,
-            "draw_date": draw_date,
-            "main_numbers": [int(raw_number)],
-            "metadata": metadata,
-            "source_url": result.url,
-            "source_timestamp": result.fetched_at,
-        }]
+        return [
+            {
+                "lottery_code": lottery_code,
+                "draw_type": f"{lottery_code}_ORDINARY",
+                "draw_number": draw_number,
+                "draw_date": draw_date,
+                "main_numbers": [int(raw_number)],
+                "metadata": metadata,
+                "source_url": result.url,
+                "source_timestamp": result.fetched_at,
+            }
+        ]
 
     @staticmethod
     def _month(value: str) -> str | None:
@@ -70,10 +93,19 @@ class TraditionalLotteryHtmlParser:
             .casefold()
         )
         return {
-            "enero": "01", "febrero": "02", "marzo": "03", "abril": "04",
-            "mayo": "05", "junio": "06", "julio": "07", "agosto": "08",
-            "septiembre": "09", "setiembre": "09", "octubre": "10",
-            "noviembre": "11", "diciembre": "12",
+            "enero": "01",
+            "febrero": "02",
+            "marzo": "03",
+            "abril": "04",
+            "mayo": "05",
+            "junio": "06",
+            "julio": "07",
+            "agosto": "08",
+            "septiembre": "09",
+            "setiembre": "09",
+            "octubre": "10",
+            "noviembre": "11",
+            "diciembre": "12",
         }.get(normalized)
 
 
