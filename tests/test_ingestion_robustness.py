@@ -143,3 +143,134 @@ def test_ingestion_classifies_normalization_failure_separately():
     )
     with pytest.raises(SourceIngestionError, match="Source ingestion failed"):
         pipeline.run("https://example.test/results")
+
+
+def test_full_ingestion_duplicate_is_rejected_at_persistence_boundary():
+    db, lottery = make_db()
+    try:
+        payload = {
+            "draw_number": "609",
+            "draw_date": date(2026, 9, 18),
+            "main_numbers": [10, 15, 31, 33, 39],
+            "draw_type": "MILOTO",
+        }
+        pipeline = SourceIngestionPipeline(
+            fetcher=SuccessfulPayloadFetcher(payload),
+            parser=StaticParser(payload),
+            adapter=MiLotoAdapter(),
+        )
+        records = pipeline.run("https://example.test/results")
+        first = records[0]
+        persist(
+            db,
+            lottery.id,
+            draw_number=first["draw_number"],
+            draw_date=first["draw_date"],
+            draw_type=first["draw_type"],
+        )
+        with pytest.raises(HTTPException) as exc:
+            persist(
+                db,
+                lottery.id,
+                draw_number=first["draw_number"],
+                draw_date=first["draw_date"],
+                draw_type=first["draw_type"],
+            )
+        assert exc.value.status_code == 409
+        assert exc.value.detail == "Draw number already exists for this lottery and draw type"
+    finally:
+        teardown_db(db)
+
+
+class SuccessfulPayloadFetcher:
+    def __init__(self, payload):
+        self.payload = payload
+
+    def fetch(self, url: str) -> SourceFetchResult:
+        return SourceFetchResult(
+            url=url,
+            status_code=200,
+            content=b"ignored",
+            content_type="application/json",
+            fetched_at=datetime(2026, 9, 21, 16, 0, tzinfo=UTC),
+        )
+
+
+def test_parser_failure_is_classified_as_extraction_error():
+    class FailingParser:
+        def parse(self, result):
+            raise ValueError("unsupported source format")
+
+    pipeline = SourceIngestionPipeline(
+        fetcher=SuccessfulPayloadFetcher({}),
+        parser=FailingParser(),
+        adapter=MiLotoAdapter(),
+    )
+    with pytest.raises(SourceIngestionError, match="Source extraction failed"):
+        pipeline.run("https://example.test/results")
+
+
+def test_same_ingestion_date_can_persist_for_different_draw_types():
+    db, lottery = make_db()
+    try:
+        baloto = {
+            "draw_number": "609",
+            "draw_date": date(2026, 9, 18),
+            "main_numbers": [10, 15, 31, 33, 39],
+            "draw_type": "BALOTO",
+        }
+        revancha = {
+            **baloto,
+            "draw_type": "REVANCHA",
+        }
+        first = SourceIngestionPipeline(
+            fetcher=SuccessfulPayloadFetcher(baloto),
+            parser=StaticParser(baloto),
+            adapter=MiLotoAdapter(),
+        ).run("https://example.test/baloto")[0]
+        second = SourceIngestionPipeline(
+            fetcher=SuccessfulPayloadFetcher(revancha),
+            parser=StaticParser(revancha),
+            adapter=MiLotoAdapter(),
+        ).run("https://example.test/revancha")[0]
+        saved_first = persist(
+            db,
+            lottery.id,
+            draw_number=first["draw_number"],
+            draw_date=first["draw_date"],
+            draw_type="BALOTO",
+        )
+        saved_second = persist(
+            db,
+            lottery.id,
+            draw_number=second["draw_number"],
+            draw_date=second["draw_date"],
+            draw_type="REVANCHA",
+        )
+        assert saved_first.id != saved_second.id
+        assert {saved_first.draw_type, saved_second.draw_type} == {"BALOTO", "REVANCHA"}
+    finally:
+        teardown_db(db)
+
+
+def test_holiday_override_uses_holiday_time_instead_of_skipping():
+    schedule = ScheduledDraw(
+        "TEST",
+        "NOCHE",
+        time(20, 0),
+        weekdays=frozenset(range(7)),
+        tolerance_minutes=30,
+        holiday_times=(time(21, 0),),
+        skip_on_holiday=True,
+    )
+    holiday = frozenset({date(2026, 9, 21)})
+    assert due_draws(
+        datetime(2026, 9, 21, 20, 10, tzinfo=COLOMBIA_TZ),
+        schedules=(schedule,),
+        holiday_dates=holiday,
+    ) == []
+    assert due_draws(
+        datetime(2026, 9, 21, 21, 10, tzinfo=COLOMBIA_TZ),
+        schedules=(schedule,),
+        holiday_dates=holiday,
+    ) == [schedule]
