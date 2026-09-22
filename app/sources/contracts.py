@@ -10,7 +10,7 @@ from typing import Any, Protocol
 class RawDrawRecord:
     lottery_code: str
     draw_type: str
-    draw_number: str
+    draw_number: str | None
     draw_date: date
     draw_time: time | None
     main_numbers: list[int]
