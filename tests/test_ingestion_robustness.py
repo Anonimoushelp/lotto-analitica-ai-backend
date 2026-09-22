@@ -1,4 +1,4 @@
-from datetime import date, datetime, time
+from datetime import UTC, date, datetime, time
 
 import pytest
 from fastapi import HTTPException
@@ -8,18 +8,14 @@ from sqlalchemy.pool import StaticPool
 
 from app.models.lottery import Lottery
 from app.models.lottery_draw import LotteryDraw
-from app.scheduler.draw_schedule import ScheduledDraw, due_draws
+from app.scheduler.draw_schedule import COLOMBIA_TZ, ScheduledDraw, due_draws
 from app.services.lottery_draw_service import LotteryDrawService
 from app.sources.adapters import MiLotoAdapter
 from app.sources.contracts import SourceAdapter
 from app.sources.fetchers import SourceFetchResult
 from app.sources.ingestion import SourceIngestionError, SourceIngestionPipeline
 
-ENGINE = create_engine(
-    "sqlite://",
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
-)
+ENGINE = create_engine("sqlite://", connect_args={"check_same_thread": False}, poolclass=StaticPool)
 SessionLocal = sessionmaker(bind=ENGINE, autoflush=False, autocommit=False)
 Lottery.__table__.create(bind=ENGINE)
 LotteryDraw.__table__.create(bind=ENGINE)
@@ -36,14 +32,9 @@ def make_db():
 
 def persist(db, lottery_id, *, draw_number, draw_date, draw_type="MILOTO"):
     return LotteryDrawService.create_draw(
-        db=db,
-        lottery_id=lottery_id,
-        draw_number=draw_number,
-        draw_date=draw_date,
-        main_numbers=[10, 15, 31, 33, 39],
-        draw_type=draw_type,
-        source="test",
-        source_url="https://example.test/results",
+        db=db, lottery_id=lottery_id, draw_number=draw_number, draw_date=draw_date,
+        main_numbers=[10, 15, 31, 33, 39], draw_type=draw_type,
+        source="test", source_url="https://example.test/results",
         validation_json={"format_valid": True, "date_valid": True},
     )
 
@@ -84,20 +75,8 @@ def test_duplicate_draw_date_returns_conflict():
 def test_same_date_and_number_are_isolated_by_draw_type():
     db, lottery = make_db()
     try:
-        first = persist(
-            db,
-            lottery.id,
-            draw_number="609",
-            draw_date=date(2026, 9, 18),
-            draw_type="BALOTO",
-        )
-        second = persist(
-            db,
-            lottery.id,
-            draw_number="609",
-            draw_date=date(2026, 9, 18),
-            draw_type="REVANCHA",
-        )
+        first = persist(db, lottery.id, draw_number="609", draw_date=date(2026, 9, 18), draw_type="BALOTO")
+        second = persist(db, lottery.id, draw_number="609", draw_date=date(2026, 9, 18), draw_type="REVANCHA")
         assert first.id != second.id
         assert first.draw_type == "BALOTO"
         assert second.draw_type == "REVANCHA"
@@ -107,36 +86,19 @@ def test_same_date_and_number_are_isolated_by_draw_type():
 
 def test_not_published_is_outside_scheduler_window():
     schedule = ScheduledDraw("TEST", "DIA", time(13, 0), tolerance_minutes=30)
-    assert due_draws(
-        datetime(2026, 9, 21, 12, 59, tzinfo=schedule_tz()),
-        schedules=(schedule,),
-    ) == []
-    assert due_draws(
-        datetime(2026, 9, 21, 13, 31, tzinfo=schedule_tz()),
-        schedules=(schedule,),
-    ) == []
-
-
-def schedule_tz():
-    from app.scheduler.draw_schedule import COLOMBIA_TZ
-
-    return COLOMBIA_TZ
+    assert due_draws(datetime(2026, 9, 21, 12, 59, tzinfo=COLOMBIA_TZ), schedules=(schedule,)) == []
+    assert due_draws(datetime(2026, 9, 21, 13, 31, tzinfo=COLOMBIA_TZ), schedules=(schedule,)) == []
 
 
 def test_holiday_can_skip_a_draw_entirely():
     schedule = ScheduledDraw(
-        "TEST",
-        "NOCHE",
-        time(20, 0),
-        weekdays=frozenset(range(7)),
-        tolerance_minutes=30,
-        skip_on_holiday=True,
+        "TEST", "NOCHE", time(20, 0), weekdays=frozenset(range(7)),
+        tolerance_minutes=30, skip_on_holiday=True,
     )
     holiday = frozenset({date(2026, 9, 21)})
     assert due_draws(
-        datetime(2026, 9, 21, 20, 10, tzinfo=schedule_tz()),
-        schedules=(schedule,),
-        holiday_dates=holiday,
+        datetime(2026, 9, 21, 20, 10, tzinfo=COLOMBIA_TZ),
+        schedules=(schedule,), holiday_dates=holiday,
     ) == []
 
 
@@ -163,11 +125,7 @@ class TestAdapter(SourceAdapter):
 
 
 def test_ingestion_classifies_fetch_failure_as_source_extraction_error():
-    pipeline = SourceIngestionPipeline(
-        fetcher=FailingFetcher(),
-        parser=StaticParser({}),
-        adapter=MiLotoAdapter(),
-    )
+    pipeline = SourceIngestionPipeline(fetcher=FailingFetcher(), parser=StaticParser({}), adapter=MiLotoAdapter())
     with pytest.raises(SourceIngestionError, match="Source extraction failed"):
         pipeline.run("https://example.test/results")
 
@@ -176,17 +134,12 @@ def test_ingestion_classifies_normalization_failure_separately():
     class SuccessfulFetcher:
         def fetch(self, url: str) -> SourceFetchResult:
             return SourceFetchResult(
-                url=url,
-                status_code=200,
-                content=b"ignored",
-                content_type="application/json",
-                fetched_at=datetime(2026, 9, 21, 16, 0),
+                url=url, status_code=200, content=b"ignored", content_type="application/json",
+                fetched_at=datetime(2026, 9, 21, 16, 0, tzinfo=UTC),
             )
 
     pipeline = SourceIngestionPipeline(
-        fetcher=SuccessfulFetcher(),
-        parser=StaticParser({"draw_number": "609"}),
-        adapter=TestAdapter(),
+        fetcher=SuccessfulFetcher(), parser=StaticParser({"draw_number": "609"}), adapter=TestAdapter()
     )
     with pytest.raises(SourceIngestionError, match="Source ingestion failed"):
         pipeline.run("https://example.test/results")
