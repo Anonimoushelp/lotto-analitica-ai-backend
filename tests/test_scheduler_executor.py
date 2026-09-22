@@ -21,15 +21,15 @@ class FakeFetcher:
         )
 
 
-class FakeSession:
-    def __init__(self) -> None:
-        self.closed = False
+class FakeDb:
+    def scalar(self, _statement):
+        return SimpleNamespace(id=77)
 
     def __enter__(self):
         return self
 
     def __exit__(self, *_):
-        self.closed = True
+        return None
 
 
 def test_controlled_executor_rejects_unverified_source():
@@ -48,14 +48,6 @@ def test_controlled_executor_extracts_and_persists_verified_result(monkeypatch):
     </body></html>
     """
 
-    session = FakeSession()
-
-    class FakeDb:
-        def scalar(self, _statement):
-            return SimpleNamespace(id=77)
-
-    session_factory = lambda: FakeDb()
-
     captured = {}
 
     def fake_create_draw(**kwargs):
@@ -68,7 +60,7 @@ def test_controlled_executor_extracts_and_persists_verified_result(monkeypatch):
     )
 
     executor = ControlledIngestionExecutor(
-        session_factory=session_factory,
+        session_factory=lambda: FakeDb(),
         fetcher=FakeFetcher(html),
     )
     message = executor("LOTERIA_RISARALDA", "LOTERIA_RISARALDA_ORDINARY")
