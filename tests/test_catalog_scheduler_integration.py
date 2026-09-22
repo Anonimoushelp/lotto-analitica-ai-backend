@@ -61,3 +61,23 @@ def test_unverified_sources_are_not_marked_ready():
             )
             if lottery.status is LotteryStatus.ACTIVE and not lottery.primary_source_verified:
                 assert binding.integration_status is IntegrationStatus.PENDING_SOURCE
+
+
+def test_verified_sources_are_ready_for_controlled_test():
+    ready = {
+        item.lottery_code
+        for item in build_catalog_scheduler_bindings()
+        if item.integration_status is IntegrationStatus.READY_FOR_CONTROLLED_TEST
+    }
+    assert ready == {
+        "LOTERIA_CUNDINAMARCA",
+        "LOTERIA_TOLIMA",
+        "LOTERIA_HUILA",
+        "LOTERIA_MANIZALES",
+        "LOTERIA_VALLE",
+        "LOTERIA_BOGOTA",
+        "LOTERIA_MEDELLIN",
+        "LOTERIA_SANTANDER",
+        "LOTERIA_RISARALDA",
+        "LOTERIA_CAUCA",
+    }
