@@ -1,14 +1,13 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from datetime import datetime
 from typing import Protocol
 
+from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.db.session import SessionLocal
 from app.models.lottery import Lottery
-from app.scheduler.runner import SchedulerStatus
 from app.services.lottery_draw_service import LotteryDrawService
 from app.sources.fetchers import HttpSourceFetcher, SourceFetcher
 from app.sources.ingestion import SourceIngestionPipeline
@@ -62,9 +61,7 @@ class ControlledIngestionExecutor:
 
         record = matching[0]
         with self.session_factory() as db:
-            lottery = db.scalar(
-                __import__("sqlalchemy").select(Lottery).where(Lottery.code == code)
-            )
+            lottery = db.scalar(select(Lottery).where(Lottery.code == code))
             if lottery is None:
                 raise RuntimeError(f"Lottery {code} is not registered in the database")
 
@@ -85,7 +82,8 @@ class ControlledIngestionExecutor:
 
         return (
             f"persisted draw_id={draw.id} "
-            f"lottery={code} draw_type={draw_type} draw_date={draw.draw_date.isoformat()}"
+            f"lottery={code} draw_type={draw_type} "
+            f"draw_date={draw.draw_date.isoformat()}"
         )
 
 
