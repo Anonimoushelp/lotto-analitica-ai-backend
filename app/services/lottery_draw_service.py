@@ -1,4 +1,4 @@
-from datetime import date, time
+from datetime import UTC, date, time
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
@@ -155,6 +155,20 @@ class LotteryDrawService:
             )
 
         if existing is not None:
+            existing_timestamp = existing.source_timestamp
+            record_timestamp = record.source_timestamp
+            if existing_timestamp is not None and record_timestamp is not None:
+                existing_timestamp = (
+                    existing_timestamp.astimezone(UTC).replace(tzinfo=None)
+                    if existing_timestamp.tzinfo is not None
+                    else existing_timestamp
+                )
+                record_timestamp = (
+                    record_timestamp.astimezone(UTC).replace(tzinfo=None)
+                    if record_timestamp.tzinfo is not None
+                    else record_timestamp
+                )
+
             same_record = (
                 existing.draw_number == record.draw_number
                 and existing.draw_date == record.draw_date
@@ -163,7 +177,7 @@ class LotteryDrawService:
                 and existing.bonus_numbers == record.bonus_numbers
                 and existing.source == record.source_name
                 and existing.source_url == record.source_url
-                and existing.source_timestamp == record.source_timestamp
+                and existing_timestamp == record_timestamp
                 and existing.metadata_json == record.metadata
             )
             if same_record:
