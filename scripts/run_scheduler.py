@@ -10,15 +10,25 @@ from app.scheduler.catalog_integration import (
 )
 from app.scheduler.draw_schedule import DRAW_SCHEDULES
 from app.scheduler.executor import build_controlled_executor
-from app.scheduler.runner import SchedulerRunner
+from app.scheduler.runner import SchedulerRunner, SchedulerStatus
 
 logging.basicConfig(level=os.getenv("LOG_LEVEL", "INFO"))
 logger = logging.getLogger(__name__)
+
+FAILURE_STATUSES = frozenset(
+    {
+        SchedulerStatus.SOURCE_ERROR,
+        SchedulerStatus.PARSE_ERROR,
+        SchedulerStatus.VALIDATION_ERROR,
+        "ERROR",
+    }
+)
 
 
 def build_ingest_executor():
     enabled = os.getenv("SCHEDULER_ENABLE_INGESTION", "").strip().lower()
     if enabled not in {"1", "true", "yes"}:
+
         def disabled_ingest(lottery_code: str, draw_type: str) -> str:
             raise RuntimeError(
                 "Scheduler ingestion is disabled; set "
@@ -42,7 +52,7 @@ def main() -> int:
             attempt.status,
             attempt.message,
         )
-    return 0
+    return 1 if any(attempt.status in FAILURE_STATUSES for attempt in attempts) else 0
 
 
 if __name__ == "__main__":
