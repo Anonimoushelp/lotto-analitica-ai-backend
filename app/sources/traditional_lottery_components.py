@@ -15,7 +15,7 @@ class TraditionalLotteryHtmlParser:
     """Extract a four-digit major result plus series from a lottery result page."""
 
     _DRAW_RE = re.compile(
-        r"\b(?:sorteo|draw)\s*(?:n[úu]mero|no\.?|#)?\s*(\d{1,6})",
+        r"\b(?:sorteo|draw)\s*(?:numero|no\.?|#)?\s*(\d{1,6})",
         re.IGNORECASE,
     )
     _DATE_RE = re.compile(
@@ -23,7 +23,7 @@ class TraditionalLotteryHtmlParser:
         re.IGNORECASE,
     )
     _RESULT_RE = re.compile(
-        r"\b(?:n[úu]mero|resultado|result)\s*[:#-]?\s*(\d{4})\b",
+        r"\b(?:numero|resultado|result)\s*[:#-]?\s*(\d{4})\b",
         re.IGNORECASE,
     )
     _NUMBER_RE = re.compile(r"\b(\d{4})\b")
@@ -35,18 +35,18 @@ class TraditionalLotteryHtmlParser:
     def __init__(self, lottery_code: str) -> None:
         self.lottery_code = lottery_code.upper()
 
-    def parse(self, result: SourceFetchResult) -> Iterable[Mapping[str, object]]:
+    def parse(\n        self,\n        result: SourceFetchResult,\n        lottery_code: str | None = None,\n    ) -> Iterable[Mapping[str, object]]:
         try:
             html = result.content.decode("utf-8")
         except UnicodeDecodeError as exc:
             raise SourceParseError("Traditional lottery HTML is not valid UTF-8") from exc
 
         text = " ".join(re.sub(r"<[^>]+>", " ", html).split())
-        draw_match = self._DRAW_RE.search(text)
+        draw_match = self._DRAW_RE.search(search_text)
         date_match = self._DATE_RE.search(text)
         result_match = self._RESULT_RE.search(text)
         number_matches = self._NUMBER_RE.findall(text)
-        series_match = self._SERIES_RE.search(text)
+        series_match = self._SERIES_RE.search(search_text)
 
         if not date_match or (not result_match and not number_matches):
             raise SourceParseError(
