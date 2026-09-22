@@ -17,6 +17,10 @@ from app.sources.four_digit_parsers import (
     PaisitaJsonParser,
 )
 from app.sources.parsers import HtmlTableParser
+from app.sources.traditional_lottery_components import (
+    TraditionalLotteryAdapter,
+    TraditionalLotteryHtmlParser,
+)
 from app.sources.provider_parser_adapter import (
     HtmlProviderParserAdapter,
     ProviderParserAdapter,
@@ -88,3 +92,19 @@ def build_html_provider_parser(lottery_code: str) -> HtmlProviderParserAdapter:
         raise KeyError(
             f"No HTML provider parser configured for {lottery_code}"
         ) from exc
+
+
+TRADITIONAL_LOTTERY_CODES = {
+    "LOTERIA_CUNDINAMARCA", "LOTERIA_TOLIMA", "LOTERIA_CRUZ_ROJA",
+    "LOTERIA_HUILA", "LOTERIA_MANIZALES", "LOTERIA_VALLE", "LOTERIA_META",
+    "LOTERIA_BOGOTA", "LOTERIA_QUINDIO", "LOTERIA_MEDELLIN",
+    "LOTERIA_SANTANDER", "LOTERIA_RISARALDA", "LOTERIA_BOYACA",
+    "LOTERIA_CAUCA",
+}
+
+
+def build_traditional_lottery_components(lottery_code: str):
+    code = lottery_code.upper()
+    if code not in TRADITIONAL_LOTTERY_CODES:
+        raise KeyError(f"No traditional lottery components configured for {lottery_code}")
+    return TraditionalLotteryHtmlParser(), TraditionalLotteryAdapter(code)
