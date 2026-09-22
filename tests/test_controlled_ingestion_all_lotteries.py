@@ -18,7 +18,7 @@ from app.sources.adapters import (
     SuperAstroAdapter,
 )
 from app.sources.contracts import SourceAdapter
-from app.sources.fetchers import HttpSourceFetcher, SourceFetchResult
+from app.sources.fetchers import HttpSourceFetcher
 from app.sources.parsers import HtmlTableParser
 from app.sources.four_digit_adapters import (
     AntioquenitaAdapter,
@@ -112,7 +112,6 @@ def test_controlled_ingestion_covers_all_ten_lotteries(
 ):
     spec = get_source_spec(lottery_code)
     source_url = spec.primary_url or f"https://example.test/{lottery_code.lower()}"
-    fetched_at = datetime(2026, 9, 21, 16, 0, tzinfo=UTC)
 
     transport = MockTransport(
         lambda request: Response(
@@ -184,7 +183,6 @@ def test_controlled_ingestion_covers_all_verified_traditional_lotteries(
     assert profile.result_url is not None
 
     source_url = profile.result_url
-    fetched_at = datetime(2026, 9, 22, 8, 0, tzinfo=UTC)
     html = (
         "<html><body>"
         "<h1>Sorteo número 4187</h1>"
