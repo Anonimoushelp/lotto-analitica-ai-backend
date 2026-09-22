@@ -1,5 +1,6 @@
 import json
 from datetime import UTC, date, datetime
+from urllib.parse import urlparse
 
 import pytest
 from httpx import MockTransport, Response
@@ -18,6 +19,7 @@ from app.sources.adapters import (
 )
 from app.sources.contracts import SourceAdapter
 from app.sources.fetchers import HttpSourceFetcher, SourceFetchResult
+from app.sources.parsers import HtmlTableParser
 from app.sources.four_digit_adapters import (
     AntioquenitaAdapter,
     CafeteritoAdapter,
@@ -112,18 +114,20 @@ def test_controlled_ingestion_covers_all_ten_lotteries(
     source_url = spec.primary_url or f"https://example.test/{lottery_code.lower()}"
     fetched_at = datetime(2026, 9, 21, 16, 0, tzinfo=UTC)
 
-    class FakeFetcher:
-        def fetch(self, url: str) -> SourceFetchResult:
-            return SourceFetchResult(
-                url=url,
-                status_code=200,
-                content=json.dumps({"results": [payload]}).encode(),
-                content_type="application/json",
-                fetched_at=fetched_at,
-            )
+    transport = MockTransport(
+        lambda request: Response(
+            200,
+            content=json.dumps({"results": [payload]}).encode(),
+            headers={"content-type": "application/json"},
+        )
+    )
+    fetcher = HttpSourceFetcher(
+        allowed_hosts={urlparse(source_url).hostname or ""},
+        transport=transport,
+    )
 
     pipeline = SourceIngestionPipeline(
-        fetcher=FakeFetcher(),
+        fetcher=fetcher,
         parser=ProviderParserAdapter(parser),
         adapter=adapter,
     )
@@ -190,18 +194,20 @@ def test_controlled_ingestion_covers_all_verified_traditional_lotteries(
         "</body></html>"
     )
 
-    class FakeFetcher:
-        def fetch(self, url: str) -> SourceFetchResult:
-            return SourceFetchResult(
-                url=url,
-                status_code=200,
-                content=html.encode(),
-                content_type="text/html",
-                fetched_at=fetched_at,
-            )
+    transport = MockTransport(
+        lambda request: Response(
+            200,
+            content=html.encode(),
+            headers={"content-type": "text/html; charset=utf-8"},
+        )
+    )
+    fetcher = HttpSourceFetcher(
+        allowed_hosts={urlparse(source_url).hostname or ""},
+        transport=transport,
+    )
 
     pipeline = SourceIngestionPipeline(
-        fetcher=FakeFetcher(),
+        fetcher=fetcher,
         parser=TraditionalLotteryHtmlParser(lottery_code),
         adapter=TraditionalLotteryAdapter(lottery_code),
     )
@@ -232,6 +238,100 @@ def test_controlled_ingestion_covers_all_verified_traditional_lotteries(
     assert persisted.metadata_json["series"] == "031"
     assert persisted.source_url == normalized.source_url
     assert persisted.validation_json["source_verified"] is True
+
+
+
+@pytest.mark.parametrize("draw_type", ["ASTRO_SOL", "ASTRO_LUNA"])
+def test_super_astro_both_draw_types_use_secure_fetcher(draw_type: str, db):
+    lottery = Lottery(name="SUPER_ASTRO", code="super_astro", country="Colombia")
+    db.add(lottery)
+    db.commit()
+
+    source_url = "https://example.test/super-astro"
+    transport = MockTransport(
+        lambda request: Response(
+            200,
+            content=json.dumps(
+                {
+                    "results": [
+                        {
+                            "draw_type": draw_type,
+                            "draw_number": "7001",
+                            "draw_date": "2026-09-22",
+                            "number": "0047",
+                            "sign": "Aries",
+                        }
+                    ]
+                }
+            ).encode(),
+            headers={"content-type": "application/json"},
+        )
+    )
+    fetcher = HttpSourceFetcher(
+        allowed_hosts={"example.test"},
+        transport=transport,
+    )
+    pipeline = SourceIngestionPipeline(
+        fetcher=fetcher,
+        parser=ProviderParserAdapter(SuperAstroJsonParser()),
+        adapter=SuperAstroAdapter(),
+    )
+
+    record = pipeline.run(source_url)[0]
+
+    assert record.draw_type == draw_type
+    assert record.main_numbers == [47]
+    assert record.metadata["raw_result"] == "0047"
+    assert record.metadata["digit_count"] == 4
+    assert record.metadata["sign"] == "Aries"
+    assert record.source_url == source_url
+
+    persisted = LotteryDrawService.persist_raw_record(db=db, record=record)
+    assert persisted.draw_type == draw_type
+    assert persisted.metadata_json["raw_result"] == "0047"
+
+
+def test_controlled_html_table_source_uses_secure_fetcher(db):
+    lottery = Lottery(name="CHONTICO", code="chontico", country="Colombia")
+    db.add(lottery)
+    db.commit()
+
+    html = """
+    <html><body>
+      <table>
+        <tr><th>Chance</th><th>Fecha</th><th>Resultado</th></tr>
+        <tr><td>Chontico Día</td><td>22 de septiembre de 2026</td><td>6725</td></tr>
+      </table>
+    </body></html>
+    """
+    source_url = "https://example.test/chontico"
+    transport = MockTransport(
+        lambda request: Response(
+            200,
+            content=html.encode(),
+            headers={"content-type": "text/html; charset=utf-8"},
+        )
+    )
+    fetcher = HttpSourceFetcher(
+        allowed_hosts={"example.test"},
+        transport=transport,
+    )
+    pipeline = SourceIngestionPipeline(
+        fetcher=fetcher,
+        parser=HtmlTableParser(),
+        adapter=ChonticoAdapter(),
+    )
+
+    record = pipeline.run(source_url)[0]
+
+    assert record.draw_type == "CHONTICO_DIA"
+    assert record.draw_date == date(2026, 9, 22)
+    assert record.main_numbers == [6725]
+    assert record.source_url == source_url
+
+    persisted = LotteryDrawService.persist_raw_record(db=db, record=record)
+    assert persisted.draw_type == "CHONTICO_DIA"
+    assert persisted.main_numbers == [6725]
 
 
 def test_controlled_ingestion_allows_html_source_without_draw_number(db):
