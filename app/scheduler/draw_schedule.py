@@ -23,10 +23,9 @@ DRAW_SCHEDULES: tuple[ScheduledDraw, ...] = (
     ScheduledDraw("MILOTO", "MILOTO", time(22, 0), frozenset({0, 1, 3, 4}), 45),
     ScheduledDraw("BALOTO", "BALOTO", time(23, 0), frozenset({0, 2, 5}), 45),
     ScheduledDraw("REVANCHA", "REVANCHA", time(23, 0), frozenset({0, 2, 5}), 45),
-    # Super Astro has a published annual program with variable times and
-    # different SOL/LUNA frequencies; it is intentionally excluded here until
-    # the scheduler can consume that dated program rather than infer a fixed
-    # weekly time.
+    # Super Astro uses a dated official annual program with variable SOL/LUNA
+    # times and frequencies. It is intentionally not represented as a fixed
+    # weekly schedule; a dated-calendar adapter must be used for it.
     ScheduledDraw(
         "ANTIOQUENITA",
         "ANTIOQUENITA_1",
@@ -164,3 +163,7 @@ def expected_window(
 ) -> tuple[datetime, datetime]:
     expected = datetime.combine(draw_date, draw.expected_time, COLOMBIA_TZ)
     return expected, expected + timedelta(minutes=draw.tolerance_minutes)
+
+# Official holiday-specific times are deliberately not encoded as weekdays.
+# Dorado Noche uses a separate holiday time (19:28) that requires a Colombia
+# holiday calendar before the scheduler can select it safely.
