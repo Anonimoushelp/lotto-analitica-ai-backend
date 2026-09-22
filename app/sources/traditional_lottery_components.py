@@ -35,16 +35,21 @@ class TraditionalLotteryHtmlParser:
     def __init__(self, lottery_code: str) -> None:
         self.lottery_code = lottery_code.upper()
 
-    def parse(\n        self,\n        result: SourceFetchResult,\n        lottery_code: str | None = None,\n    ) -> Iterable[Mapping[str, object]]:
+    def parse(
+        self,
+        result: SourceFetchResult,
+        lottery_code: str | None = None,
+    ) -> Iterable[Mapping[str, object]]:
         try:
             html = result.content.decode("utf-8")
         except UnicodeDecodeError as exc:
             raise SourceParseError("Traditional lottery HTML is not valid UTF-8") from exc
 
         text = " ".join(re.sub(r"<[^>]+>", " ", html).split())
+        search_text = self._strip_accents(text)
         draw_match = self._DRAW_RE.search(search_text)
         date_match = self._DATE_RE.search(text)
-        result_match = self._RESULT_RE.search(text)
+        result_match = self._RESULT_RE.search(search_text)
         number_matches = self._NUMBER_RE.findall(text)
         series_match = self._SERIES_RE.search(search_text)
 
@@ -70,14 +75,15 @@ class TraditionalLotteryHtmlParser:
             raise SourceParseError("Traditional lottery source has an unsupported month")
         draw_date = f"{date_match.group(3)}-{month}-{int(date_match.group(1)):02d}"
 
+        code = (lottery_code or self.lottery_code).upper()
         metadata = {"raw_result": raw_number, "digit_count": 4}
         if series_match:
             metadata["series"] = series_match.group(1)
 
         return [
             {
-                "lottery_code": self.lottery_code,
-                "draw_type": f"{self.lottery_code}_ORDINARY",
+                "lottery_code": code,
+                "draw_type": f"{code}_ORDINARY",
                 "draw_number": draw_number,
                 "draw_date": draw_date,
                 "main_numbers": [int(raw_number)],
@@ -86,6 +92,14 @@ class TraditionalLotteryHtmlParser:
                 "source_timestamp": result.fetched_at,
             }
         ]
+
+    @staticmethod
+    def _strip_accents(value: str) -> str:
+        return (
+            unicodedata.normalize("NFKD", value)
+            .encode("ascii", "ignore")
+            .decode("ascii")
+        )
 
     @staticmethod
     def _month(value: str) -> str | None:
