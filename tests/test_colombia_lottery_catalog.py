@@ -34,6 +34,12 @@ def test_ordinary_calendar_weekdays_match_2026_public_schedule():
     } == expected
 
 
+def test_quindio_is_cataloged_but_ordinary_draws_are_suspended():
+    quindio = get_colombia_lottery("loteria_quindio")
+    assert quindio.status is LotteryStatus.SUSPENDED_ORDINARY
+    assert quindio.ordinary_weekday == 3
+
+
 def test_extra_colombia_is_not_treated_as_weekly_ordinary():
     extra = get_colombia_lottery("extra_colombia")
     assert extra.status is LotteryStatus.EXTRAORDINARY_ONLY
