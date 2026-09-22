@@ -1,8 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import datetime
-from typing import Callable
 
 from app.scheduler.draw_schedule import COLOMBIA_TZ, ScheduledDraw, due_draws
 
@@ -39,7 +39,7 @@ class SchedulerRunner:
             seen.add(key)
             try:
                 message = self.ingest(*key)
-            except Exception as exc:
+            except Exception as exc:  # noqa: BLE001 - isolate one scheduled draw failure
                 attempts.append(
                     IngestionAttempt(*key, "ERROR", str(exc))
                 )
