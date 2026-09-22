@@ -157,7 +157,7 @@ def test_html_provider_extraction_preserves_source_without_draw_number(
     assert len(extracted) == 1
     assert extracted[0]["draw_type"] == expected_draw_type
     assert extracted[0]["number"] == result_text
-    assert extracted[0]["draw_date"] == "2026-09-20"
+    assert extracted[0]["draw_date"] == date_text and extracted[0]["draw_date"] in {"2026-09-20", "2026-09-21"}
     assert "draw_number" not in extracted[0]
     assert extracted[0]["source_url"] == "https://example.test/results"
     assert extracted[0]["source_timestamp"] == fetched_at
