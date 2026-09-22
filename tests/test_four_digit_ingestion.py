@@ -162,6 +162,12 @@ def test_html_provider_extraction_preserves_source_without_draw_number(
     assert extracted[0]["source_url"] == "https://example.test/results"
     assert extracted[0]["source_timestamp"] == fetched_at
 
+    records = pipeline.run("https://example.test/results")
+    assert len(records) == 1
+    assert records[0].draw_number is None
+    assert records[0].draw_date.isoformat() == "2026-09-20"
+    assert records[0].main_numbers == [int(result_text)]
+
 
 def test_html_provider_registry_rejects_unknown_lottery() -> None:
     with pytest.raises(KeyError, match="No HTML provider parser configured"):
