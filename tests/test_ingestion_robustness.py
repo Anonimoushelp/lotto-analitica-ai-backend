@@ -10,7 +10,7 @@ from app.models.lottery import Lottery
 from app.models.lottery_draw import LotteryDraw
 from app.scheduler.draw_schedule import COLOMBIA_TZ, ScheduledDraw, due_draws
 from app.services.lottery_draw_service import LotteryDrawService
-from app.sources.adapters import MiLotoAdapter
+from app.sources.adapters import BalotoAdapter, MiLotoAdapter, RevanchaAdapter
 from app.sources.contracts import SourceAdapter
 from app.sources.fetchers import SourceFetchResult
 from app.sources.ingestion import SourceIngestionError, SourceIngestionPipeline
@@ -226,12 +226,12 @@ def test_same_ingestion_date_can_persist_for_different_draw_types():
         first = SourceIngestionPipeline(
             fetcher=SuccessfulPayloadFetcher(baloto),
             parser=StaticParser(baloto),
-            adapter=MiLotoAdapter(),
+            adapter=BalotoAdapter(),
         ).run("https://example.test/baloto")[0]
         second = SourceIngestionPipeline(
             fetcher=SuccessfulPayloadFetcher(revancha),
             parser=StaticParser(revancha),
-            adapter=MiLotoAdapter(),
+            adapter=RevanchaAdapter(),
         ).run("https://example.test/revancha")[0]
         saved_first = persist(
             db,
