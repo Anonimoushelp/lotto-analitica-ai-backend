@@ -15,6 +15,8 @@ def _result(html: str) -> SourceFetchResult:
         url="https://example.test/resultados",
         content=html.encode(),
         fetched_at=datetime(2026, 9, 21, tzinfo=UTC),
+        status_code=200,
+        content_type="text/html; charset=utf-8",
     )
 
 
