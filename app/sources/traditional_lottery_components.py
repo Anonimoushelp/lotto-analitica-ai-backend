@@ -88,7 +88,12 @@ class TraditionalLotteryHtmlParser:
         draw_date = f"{date_match.group(3)}-{month}-{int(date_match.group(1)):02d}"
 
         code = (lottery_code or self.lottery_code).upper()
-        metadata = {"raw_result": raw_number, "digit_count": 4}
+        profile = get_traditional_source(code)
+        metadata = {
+            "raw_result": raw_number,
+            "digit_count": 4,
+            "source_verified": profile.verified,
+        }
         if series_match:
             metadata["series"] = series_match.group(1)
 
