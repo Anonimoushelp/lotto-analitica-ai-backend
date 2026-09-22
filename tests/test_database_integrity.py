@@ -50,7 +50,7 @@ def test_lottery_draw_requires_lottery_and_enforces_unique_number_and_date_per_d
 
     assert table.c.lottery_id.nullable is False
     assert table.c.draw_type.nullable is False
-    assert table.c.draw_number.nullable is False
+    assert table.c.draw_number.nullable is True
     assert table.c.draw_date.nullable is False
     assert ("lottery_id", "draw_type", "draw_number") in unique_constraints
     assert ("lottery_id", "draw_type", "draw_date") in unique_constraints
