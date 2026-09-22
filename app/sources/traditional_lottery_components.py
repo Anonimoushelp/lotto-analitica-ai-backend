@@ -17,10 +17,10 @@ class TraditionalLotteryHtmlParser:
     _DRAW_RE = re.compile(r"\b(?:sorteo|draw)\s*(?:n[úu]mero|no\.?|#)?\s*(\d{1,6})", re.IGNORECASE)
     _DATE_RE = re.compile(
         r"(\d{1,2})\s*(?:de\s+)?([A-Za-zÁÉÍÓÚáéíóúñÑ]+)\s*(?:de\s+)?(\d{4})",
-        re.I,
+        re.IGNORECASE,
     )
     _NUMBER_RE = re.compile(r"\b(\d{4})\b")
-    _SERIES_RE = re.compile(r"(?:serie|series)\s*[:#-]?\s*(\d{1,4})", re.I)
+    _SERIES_RE = re.compile(r"(?:serie|series)\s*[:#-]?\s*(\d{1,4})", re.IGNORECASE)
 
     def parse(self, result: SourceFetchResult, lottery_code: str) -> Iterable[Mapping[str, object]]:
         try:
