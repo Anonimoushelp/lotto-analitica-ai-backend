@@ -4,6 +4,8 @@ from dataclasses import dataclass
 from enum import StrEnum
 from urllib.parse import urlparse
 
+from app.sources.traditional_lottery import get_traditional_source
+
 from app.catalog.colombia_lotteries_2026 import (
     COLOMBIA_LOTTERIES_2026,
     ColombiaLottery2026,
@@ -49,14 +51,15 @@ CALENDAR_AUTHORITY_URL = (
 
 
 def _operator_source(lottery: ColombiaLottery2026) -> SourceBinding:
+    profile = get_traditional_source(lottery.code)
     return SourceBinding(
-        primary_name=f"Primary operator source — {lottery.name}",
-        primary_url=None,
-        parser_key=None,
-        adapter_key=None,
+        primary_name=profile.name,
+        primary_url=profile.result_url,
+        parser_key=profile.parser_key,
+        adapter_key=profile.adapter_key,
         validator_key="lottery_draw_validator",
         ingestion_mode="fetch_parse_normalize_validate_persist",
-        verified=lottery.primary_source_verified,
+        verified=profile.verified and lottery.primary_source_verified,
     )
 
 
