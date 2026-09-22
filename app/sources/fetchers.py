@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Protocol
+from urllib.parse import urlparse
 
 import httpx
 
@@ -51,36 +52,62 @@ class HttpSourceFetcher:
         parsed = urlparse(url)
         if parsed.scheme.lower() != "https":
             raise SourceFetchError("Source URL must use HTTPS")
-        if not parsed.hostname or parsed.username is not None or parsed.password is not None:
-            raise SourceFetchError("Source URL must contain a valid hostname without credentials")
+        if (
+            not parsed.hostname
+            or parsed.username is not None
+            or parsed.password is not None
+        ):
+            raise SourceFetchError(
+                "Source URL must contain a valid hostname without credentials"
+            )
         if self.allowed_hosts and parsed.hostname.casefold() not in self.allowed_hosts:
             raise SourceFetchError("Source URL host is not allowlisted")
 
     def fetch(self, url: str) -> SourceFetchResult:
         self._validate_url(url)
         try:
-            with httpx.Client(
-                timeout=self.timeout,
-                follow_redirects=True,
-                headers={"User-Agent": self.user_agent},
-                transport=self.transport,
-            ) as client:
-                with client.stream("GET", url) as response:
-                    response.raise_for_status()
-                    content_length = response.headers.get("content-length")
-                    if content_length is not None and int(content_length) > self.max_response_bytes:
-                        raise SourceFetchError("Source response exceeds configured size limit")
-                    chunks: list[bytes] = []
-                    total = 0
-                    for chunk in response.iter_bytes():
-                        total += len(chunk)
-                        if total > self.max_response_bytes:
-                            raise SourceFetchError("Source response exceeds configured size limit")
-                        chunks.append(chunk)
-                    content = b"".join(chunks)
-                    final_url = str(response.url)
-                    if urlparse(final_url).hostname.casefold() not in self.allowed_hosts if self.allowed_hosts else False:
-                        raise SourceFetchError("Redirected source host is not allowlisted")
+            with (
+                httpx.Client(
+                    timeout=self.timeout,
+                    follow_redirects=True,
+                    headers={"User-Agent": self.user_agent},
+                    transport=self.transport,
+                ) as client,
+                client.stream("GET", url) as response,
+            ):
+                response.raise_for_status()
+                content_length = response.headers.get("content-length")
+                if (
+                    content_length is not None
+                    and int(content_length) > self.max_response_bytes
+                ):
+                    raise SourceFetchError(
+                        "Source response exceeds configured size limit"
+                    )
+
+                chunks: list[bytes] = []
+                total = 0
+                for chunk in response.iter_bytes():
+                    total += len(chunk)
+                    if total > self.max_response_bytes:
+                        raise SourceFetchError(
+                            "Source response exceeds configured size limit"
+                        )
+                    chunks.append(chunk)
+
+                content = b"".join(chunks)
+                final_url = str(response.url)
+                final_host = urlparse(final_url).hostname
+                if (
+                    self.allowed_hosts
+                    and (
+                        final_host is None
+                        or final_host.casefold() not in self.allowed_hosts
+                    )
+                ):
+                    raise SourceFetchError(
+                        "Redirected source host is not allowlisted"
+                    )
         except (httpx.HTTPError, ValueError) as exc:
             raise SourceFetchError(f"Source fetch failed for {url}") from exc
 
