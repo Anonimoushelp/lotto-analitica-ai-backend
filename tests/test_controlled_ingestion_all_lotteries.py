@@ -2,6 +2,7 @@ import json
 from datetime import UTC, date, datetime
 
 import pytest
+from httpx import MockTransport, Response
 from sqlalchemy import create_engine, delete
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
@@ -16,7 +17,7 @@ from app.sources.adapters import (
     SuperAstroAdapter,
 )
 from app.sources.contracts import SourceAdapter
-from app.sources.fetchers import SourceFetchResult
+from app.sources.fetchers import HttpSourceFetcher, SourceFetchResult
 from app.sources.four_digit_adapters import (
     AntioquenitaAdapter,
     CafeteritoAdapter,
@@ -311,3 +312,102 @@ def test_raw_record_persistence_rejects_conflicting_duplicate(db):
 
     assert getattr(exc.value, "status_code", None) == 409
     assert db.query(LotteryDraw).count() == 1
+
+
+def test_controlled_ingestion_uses_real_http_fetcher_json_to_raw_record(db):
+    lottery = Lottery(name="MiLoto", code="miloto", country="Colombia")
+    db.add(lottery)
+    db.commit()
+
+    transport = MockTransport(
+        lambda request: Response(
+            200,
+            content=json.dumps(
+                {
+                    "results": [
+                        {
+                            "draw_number": "610",
+                            "draw_date": "2026-09-19",
+                            "main_numbers": [4, 9, 18, 27, 35],
+                        }
+                    ]
+                }
+            ).encode(),
+            headers={"content-type": "application/json"},
+        )
+    )
+    fetcher = HttpSourceFetcher(
+        allowed_hosts={"example.test"},
+        transport=transport,
+    )
+    pipeline = SourceIngestionPipeline(
+        fetcher=fetcher,
+        parser=ProviderParserAdapter(MiLotoJsonParser()),
+        adapter=MiLotoAdapter(),
+    )
+
+    normalized = pipeline.run("https://example.test/miloto")
+    assert len(normalized) == 1
+    record = normalized[0]
+    assert record.lottery_code == "MILOTO"
+    assert record.draw_number == "610"
+    assert record.main_numbers == [4, 9, 18, 27, 35]
+    assert record.source_url == "https://example.test/miloto"
+    assert record.source_timestamp is not None
+
+    persisted = LotteryDrawService.persist_raw_record(db=db, record=record)
+
+    assert persisted.id is not None
+    assert persisted.draw_number == "610"
+    assert persisted.main_numbers == [4, 9, 18, 27, 35]
+    assert persisted.source_url == record.source_url
+    assert persisted.source_timestamp == record.source_timestamp.replace(tzinfo=None)
+
+
+def test_controlled_ingestion_uses_real_http_fetcher_html_to_raw_record(db):
+    lottery_code = "LOTERIA_RISARALDA"
+    lottery = Lottery(name=lottery_code, code=lottery_code.lower(), country="Colombia")
+    db.add(lottery)
+    db.commit()
+
+    html = (
+        "<html><body>"
+        "<h1>Sorteo número 4188</h1>"
+        "<div>23 de septiembre de 2026</div>"
+        "<div>Resultado: 7316</div>"
+        "<div>Serie: 032</div>"
+        "</body></html>"
+    )
+    transport = MockTransport(
+        lambda request: Response(
+            200,
+            content=html.encode(),
+            headers={"content-type": "text/html; charset=utf-8"},
+        )
+    )
+    fetcher = HttpSourceFetcher(
+        allowed_hosts={"example.test"},
+        transport=transport,
+    )
+    pipeline = SourceIngestionPipeline(
+        fetcher=fetcher,
+        parser=TraditionalLotteryHtmlParser(lottery_code),
+        adapter=TraditionalLotteryAdapter(lottery_code),
+    )
+
+    record = pipeline.run("https://example.test/risaralda")[0]
+
+    assert record.draw_number == "4188"
+    assert record.draw_date == date(2026, 9, 23)
+    assert record.main_numbers == [7316]
+    assert record.metadata["series"] == "032"
+    assert record.source_url == "https://example.test/risaralda"
+    assert record.source_timestamp is not None
+
+    persisted = LotteryDrawService.persist_raw_record(db=db, record=record)
+
+    assert persisted.id is not None
+    assert persisted.main_numbers == [7316]
+    assert persisted.metadata_json["series"] == "032"
+    assert persisted.source_url == record.source_url
+    assert persisted.source_timestamp == record.source_timestamp.replace(tzinfo=None)
