@@ -2,6 +2,7 @@ from datetime import UTC, datetime
 from types import SimpleNamespace
 
 import pytest
+from fastapi import HTTPException
 
 from app.scheduler.executor import ControlledIngestionExecutor
 from app.sources.fetchers import SourceFetchResult
@@ -52,6 +53,22 @@ def test_controlled_executor_rejects_empty_source_result(monkeypatch):
         executor("LOTERIA_RISARALDA", "LOTERIA_RISARALDA_ORDINARY")
 
 
+def test_controlled_executor_rejects_missing_draw_type(monkeypatch):
+    record = SimpleNamespace(draw_type="OTHER_DRAW")
+
+    class Pipeline:
+        def __init__(self, **_kwargs):
+            pass
+
+        def run(self, _url):
+            return [record]
+
+    monkeypatch.setattr("app.scheduler.executor.SourceIngestionPipeline", Pipeline)
+    executor = ControlledIngestionExecutor(fetcher=FakeFetcher(""))
+    with pytest.raises(RuntimeError, match="no record"):
+        executor("LOTERIA_RISARALDA", "LOTERIA_RISARALDA_ORDINARY")
+
+
 def test_controlled_executor_rejects_multiple_matching_records(monkeypatch):
     record = SimpleNamespace(draw_type="LOTERIA_RISARALDA_ORDINARY")
 
@@ -66,6 +83,33 @@ def test_controlled_executor_rejects_multiple_matching_records(monkeypatch):
     executor = ControlledIngestionExecutor(fetcher=FakeFetcher(""))
     with pytest.raises(RuntimeError, match="multiple records"):
         executor("LOTERIA_RISARALDA", "LOTERIA_RISARALDA_ORDINARY")
+
+
+def test_controlled_executor_maps_duplicate_conflict(monkeypatch):
+    html = """
+    <html><body>
+    Sorteo 1234
+    25 de septiembre de 2026
+    Resultado: 0042
+    Serie: 17
+    </body></html>
+    """
+
+    def duplicate_create_draw(**_kwargs):
+        raise HTTPException(status_code=409, detail="Draw date already exists")
+
+    monkeypatch.setattr(
+        "app.scheduler.executor.LotteryDrawService.create_draw",
+        duplicate_create_draw,
+    )
+
+    executor = ControlledIngestionExecutor(
+        session_factory=lambda: FakeDb(),
+        fetcher=FakeFetcher(html),
+    )
+    with pytest.raises(HTTPException) as exc_info:
+        executor("LOTERIA_RISARALDA", "LOTERIA_RISARALDA_ORDINARY")
+    assert exc_info.value.status_code == 409
 
 
 def test_controlled_executor_extracts_and_persists_verified_result(monkeypatch):
