@@ -1,3 +1,4 @@
+import json
 from datetime import UTC, date, datetime
 
 import pytest
@@ -14,6 +15,8 @@ from app.sources.adapters import (
     RevanchaAdapter,
     SuperAstroAdapter,
 )
+from app.sources.contracts import SourceAdapter
+from app.sources.fetchers import SourceFetchResult
 from app.sources.four_digit_adapters import (
     AntioquenitaAdapter,
     CafeteritoAdapter,
@@ -30,6 +33,8 @@ from app.sources.four_digit_parsers import (
     FantasticaJsonParser,
     PaisitaJsonParser,
 )
+from app.sources.ingestion import SourceIngestionPipeline
+from app.sources.provider_parser_adapter import ProviderParserAdapter
 from app.sources.provider_parsers import (
     BalotoFamilyJsonParser,
     MiLotoJsonParser,
@@ -66,7 +71,7 @@ CASES = [
             "draw_number": "1234",
             "draw_date": "2026-09-20",
             "main_numbers": [5, 12, 23, 31, 42],
-            "superbalota": 7,
+            "superbalota": [7],
         },
     ),
     (
@@ -78,7 +83,7 @@ CASES = [
             "draw_number": "1234",
             "draw_date": "2026-09-20",
             "main_numbers": [5, 12, 23, 31, 42],
-            "revancha_bonus": 7,
+            "revancha_bonus": [7],
         },
     ),
     (
@@ -180,24 +185,38 @@ def db():
 
 @pytest.mark.parametrize("lottery_code, parser, adapter, payload", CASES)
 def test_controlled_ingestion_covers_all_ten_lotteries(
-    lottery_code, parser, adapter, payload, db
+    lottery_code: str,
+    parser,
+    adapter: SourceAdapter,
+    payload: dict,
+    db,
 ):
     spec = get_source_spec(lottery_code)
-    payload = dict(payload)
-    payload["source_url"] = (
-        spec.primary_url or f"https://example.test/{lottery_code.lower()}"
-    )
-    payload["source_timestamp"] = datetime(
-        2026, 9, 21, 16, 0, tzinfo=UTC
-    )
+    source_url = spec.primary_url or f"https://example.test/{lottery_code.lower()}"
+    fetched_at = datetime(2026, 9, 21, 16, 0, tzinfo=UTC)
 
-    normalized = adapter.normalize(parser.parse_record(payload))
+    class FakeFetcher:
+        def fetch(self, url: str) -> SourceFetchResult:
+            return SourceFetchResult(
+                url=url,
+                status_code=200,
+                content=json.dumps({"results": [payload]}).encode(),
+                content_type="application/json",
+                fetched_at=fetched_at,
+            )
+
+    pipeline = SourceIngestionPipeline(
+        fetcher=FakeFetcher(),
+        parser=ProviderParserAdapter(parser),
+        adapter=adapter,
+    )
+    normalized = pipeline.run(source_url)[0]
 
     assert normalized.lottery_code == lottery_code
     assert normalized.draw_type in spec.draw_types
     assert normalized.main_numbers
-    assert normalized.source_url == payload["source_url"]
-    assert normalized.source_timestamp == payload["source_timestamp"]
+    assert normalized.source_url == source_url
+    assert normalized.source_timestamp == fetched_at
 
     if lottery_code in {
         "SUPER_ASTRO",
@@ -260,6 +279,8 @@ def test_controlled_ingestion_covers_all_ten_lotteries(
     assert persisted.main_numbers == normalized.main_numbers
     assert persisted.bonus_numbers == normalized.bonus_numbers
     assert persisted.metadata_json == normalized.metadata
+    assert persisted.source_url == normalized.source_url
+    assert persisted.source_timestamp == normalized.source_timestamp
     assert persisted.validation_json["format_valid"] is True
 
 
