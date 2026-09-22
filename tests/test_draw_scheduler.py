@@ -81,3 +81,26 @@ def test_runner_records_errors_without_stopping_other_draws():
 
     assert [x.status for x in attempts] == ["ERROR", "SUCCESS"]
     assert calls == [("TEST", "DIA"), ("TEST", "NOCHE")]
+
+def test_due_draws_uses_holiday_specific_time():
+    schedule = ScheduledDraw(
+        "DORADO",
+        "DORADO_NOCHE",
+        time(19, 25),
+        weekdays=frozenset({6}),
+        tolerance_minutes=10,
+        holiday_times=(time(19, 28),),
+        skip_on_holiday=True,
+    )
+    holiday = frozenset({datetime(2026, 9, 20).date()})
+
+    assert due_draws(
+        dt("2026-09-20T19:28:00"),
+        schedules=(schedule,),
+        holiday_dates=holiday,
+    ) == [schedule]
+    assert due_draws(
+        dt("2026-09-20T19:25:00"),
+        schedules=(schedule,),
+        holiday_dates=holiday,
+    ) == []
