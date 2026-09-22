@@ -11,7 +11,7 @@ COLOMBIA_TZ = ZoneInfo("America/Bogota")
 class ScheduledDraw:
     lottery_code: str
     draw_type: str
-    expected_time: time
+    expected_time: time | None
     weekdays: frozenset[int] = frozenset(range(7))
     tolerance_minutes: int = 30
     enabled: bool = True
@@ -162,6 +162,8 @@ def due_draws(
         else:
             expected_times = (schedule.expected_time,)
         for expected_time in expected_times:
+            if expected_time is None:
+                continue
             expected = datetime.combine(
                 local_now.date(), expected_time, COLOMBIA_TZ
             )
@@ -184,5 +186,7 @@ def expected_window(
         if draw_date in holiday_dates and draw.holiday_times
         else draw.expected_time
     )
+    if expected_time is None:
+        raise ValueError(f"Schedule {draw.lottery_code}/{draw.draw_type} has no expected time")
     expected = datetime.combine(draw_date, expected_time, COLOMBIA_TZ)
     return expected, expected + timedelta(minutes=draw.tolerance_minutes)
