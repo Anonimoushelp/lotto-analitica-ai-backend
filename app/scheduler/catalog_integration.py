@@ -4,7 +4,11 @@ from dataclasses import dataclass
 from enum import StrEnum
 from urllib.parse import urlparse
 
-from app.catalog.colombia_lotteries_2026 import COLOMBIA_LOTTERIES_2026, ColombiaLottery2026, LotteryStatus
+from app.catalog.colombia_lotteries_2026 import (
+    COLOMBIA_LOTTERIES_2026,
+    ColombiaLottery2026,
+    LotteryStatus,
+)
 from app.scheduler.draw_schedule import ScheduledDraw
 from app.sources.traditional_lottery import get_traditional_source
 
@@ -59,9 +63,15 @@ def build_catalog_scheduler_bindings() -> tuple[CatalogDrawBinding, ...]:
     bindings: list[CatalogDrawBinding] = []
     for lottery in COLOMBIA_LOTTERIES_2026:
         if lottery.status is LotteryStatus.EXTRAORDINARY_ONLY:
-            bindings.append(CatalogDrawBinding(
-                lottery.code, f"{lottery.code}_EXTRAORDINARY", None,
-                _operator_source(lottery), IntegrationStatus.EXTRAORDINARY_ONLY))
+            bindings.append(
+                CatalogDrawBinding(
+                    lottery.code,
+                    f"{lottery.code}_EXTRAORDINARY",
+                    None,
+                    _operator_source(lottery),
+                    IntegrationStatus.EXTRAORDINARY_ONLY,
+                )
+            )
             continue
 
         draw_type = f"{lottery.code}_ORDINARY"
@@ -70,23 +80,41 @@ def build_catalog_scheduler_bindings() -> tuple[CatalogDrawBinding, ...]:
                 lottery_code=lottery.code,
                 draw_type=draw_type,
                 expected_time=None,
-                weekdays=frozenset({lottery.ordinary_weekday}) if lottery.ordinary_weekday is not None else frozenset(),
+                weekdays=(
+                    frozenset({lottery.ordinary_weekday})
+                    if lottery.ordinary_weekday is not None
+                    else frozenset()
+                ),
                 enabled=lottery.status is LotteryStatus.ACTIVE,
                 calendar_only=True,
             )
-            if lottery.ordinary_weekday is not None else None
+            if lottery.ordinary_weekday is not None
+            else None
         )
         status = (
-            IntegrationStatus.SUSPENDED if lottery.status is LotteryStatus.SUSPENDED_ORDINARY
-            else IntegrationStatus.READY_FOR_CONTROLLED_TEST if lottery.primary_source_verified
-            else IntegrationStatus.PENDING_SOURCE
+            IntegrationStatus.SUSPENDED
+            if lottery.status is LotteryStatus.SUSPENDED_ORDINARY
+            else (
+                IntegrationStatus.READY_FOR_CONTROLLED_TEST
+                if lottery.primary_source_verified
+                else IntegrationStatus.PENDING_SOURCE
+            )
         )
-        bindings.append(CatalogDrawBinding(
-            lottery.code, draw_type, calendar_rule, _operator_source(lottery), status))
+        bindings.append(
+            CatalogDrawBinding(
+                lottery.code,
+                draw_type,
+                calendar_rule,
+                _operator_source(lottery),
+                status,
+            )
+        )
     return tuple(bindings)
 
 
-def ready_catalog_schedules(bindings: tuple[CatalogDrawBinding, ...] | None = None) -> tuple[ScheduledDraw, ...]:
+def ready_catalog_schedules(
+    bindings: tuple[CatalogDrawBinding, ...] | None = None,
+) -> tuple[ScheduledDraw, ...]:
     bindings = bindings or build_catalog_scheduler_bindings()
     return tuple(
         binding.calendar_rule
@@ -96,7 +124,9 @@ def ready_catalog_schedules(bindings: tuple[CatalogDrawBinding, ...] | None = No
     )
 
 
-def validate_catalog_scheduler_bindings(bindings: tuple[CatalogDrawBinding, ...]) -> list[str]:
+def validate_catalog_scheduler_bindings(
+    bindings: tuple[CatalogDrawBinding, ...],
+) -> list[str]:
     errors: list[str] = []
     expected_codes = {lottery.code for lottery in COLOMBIA_LOTTERIES_2026}
     actual_codes = {binding.lottery_code for binding in bindings}
@@ -113,19 +143,38 @@ def validate_catalog_scheduler_bindings(bindings: tuple[CatalogDrawBinding, ...]
             if parsed.scheme not in {"http", "https"} or not parsed.netloc:
                 errors.append(f"{binding.lottery_code}: invalid primary_url")
 
-        lottery = next(item for item in COLOMBIA_LOTTERIES_2026 if item.code == binding.lottery_code)
+        lottery = next(
+            item for item in COLOMBIA_LOTTERIES_2026
+            if item.code == binding.lottery_code
+        )
         if lottery.status is LotteryStatus.EXTRAORDINARY_ONLY:
             if binding.calendar_rule is not None:
-                errors.append(f"{binding.lottery_code}: extraordinary entry has calendar")
+                errors.append(
+                    f"{binding.lottery_code}: extraordinary entry has calendar"
+                )
             continue
         if binding.calendar_rule is None:
             errors.append(f"{binding.lottery_code}: missing ordinary calendar rule")
-        elif lottery.ordinary_weekday is not None and binding.calendar_rule.weekdays != frozenset({lottery.ordinary_weekday}):
+        elif (
+            lottery.ordinary_weekday is not None
+            and binding.calendar_rule.weekdays
+            != frozenset({lottery.ordinary_weekday})
+        ):
             errors.append(f"{binding.lottery_code}: calendar weekday mismatch")
-        if binding.calendar_rule is not None and lottery.status is LotteryStatus.ACTIVE and not binding.calendar_rule.calendar_only:
+        if (
+            binding.calendar_rule is not None
+            and lottery.status is LotteryStatus.ACTIVE
+            and not binding.calendar_rule.calendar_only
+        ):
             errors.append(f"{binding.lottery_code}: active catalog rule is not calendar-only")
-        if lottery.status is LotteryStatus.SUSPENDED_ORDINARY and binding.integration_status is not IntegrationStatus.SUSPENDED:
+        if (
+            lottery.status is LotteryStatus.SUSPENDED_ORDINARY
+            and binding.integration_status is not IntegrationStatus.SUSPENDED
+        ):
             errors.append(f"{binding.lottery_code}: suspension not propagated")
-        if binding.integration_status is IntegrationStatus.READY_FOR_CONTROLLED_TEST and not binding.source.verified:
+        if (
+            binding.integration_status is IntegrationStatus.READY_FOR_CONTROLLED_TEST
+            and not binding.source.verified
+        ):
             errors.append(f"{binding.lottery_code}: ready binding has unverified source")
     return errors
