@@ -37,7 +37,7 @@ from app.sources.four_digit_parsers import (
 )
 from app.sources.ingestion import SourceIngestionPipeline
 from app.sources.parsers import HtmlTableParser
-from app.sources.provider_parser_adapter import ProviderParserAdapter
+from app.sources.provider_parser_adapter import HtmlProviderParserAdapter, ProviderParserAdapter
 from app.sources.provider_parsers import (
     BalotoFamilyJsonParser,
     MiLotoJsonParser,
@@ -316,7 +316,10 @@ def test_controlled_html_table_source_uses_secure_fetcher(db):
     )
     pipeline = SourceIngestionPipeline(
         fetcher=fetcher,
-        parser=HtmlTableParser(),
+        parser=HtmlProviderParserAdapter(
+            parser=HtmlTableParser(),
+            allowed_draw_types={"CHONTICO_DIA", "CHONTICO_NOCHE", "CHONTICO_SUPER_NOCHE"},
+        ),
         adapter=ChonticoAdapter(),
     )
 
