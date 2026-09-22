@@ -68,7 +68,7 @@ class LotteryDraw(Base):
         server_default="DEFAULT",
     )
 
-    draw_number: Mapped[str] = mapped_column(
+    draw_number: Mapped[str | None] = mapped_column(
         String(50),
         nullable=False,
     )
