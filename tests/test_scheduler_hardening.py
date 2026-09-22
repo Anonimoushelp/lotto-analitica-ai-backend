@@ -140,7 +140,7 @@ def test_dated_schedule_rejects_duplicate_calendar_entries():
         )
     )
     with pytest.raises(ValueError, match="Duplicate dated schedule"):
-        schedule.for_date(date(2026, 9, 21), "ASTRO_SOL"
+        schedule.for_date(date(2026, 9, 21), "ASTRO_SOL")
 
 
 def test_fixed_schedule_remains_unpublished_outside_window():
