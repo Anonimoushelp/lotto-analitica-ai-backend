@@ -3,7 +3,12 @@ from datetime import UTC, date, datetime
 import pytest
 
 from app.sources.fetchers import SourceFetchResult
-from app.sources.parsers import BalotoResultPageParser, SourceParseError
+from app.sources.parsers import (
+    BalotoResultPageParser,
+    MiLotoResultPageParser,
+    SourceParseError,
+    SuperAstroResultPageParser,
+)
 from app.sources.provider_parsers import (
     BalotoFamilyJsonParser,
     MiLotoJsonParser,
@@ -120,3 +125,46 @@ def test_baloto_result_page_parser_extracts_official_revancha_result() -> None:
     assert record["draw_date"] == "2026-09-19"
     assert record["main_numbers"] == [10, 25, 27, 38, 42]
     assert record["revancha_bonus"] == [3]
+
+
+def test_miloto_result_page_parser_extracts_latest_result() -> None:
+    html = """
+    <h1>RESULTADOS</h1><div>SORTEO #611</div><div>Martes 22 de Septiembre de 2026</div>
+    <h2>HISTÓRICO DE RESULTADOS</h2>
+    <div>22 de Septiembre de 2026 | 01 - 03 - 08 - 18 - 20 | Ver detalle</div>
+    """
+    result = SourceFetchResult(
+        url="https://www.baloto.com/miloto/resultados/?page=1",
+        status_code=200,
+        content=html.encode(),
+        content_type="text/html; charset=utf-8",
+        fetched_at=datetime.now(UTC),
+    )
+    record = list(MiLotoResultPageParser().parse(result))[0]
+    assert record["draw_type"] == "MILOTO"
+    assert record["draw_number"] == "611"
+    assert record["draw_date"] == "2026-09-22"
+    assert record["main_numbers"] == [1, 3, 8, 18, 20]
+
+
+def test_super_astro_result_page_parser_extracts_sol_and_luna() -> None:
+    html = """
+    <div>NÚMERO SIGNO SORTEO FECHA</div>
+    <div>8311 Capricornio 5537 2026-09-23</div>
+    <div>6435 Libra 8251 2026-09-22</div>
+    """
+    result = SourceFetchResult(
+        url="https://www.superastro.com.co/resultados-super-astro-sol-super-astro-luna.php",
+        status_code=200,
+        content=html.encode(),
+        content_type="text/html; charset=utf-8",
+        fetched_at=datetime.now(UTC),
+    )
+    sol = list(SuperAstroResultPageParser(draw_type="ASTRO_SOL").parse(result))[0]
+    luna = list(SuperAstroResultPageParser(draw_type="ASTRO_LUNA").parse(result))[0]
+    assert sol["number"] == "8311"
+    assert sol["draw_number"] == "5537"
+    assert sol["draw_date"] == "2026-09-23"
+    assert sol["metadata"]["sign"] == "Capricornio"
+    assert luna["number"] == "6435"
+    assert luna["draw_number"] == "8251"
