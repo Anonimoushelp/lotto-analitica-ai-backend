@@ -295,3 +295,77 @@ class BalotoResultPageParser:
         }
         payload["revancha_bonus" if self.draw_type == "REVANCHA" else "superbalota"] = [numbers[5]]
         return [payload]
+
+
+class MiLotoResultPageParser:
+    """Extract the latest MiLoto result from the official historical-results page."""
+
+    _DRAW_RE = re.compile(r"SORTEO\\s*#(?P<number>\\d+)", re.IGNORECASE)
+    _DATE_RE = re.compile(
+        r"(?P<day>\\d{1,2})\\s+de\\s+(?P<month>[A-Za-zÁÉÍÓÚáéíóúñÑ]+)\\s+de\\s+(?P<year>\\d{4})",
+        re.IGNORECASE,
+    )
+    _RESULT_RE = re.compile(r"(?P<date>\\d{1,2}\\s+de\\s+[A-Za-zÁÉÍÓÚáéíóúñÑ]+\\s+de\\s+\\d{4})\\s+(?P<result>(?:\\d{1,2}\\s*-\\s*){4}\\d{1,2})")
+    _MONTHS = {
+        "enero":"01","febrero":"02","marzo":"03","abril":"04","mayo":"05","junio":"06",
+        "julio":"07","agosto":"08","septiembre":"09","setiembre":"09","octubre":"10",
+        "noviembre":"11","diciembre":"12",
+    }
+
+    def parse(self, result: SourceFetchResult) -> Iterable[Mapping[str, Any]]:
+        try:
+            html = result.content.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise SourceParseError("MiLoto result page is not valid UTF-8") from exc
+        text = " ".join(re.sub(r"<[^>]+>", " ", html).split())
+        draw_match = self._DRAW_RE.search(text)
+        date_match = self._DATE_RE.search(text)
+        result_match = self._RESULT_RE.search(text)
+        if not draw_match or not date_match or not result_match:
+            raise SourceParseError("MiLoto result page is missing the latest result")
+        month = self._MONTHS.get(
+            unicodedata.normalize("NFKD", date_match.group("month")).encode("ascii", "ignore").decode("ascii").casefold()
+        )
+        if month is None:
+            raise SourceParseError("MiLoto result page contains an unsupported month")
+        numbers = [int(value) for value in re.findall(r"\\d{1,2}", result_match.group("result"))]
+        if len(numbers) != 5:
+            raise SourceParseError("MiLoto result must contain exactly five numbers")
+        return [{
+            "draw_type": "MILOTO",
+            "draw_number": draw_match.group("number"),
+            "draw_date": f"{date_match.group('year')}-{month}-{int(date_match.group('day')):02d}",
+            "main_numbers": numbers,
+        }]
+
+
+class SuperAstroResultPageParser:
+    """Extract the latest Sol or Luna result from the official results page."""
+
+    _ROW_RE = re.compile(
+        r"(?P<number>\\d{4})\\s+(?P<sign>[A-Za-zÁÉÍÓÚáéíóúñÑ]+)\\s+(?P<draw>\\d{4})\\s+(?P<date>\\d{4}-\\d{2}-\\d{2})"
+    )
+
+    def __init__(self, *, draw_type: str) -> None:
+        if draw_type not in {"ASTRO_SOL", "ASTRO_LUNA"}:
+            raise ValueError("draw_type must be ASTRO_SOL or ASTRO_LUNA")
+        self.draw_type = draw_type
+
+    def parse(self, result: SourceFetchResult) -> Iterable[Mapping[str, Any]]:
+        try:
+            html = result.content.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise SourceParseError("Super Astro result page is not valid UTF-8") from exc
+        text = " ".join(re.sub(r"<[^>]+>", " ", html).split())
+        rows = list(self._ROW_RE.finditer(text))
+        index = 0 if self.draw_type == "ASTRO_SOL" else 1
+        if len(rows) <= index:
+            raise SourceParseError("Super Astro result page is missing the requested draw")
+        row = rows[index]
+        return [{
+            "draw_type": self.draw_type,
+            "draw_number": row.group("draw"),
+            "draw_date": row.group("date"),
+            "number": row.group("number"),
+            "metadata": {"sign": row.group("sign")},
+        }]
