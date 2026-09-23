@@ -10,7 +10,6 @@ from app.sources.contracts import RawDrawRecord
 from app.sources.orchestrator import IngestionJob, IngestionOrchestrator
 from app.sources.scheduler import IngestionScheduler
 
-
 ENGINE = create_engine(
     "sqlite://",
     connect_args={"check_same_thread": False},
