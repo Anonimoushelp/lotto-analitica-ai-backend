@@ -342,8 +342,13 @@ class MiLotoResultPageParser:
 class SuperAstroResultPageParser:
     """Extract the latest Sol or Luna result from the official results page."""
 
+    _HEADER_RE = re.compile(
+        r"NÚMERO\\s*\\|\\s*SIGNORE?O\\s*\\|\\s*SORTEO\\s*\\|\\s*FECHA",
+        re.IGNORECASE,
+    )
     _ROW_RE = re.compile(
-        r"(?P<number>\\d{4})\\s+(?P<sign>[A-Za-zÁÉÍÓÚáéíóúñÑ]+)\\s+(?P<draw>\\d{4})\\s+(?P<date>\\d{4}-\\d{2}-\\d{2})"
+        r"(?P<number>\\d{4})\\s*\\|\\s*(?P<sign>[A-Za-zÁÉÍÓÚáéíóúñÑ]+)\\s*\\|\\s*"
+        r"(?P<draw>\\d{4})\\s*\\|\\s*(?P<date>\\d{4}-\\d{2}-\\d{2})"
     )
 
     def __init__(self, *, draw_type: str) -> None:
@@ -357,11 +362,13 @@ class SuperAstroResultPageParser:
         except UnicodeDecodeError as exc:
             raise SourceParseError("Super Astro result page is not valid UTF-8") from exc
         text = " ".join(re.sub(r"<[^>]+>", " ", html).split())
-        rows = list(self._ROW_RE.finditer(text))
-        index = 0 if self.draw_type == "ASTRO_SOL" else 1
-        if len(rows) <= index:
+        sections = self._HEADER_RE.split(text)
+        section_index = 1 if self.draw_type == "ASTRO_SOL" else 2
+        if len(sections) <= section_index:
+            raise SourceParseError("Super Astro result page is missing the requested draw table")
+        row = self._ROW_RE.search(sections[section_index])
+        if row is None:
             raise SourceParseError("Super Astro result page is missing the requested draw")
-        row = rows[index]
         return [{
             "draw_type": self.draw_type,
             "draw_number": row.group("draw"),
