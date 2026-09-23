@@ -37,8 +37,8 @@ class IngestionJob:
             raise ValueError("job key cannot be empty")
         if not self.lottery_code.strip():
             raise ValueError("lottery_code cannot be empty")
-        if not self.url.startswith("https://"):
-            raise ValueError("ingestion job URL must use HTTPS")
+        if self.enabled and not self.url.startswith("https://"):
+            raise ValueError("enabled ingestion job URL must use HTTPS")
         if self.interval_seconds <= 0:
             raise ValueError("interval_seconds must be greater than zero")
         if self.max_attempts <= 0:
