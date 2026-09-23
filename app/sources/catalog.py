@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from dataclasses import dataclass
-from typing import Callable
 
 from app.sources.adapters import (
     BalotoAdapter,
@@ -30,7 +30,10 @@ from app.sources.four_digit_parsers import (
 from app.sources.ingestion import SourceIngestionPipeline
 from app.sources.orchestrator import IngestionJob
 from app.sources.parsers import HtmlTableParser
-from app.sources.provider_parser_adapter import HtmlProviderParserAdapter, ProviderParserAdapter
+from app.sources.provider_parser_adapter import (
+    HtmlProviderParserAdapter,
+    ProviderParserAdapter,
+)
 from app.sources.provider_parsers import (
     BalotoFamilyJsonParser,
     MiLotoJsonParser,
