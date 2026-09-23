@@ -5,9 +5,9 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.models.lottery import Lottery
+from app.models.lottery_draw import LotteryDraw
 from app.sources.contracts import RawDrawRecord
 from app.sources.orchestrator import IngestionJob, IngestionOrchestrator
-from app.models.lottery_draw import LotteryDraw
 from app.sources.scheduler import IngestionScheduler
 
 
