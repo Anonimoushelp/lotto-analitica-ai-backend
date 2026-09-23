@@ -1,4 +1,4 @@
-from datetime import datetime, timedelta
+from datetime import UTC, datetime, timedelta
 
 from app.models.lottery import Lottery
 from app.sources.contracts import RawDrawRecord
@@ -34,7 +34,7 @@ def _record(lottery_code: str = "MILOTO") -> RawDrawRecord:
         main_numbers=[1, 2, 3, 4, 5],
         source_name="Test Source",
         source_url="https://example.test/results",
-        source_timestamp=datetime(2026, 9, 22, 18, 0),
+        source_timestamp=datetime(2026, 9, 22, 18, 0, tzinfo=UTC),
     )
 
 
@@ -91,7 +91,7 @@ def test_orchestrator_isolates_failure_and_retries():
 
 
 def test_scheduler_runs_only_due_enabled_jobs():
-    now = datetime(2026, 9, 22, 18, 0)
+    now = datetime(2026, 9, 22, 18, 0, tzinfo=UTC)
     executed = []
 
     class StubOrchestrator:
