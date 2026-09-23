@@ -2,7 +2,8 @@ from datetime import date
 
 import pytest
 
-from app.sources.parsers import SourceParseError
+from app.sources.fetchers import SourceFetchResult
+from app.sources.parsers import BalotoResultPageParser, SourceParseError
 from app.sources.provider_parsers import (
     BalotoFamilyJsonParser,
     MiLotoJsonParser,
@@ -90,3 +91,32 @@ def test_super_astro_parser_rejects_invalid_result(value: str) -> None:
                 "number": value,
             }
         )
+
+
+def test_baloto_result_page_parser_extracts_official_revancha_result() -> None:
+    html = """
+    <html><body>
+      <h1>SORTEO 2.711</h1>
+      <div>Sábado</div>
+      <div>19 de Septiembre de 2026</div>
+      <div>ACUMULADO DEL SORTEO: $2.400 MILLONES</div>
+      <a>MIRA EL VIDEO OFICIAL DEL SORTEO</a>
+      <span>10</span><span>25</span><span>27</span><span>38</span><span>42</span><span>03</span>
+      <div>TOTAL GANADORES</div>
+    </body></html>
+    """
+    result = SourceFetchResult(
+        url="https://www.baloto.com/resultados-revancha/2711",
+        status_code=200,
+        content=html.encode("utf-8"),
+        content_type="text/html; charset=utf-8",
+        fetched_at=__import__("datetime").datetime.now(__import__("datetime").UTC),
+    )
+
+    record = list(BalotoResultPageParser(draw_type="REVANCHA").parse(result))[0]
+
+    assert record["game_type"] == "REVANCHA"
+    assert record["draw_number"] == "2711"
+    assert record["draw_date"] == "2026-09-19"
+    assert record["main_numbers"] == [10, 25, 27, 38, 42]
+    assert record["revancha_bonus"] == [3]
