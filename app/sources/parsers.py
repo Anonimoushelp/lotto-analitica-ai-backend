@@ -232,3 +232,66 @@ class HtmlTableParser:
         ).decode("ascii")
         normalized = re.sub(r"[^a-z0-9]+", "_", ascii_value.casefold()).strip("_")
         return normalized.upper()
+
+
+class BalotoResultPageParser:
+    """Extract one official Baloto/Revancha result page rendered as HTML."""
+
+    _DRAW_RE = re.compile(r"SORTEO\\s+(?P<number>\\d{1,6})", re.IGNORECASE)
+    _DATE_RE = re.compile(
+        r"(?P<day>\\d{1,2})\\s+de\\s+"
+        r"(?P<month>[A-Za-zÁÉÍÓÚáéíóúñÑ]+)\\s+de\\s+(?P<year>\\d{4})",
+        re.IGNORECASE,
+    )
+    _RESULT_BLOCK_RE = re.compile(
+        r"MIRA\\s+EL\\s+VIDEO\\s+OFICIAL\\s+DEL\\s+SORTEO(?P<body>.*?)TOTAL\\s+GANADORES",
+        re.IGNORECASE | re.DOTALL,
+    )
+    _NUMBER_RE = re.compile(r"(?<!\\d)(\\d{1,2})(?!\\d)")
+    _MONTHS = {
+        "enero": "01", "febrero": "02", "marzo": "03", "abril": "04",
+        "mayo": "05", "junio": "06", "julio": "07", "agosto": "08",
+        "septiembre": "09", "setiembre": "09", "octubre": "10",
+        "noviembre": "11", "diciembre": "12",
+    }
+
+    def __init__(self, *, draw_type: str) -> None:
+        if draw_type not in {"BALOTO", "REVANCHA"}:
+            raise ValueError("draw_type must be BALOTO or REVANCHA")
+        self.draw_type = draw_type
+
+    def parse(self, result: SourceFetchResult) -> Iterable[Mapping[str, Any]]:
+        try:
+            html = result.content.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise SourceParseError("Baloto result page is not valid UTF-8") from exc
+
+        text = " ".join(re.sub(r"<[^>]+>", " ", html).split())
+        draw_match = self._DRAW_RE.search(text)
+        date_match = self._DATE_RE.search(text)
+        block_match = self._RESULT_BLOCK_RE.search(text)
+        if not draw_match or not date_match or not block_match:
+            raise SourceParseError("Baloto result page is missing the official result block")
+
+        numbers = [int(value) for value in self._NUMBER_RE.findall(block_match.group("body"))]
+        if len(numbers) != 6:
+            raise SourceParseError(
+                "Baloto result page must contain exactly five main numbers and one bonus number"
+            )
+
+        month = self._MONTHS.get(
+            unicodedata.normalize("NFKD", date_match.group("month"))
+            .encode("ascii", "ignore").decode("ascii").casefold()
+        )
+        if month is None:
+            raise SourceParseError("Baloto result page contains an unsupported month")
+
+        payload: dict[str, Any] = {
+            "game_type": self.draw_type,
+            "draw_number": draw_match.group("number"),
+            "draw_date": f"{date_match.group('year')}-{month}-{int(date_match.group('day')):02d}",
+            "main_numbers": numbers[:5],
+            "metadata": {"source_format": "official_result_page"},
+        }
+        payload["revancha_bonus" if self.draw_type == "REVANCHA" else "superbalota"] = [numbers[5]]
+        return [payload]
