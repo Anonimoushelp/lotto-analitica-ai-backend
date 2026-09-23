@@ -5,13 +5,10 @@ import time
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass
-from datetime import datetime
-from typing import Any
-
+from datetime import UTC, datetime
 from sqlalchemy.orm import Session
 
 from app.services.lottery_draw_service import LotteryDrawService
-from app.sources.contracts import RawDrawRecord
 from app.sources.ingestion import SourceIngestionPipeline
 
 logger = logging.getLogger(__name__)
@@ -71,7 +68,7 @@ class IngestionOrchestrator:
         *,
         session_factory: SessionFactory,
         sleep: SleepFn = time.sleep,
-        clock: Callable[[], datetime] = datetime.now,
+        clock: Callable[[], datetime] = lambda: datetime.now(UTC),
     ) -> None:
         self.session_factory = session_factory
         self.sleep = sleep
