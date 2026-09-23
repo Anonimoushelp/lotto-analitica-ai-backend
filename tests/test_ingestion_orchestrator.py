@@ -1,10 +1,14 @@
 from datetime import UTC, datetime, timedelta
 
+from sqlalchemy import create_engine
+from sqlalchemy.orm import sessionmaker
+from sqlalchemy.pool import StaticPool
+
 from app.models.lottery import Lottery
 from app.sources.contracts import RawDrawRecord
 from app.sources.orchestrator import IngestionJob, IngestionOrchestrator
-from app.sources.scheduler import IngestionScheduler
 from app.models.lottery_draw import LotteryDraw
+from app.sources.scheduler import IngestionScheduler
 
 
 ENGINE = create_engine(
