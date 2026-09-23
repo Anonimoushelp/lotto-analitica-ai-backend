@@ -177,7 +177,6 @@ class LotteryDrawService:
                 and existing.bonus_numbers == record.bonus_numbers
                 and existing.source == record.source_name
                 and existing.source_url == record.source_url
-                and existing_timestamp == record_timestamp
                 and existing.metadata_json == record.metadata
             )
             if same_record:
