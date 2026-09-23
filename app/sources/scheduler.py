@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from datetime import datetime, timedelta
 
 from sqlalchemy import select
@@ -63,7 +64,7 @@ class PersistentIngestionScheduler:
         *,
         orchestrator: IngestionOrchestrator,
         jobs: tuple[IngestionJob, ...],
-        session_factory: callable,
+        session_factory: Callable[[], Session],
     ) -> None:
         keys = [job.key for job in jobs]
         if len(keys) != len(set(keys)):
