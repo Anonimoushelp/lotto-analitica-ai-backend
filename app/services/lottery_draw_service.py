@@ -1,4 +1,4 @@
-from datetime import UTC, date, time
+from datetime import date, time
 
 from fastapi import HTTPException, status
 from sqlalchemy import select
