@@ -28,6 +28,7 @@ def test_ingestion_catalog_isolated_and_complete():
 
 def test_persistent_scheduler_claims_each_due_job_once():
     from datetime import UTC, datetime
+
     from sqlalchemy import create_engine
     from sqlalchemy.orm import sessionmaker
     from sqlalchemy.pool import StaticPool
