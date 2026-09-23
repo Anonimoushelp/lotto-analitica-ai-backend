@@ -33,7 +33,7 @@ class HttpSourceFetcher:
         self,
         *,
         timeout: float = 15.0,
-        user_agent: str = "Lotto-Analitica-AI/1.0",
+        user_agent: str = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0.0.0 Safari/537.36",
         allowed_hosts: set[str] | None = None,
         max_response_bytes: int = 2_000_000,
         transport: httpx.BaseTransport | None = None,
