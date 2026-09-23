@@ -29,7 +29,7 @@ from app.sources.four_digit_parsers import (
 )
 from app.sources.ingestion import SourceIngestionPipeline
 from app.sources.orchestrator import IngestionJob
-from app.sources.parsers import HtmlTableParser
+from app.sources.parsers import BalotoResultPageParser, HtmlTableParser
 from app.sources.provider_parser_adapter import (
     HtmlProviderParserAdapter,
     ProviderParserAdapter,
@@ -119,8 +119,10 @@ def build_ingestion_catalog() -> tuple[IngestionJob, ...]:
                 key="baloto-primary-json",
                 lottery_code="BALOTO",
                 url=specs("BALOTO").primary_url or "",
-                pipeline_factory=lambda: _json_pipeline(
-                    BalotoFamilyJsonParser(), BalotoAdapter()
+                pipeline_factory=lambda: SourceIngestionPipeline(
+                    fetcher=HttpSourceFetcher(),
+                    parser=BalotoResultPageParser(draw_type="BALOTO"),
+                    adapter=BalotoAdapter(),
                 ),
                 interval_seconds=1800,
                 enabled=specs("BALOTO").primary_verified,
@@ -129,8 +131,10 @@ def build_ingestion_catalog() -> tuple[IngestionJob, ...]:
                 key="revancha-primary-json",
                 lottery_code="REVANCHA",
                 url=specs("REVANCHA").primary_url or "",
-                pipeline_factory=lambda: _json_pipeline(
-                    BalotoFamilyJsonParser(), RevanchaAdapter()
+                pipeline_factory=lambda: SourceIngestionPipeline(
+                    fetcher=HttpSourceFetcher(),
+                    parser=BalotoResultPageParser(draw_type="REVANCHA"),
+                    adapter=RevanchaAdapter(),
                 ),
                 interval_seconds=1800,
                 enabled=specs("REVANCHA").primary_verified,
