@@ -105,7 +105,10 @@ class PersistentIngestionScheduler:
                 )
                 db.add(state)
                 db.flush()
-            if state.next_run_at > now:
+            next_run_at = state.next_run_at
+            if next_run_at.tzinfo is None:
+                next_run_at = next_run_at.replace(tzinfo=now.tzinfo)
+            if next_run_at > now:
                 db.rollback()
                 return False
             state.next_run_at = now + timedelta(seconds=job.interval_seconds)
