@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import html
 import re
 import unicodedata
 from collections.abc import Iterable, Mapping
@@ -55,7 +54,7 @@ class TraditionalLotteryHtmlParser:
         except UnicodeDecodeError as exc:
             raise SourceParseError("Traditional lottery HTML is not valid UTF-8") from exc
 
-        text = html.unescape(" ".join(re.sub(r"<[^>]+>", " ", html).split()))
+        text = " ".join(re.sub(r"<[^>]+>", " ", html).split())
         text = re.sub(r"\s+", " ", text).strip()
         search_text = self._strip_accents(text)
         draw_match = self._DRAW_RE.search(search_text)
