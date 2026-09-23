@@ -19,8 +19,13 @@ class TraditionalLotteryHtmlParser:
         re.IGNORECASE,
     )
     _DATE_RE = re.compile(
-        r"(\d{1,2})\s*(?:de\s+)?([A-Za-zÁÉÍÓÚáéíóúñÑ]+)\s*(?:de\s+)?(\d{4})",
+        r"(?<!\d)(\d{1,2})\s*(?:de\s+)?"
+        r"([A-Za-zÁÉÍÓÚáéíóúñÑ]+\.?)\s*(?:de\s+)?"
+        r"(\d{4})(?!\d)",
         re.IGNORECASE,
+    )
+    _NUMERIC_DATE_RE = re.compile(
+        r"(?<!\d)(\d{1,2})[/-](\d{1,2})[/-](\d{4})(?!\d)"
     )
     _RESULT_RE = re.compile(
         r"\b(?:resultado|result)\s*[:#-]?\s*(\d{4})\b",
@@ -53,13 +58,20 @@ class TraditionalLotteryHtmlParser:
         search_text = self._strip_accents(text)
         draw_match = self._DRAW_RE.search(search_text)
         date_match = self._DATE_RE.search(text)
+        numeric_date_match = self._NUMERIC_DATE_RE.search(text)
         result_match = self._RESULT_RE.search(search_text)
         labeled_number_matches = self._LABELED_NUMBER_RE.findall(search_text)
         number_matches = self._NUMBER_RE.findall(text)
         series_match = self._SERIES_RE.search(search_text)
 
-        if not date_match or (
-            not result_match and not labeled_number_matches and not number_matches
+        if not date_match and not numeric_date_match:
+            raise SourceParseError(
+                "Traditional lottery source does not expose a recognizable date/result"
+            )
+        if (
+            not result_match
+            and not labeled_number_matches
+            and not number_matches
         ):
             raise SourceParseError(
                 "Traditional lottery source does not expose a recognizable date/result"
@@ -82,10 +94,14 @@ class TraditionalLotteryHtmlParser:
                 "Traditional lottery source does not expose a recognizable four-digit result"
             )
 
-        month = self._month(date_match.group(2))
-        if month is None:
-            raise SourceParseError("Traditional lottery source has an unsupported month")
-        draw_date = f"{date_match.group(3)}-{month}-{int(date_match.group(1)):02d}"
+        if numeric_date_match:
+            day, month, year = numeric_date_match.groups()
+            draw_date = f"{year}-{int(month):02d}-{int(day):02d}"
+        else:
+            month = self._month(date_match.group(2))
+            if month is None:
+                raise SourceParseError("Traditional lottery source has an unsupported month")
+            draw_date = f"{date_match.group(3)}-{month}-{int(date_match.group(1)):02d}"
 
         code = (lottery_code or self.lottery_code).upper()
         profile = get_traditional_source(code)
@@ -126,21 +142,22 @@ class TraditionalLotteryHtmlParser:
             .decode("ascii")
             .casefold()
         )
-        return {
-            "enero": "01",
-            "febrero": "02",
-            "marzo": "03",
-            "abril": "04",
-            "mayo": "05",
-            "junio": "06",
-            "julio": "07",
-            "agosto": "08",
-            "septiembre": "09",
-            "setiembre": "09",
-            "octubre": "10",
-            "noviembre": "11",
-            "diciembre": "12",
-        }.get(normalized)
+        normalized = normalized.rstrip(".")
+        aliases = {
+            "ene": "01", "enero": "01",
+            "feb": "02", "febrero": "02",
+            "mar": "03", "marzo": "03",
+            "abr": "04", "abril": "04",
+            "may": "05", "mayo": "05",
+            "jun": "06", "junio": "06",
+            "jul": "07", "julio": "07",
+            "ago": "08", "agosto": "08",
+            "sep": "09", "sept": "09", "septiembre": "09", "set": "09", "setiembre": "09",
+            "oct": "10", "octubre": "10",
+            "nov": "11", "noviembre": "11",
+            "dic": "12", "diciembre": "12",
+        }
+        return aliases.get(normalized)
 
 
 class TraditionalLotteryAdapter(MappingSourceAdapter):
