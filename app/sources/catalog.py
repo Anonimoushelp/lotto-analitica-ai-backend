@@ -29,7 +29,12 @@ from app.sources.four_digit_parsers import (
 )
 from app.sources.ingestion import SourceIngestionPipeline
 from app.sources.orchestrator import IngestionJob
-from app.sources.parsers import BalotoResultPageParser, HtmlTableParser
+from app.sources.parsers import (
+    BalotoResultPageParser,
+    HtmlTableParser,
+    MiLotoResultPageParser,
+    SuperAstroResultPageParser,
+)
 from app.sources.provider_parser_adapter import (
     HtmlProviderParserAdapter,
     ProviderParserAdapter,
@@ -111,7 +116,11 @@ def build_ingestion_catalog() -> tuple[IngestionJob, ...]:
                 key="miloto-primary-json",
                 lottery_code="MILOTO",
                 url=specs("MILOTO").primary_url or "",
-                pipeline_factory=lambda: _json_pipeline(MiLotoJsonParser(), MiLotoAdapter()),
+                pipeline_factory=lambda: SourceIngestionPipeline(
+                    fetcher=HttpSourceFetcher(),
+                    parser=MiLotoResultPageParser(),
+                    adapter=MiLotoAdapter(),
+                ),
                 interval_seconds=900,
                 enabled=specs("MILOTO").primary_verified,
             ),
@@ -143,7 +152,11 @@ def build_ingestion_catalog() -> tuple[IngestionJob, ...]:
                 key="super-astro-primary-json",
                 lottery_code="SUPER_ASTRO",
                 url=specs("SUPER_ASTRO").primary_url or "",
-                pipeline_factory=_astro_pipeline,
+                pipeline_factory=lambda: SourceIngestionPipeline(
+                    fetcher=HttpSourceFetcher(),
+                    parser=SuperAstroResultPageParser(draw_type="ASTRO_SOL"),
+                    adapter=SuperAstroAdapter(),
+                ),
                 interval_seconds=900,
                 enabled=specs("SUPER_ASTRO").primary_verified,
             ),
