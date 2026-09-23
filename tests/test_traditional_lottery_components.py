@@ -62,3 +62,30 @@ def test_traditional_adapter_rejects_non_four_digit_major_result():
                 "metadata": {"raw_result": "123"},
             }
         )
+
+
+
+def test_traditional_parser_accepts_abbreviated_month_and_numeric_date():
+    parser, _ = build_traditional_lottery_components("LOTERIA_TOLIMA")
+    abbreviated = list(
+        parser.parse(
+            _result(
+                "<html><body>Sorteo 4188 - 21 de sept. de 2026 "
+                "Número 4008 Serie 055</body></html>"
+            ),
+            "LOTERIA_TOLIMA",
+        )
+    )
+    numeric = list(
+        parser.parse(
+            _result(
+                "<html><body>Sorteo 4188 - 21/09/2026 "
+                "Número 4008 Serie 055</body></html>"
+            ),
+            "LOTERIA_TOLIMA",
+        )
+    )
+    assert abbreviated[0]["draw_date"] == "2026-09-21"
+    assert numeric[0]["draw_date"] == "2026-09-21"
+    assert abbreviated[0]["main_numbers"] == [4008]
+    assert numeric[0]["main_numbers"] == [4008]
