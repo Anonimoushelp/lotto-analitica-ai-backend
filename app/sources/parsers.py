@@ -305,7 +305,7 @@ class MiLotoResultPageParser:
         r"(?P<day>\\d{1,2})\\s+de\\s+(?P<month>[A-Za-zÁÉÍÓÚáéíóúñÑ]+)\\s+de\\s+(?P<year>\\d{4})",
         re.IGNORECASE,
     )
-    _RESULT_RE = re.compile(r"(?P<date>\\d{1,2}\\s+de\\s+[A-Za-zÁÉÍÓÚáéíóúñÑ]+\\s+de\\s+\\d{4})\\s+(?P<result>(?:\\d{1,2}\\s*-\\s*){4}\\d{1,2})")
+    _RESULT_RE = re.compile(r"(?P<date>\\d{1,2}\\s+de\\s+[A-Za-zÁÉÍÓÚáéíóúñÑ]+\\s+de\\s+\\d{4})\\s*(?:\\|\\s*)?(?P<result>(?:\\d{1,2}\\s*-\\s*){4}\\d{1,2})")
     _MONTHS = {
         "enero":"01","febrero":"02","marzo":"03","abril":"04","mayo":"05","junio":"06",
         "julio":"07","agosto":"08","septiembre":"09","setiembre":"09","octubre":"10",
