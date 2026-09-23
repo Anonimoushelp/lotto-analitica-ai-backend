@@ -4,6 +4,17 @@ from app.models.lottery import Lottery
 from app.sources.contracts import RawDrawRecord
 from app.sources.orchestrator import IngestionJob, IngestionOrchestrator
 from app.sources.scheduler import IngestionScheduler
+from app.models.lottery_draw import LotteryDraw
+
+
+ENGINE = create_engine(
+    "sqlite://",
+    connect_args={"check_same_thread": False},
+    poolclass=StaticPool,
+)
+SessionLocal = sessionmaker(bind=ENGINE, autoflush=False, autocommit=False)
+Lottery.__table__.create(bind=ENGINE)
+LotteryDraw.__table__.create(bind=ENGINE)
 
 
 class StubPipeline:
@@ -38,12 +49,13 @@ def _record(lottery_code: str = "MILOTO") -> RawDrawRecord:
     )
 
 
-def test_orchestrator_persists_and_is_idempotent(db):
+def test_orchestrator_persists_and_is_idempotent():
+    db = SessionLocal()
     lottery = Lottery(name="MiLoto", code="miloto", country="Colombia")
     db.add(lottery)
     db.commit()
 
-    session_factory = lambda: db
+    session_factory = SessionLocal
     job = IngestionJob(
         key="miloto-test",
         lottery_code="MILOTO",
@@ -64,6 +76,7 @@ def test_orchestrator_persists_and_is_idempotent(db):
     assert first.records_persisted == 1
     assert second.status == "success"
     assert second.records_persisted == 1
+    db.close()
 
 
 def test_orchestrator_isolates_failure_and_retries():
