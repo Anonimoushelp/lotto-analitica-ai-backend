@@ -385,6 +385,32 @@ def test_raw_record_persistence_is_idempotent(db):
     assert second.source_timestamp == record.source_timestamp.replace(tzinfo=None)
 
 
+def test_raw_record_persistence_ignores_fetch_timestamp_for_idempotency(db):
+    lottery = Lottery(name="MiLoto", code="miloto", country="Colombia")
+    db.add(lottery)
+    db.commit()
+
+    base = {
+        "draw_number": "609",
+        "draw_date": "2026-09-18",
+        "main_numbers": [10, 15, 31, 33, 39],
+        "source_name": "MiLoto",
+        "source_url": "https://example.test/miloto",
+    }
+    first = MiLotoAdapter().normalize(
+        {**base, "source_timestamp": datetime(2026, 9, 21, 16, 0, tzinfo=UTC)}
+    )
+    second = MiLotoAdapter().normalize(
+        {**base, "source_timestamp": datetime(2026, 9, 21, 16, 5, tzinfo=UTC)}
+    )
+
+    persisted_first = LotteryDrawService.persist_raw_record(db=db, record=first)
+    persisted_second = LotteryDrawService.persist_raw_record(db=db, record=second)
+
+    assert persisted_second.id == persisted_first.id
+    assert db.query(LotteryDraw).count() == 1
+
+
 def test_raw_record_persistence_rejects_conflicting_duplicate(db):
     lottery = Lottery(name="MiLoto", code="miloto", country="Colombia")
     db.add(lottery)
