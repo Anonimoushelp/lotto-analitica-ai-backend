@@ -149,12 +149,24 @@ def build_ingestion_catalog() -> tuple[IngestionJob, ...]:
                 enabled=specs("REVANCHA").primary_verified,
             ),
             IngestionJob(
-                key="super-astro-primary-json",
+                key="super-astro-sol-primary",
                 lottery_code="SUPER_ASTRO",
                 url=specs("SUPER_ASTRO").primary_url or "",
                 pipeline_factory=lambda: SourceIngestionPipeline(
                     fetcher=HttpSourceFetcher(),
                     parser=SuperAstroResultPageParser(draw_type="ASTRO_SOL"),
+                    adapter=SuperAstroAdapter(),
+                ),
+                interval_seconds=900,
+                enabled=specs("SUPER_ASTRO").primary_verified,
+            ),
+            IngestionJob(
+                key="super-astro-luna-primary",
+                lottery_code="SUPER_ASTRO",
+                url=specs("SUPER_ASTRO").primary_url or "",
+                pipeline_factory=lambda: SourceIngestionPipeline(
+                    fetcher=HttpSourceFetcher(),
+                    parser=SuperAstroResultPageParser(draw_type="ASTRO_LUNA"),
                     adapter=SuperAstroAdapter(),
                 ),
                 interval_seconds=900,
