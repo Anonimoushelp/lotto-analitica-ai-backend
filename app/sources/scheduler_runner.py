@@ -40,7 +40,7 @@ def main() -> int:
         len(results),
         failed,
     )
-    return 1 if failed else 0
+    # Individual source failures are recorded in persistent scheduler state.\n    # The cron process itself must exit successfully so one blocked provider\n    # does not turn the whole scheduled cycle into a Railway crash.\n    return 0
 
 
 if __name__ == "__main__":
