@@ -4,7 +4,11 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from threading import Lock
 
-from app.sources.orchestrator import IngestionJob, IngestionOrchestrator, IngestionRunResult
+from app.sources.orchestrator import (
+    IngestionJob,
+    IngestionOrchestrator,
+    IngestionRunResult,
+)
 
 
 @dataclass(frozen=True)
