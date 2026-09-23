@@ -1,4 +1,4 @@
-from datetime import date
+from datetime import UTC, date, datetime
 
 import pytest
 
@@ -110,7 +110,7 @@ def test_baloto_result_page_parser_extracts_official_revancha_result() -> None:
         status_code=200,
         content=html.encode("utf-8"),
         content_type="text/html; charset=utf-8",
-        fetched_at=__import__("datetime").datetime.now(__import__("datetime").UTC),
+        fetched_at=datetime.now(UTC),
     )
 
     record = list(BalotoResultPageParser(draw_type="REVANCHA").parse(result))[0]
