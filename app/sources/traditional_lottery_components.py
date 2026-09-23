@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import html
 import re
 import unicodedata
 from collections.abc import Iterable, Mapping
@@ -54,7 +55,8 @@ class TraditionalLotteryHtmlParser:
         except UnicodeDecodeError as exc:
             raise SourceParseError("Traditional lottery HTML is not valid UTF-8") from exc
 
-        text = " ".join(re.sub(r"<[^>]+>", " ", html).split())
+        text = html.unescape(" ".join(re.sub(r"<[^>]+>", " ", html).split()))
+        text = re.sub(r"\s+", " ", text).strip()
         search_text = self._strip_accents(text)
         draw_match = self._DRAW_RE.search(search_text)
         date_match = self._DATE_RE.search(text)
@@ -142,7 +144,7 @@ class TraditionalLotteryHtmlParser:
             .decode("ascii")
             .casefold()
         )
-        normalized = normalized.rstrip(".")
+        normalized = re.sub(r"[^a-z]", "", normalized)
         aliases = {
             "ene": "01", "enero": "01",
             "feb": "02", "febrero": "02",
