@@ -238,12 +238,12 @@ class BalotoResultPageParser:
     """Extract the latest Baloto or Revancha result from the official history page."""
 
     _DATE_RE = re.compile(
-        r"(?P<day>\\d{1,2})\\s+de\\s+"
-        r"(?P<month>[A-Za-zÁÉÍÓÚáéíóúñÑ]+)\\s+de\\s+(?P<year>\\d{4})",
+        r"(?P<day>\d{1,2})\s+de\s+"
+        r"(?P<month>[A-Za-zÁÉÍÓÚáéíóúñÑ]+)\s+de\s+(?P<year>\d{4})",
         re.IGNORECASE,
     )
     _RESULT_RE = re.compile(
-        r"(?P<result>(?:\\d{1,2}\\s*-\\s*){5}\\d{1,2})"
+        r"(?P<result>(?:\d{1,2}\s*-\s*){5}\d{1,2})"
     )
     _MONTHS = {
         "enero": "01", "febrero": "02", "marzo": "03", "abril": "04",
@@ -265,7 +265,7 @@ class BalotoResultPageParser:
 
         text = " ".join(re.sub(r"<[^>]+>", " ", html).split())
         marker = re.search(
-            r"HISTÓRICO\\s+DE\\s+RESULTADOS(.*?)(?:Página\\s+1\\s+de|BALOTO\\s+\\$)",
+            r"HISTÓRICO\s+DE\s+RESULTADOS(.*?)(?:Página\s+1\s+de|BALOTO\s+\.)",
             text,
             re.IGNORECASE | re.DOTALL,
         )
@@ -285,7 +285,7 @@ class BalotoResultPageParser:
 
         date_match = date_matches[0]
         result_match = result_matches[pair_index]
-        numbers = [int(value) for value in re.findall(r"\\d{1,2}", result_match.group("result"))]
+        numbers = [int(value) for value in re.findall(r"\d{1,2}", result_match.group("result"))]
         if len(numbers) != 6:
             raise SourceParseError(
                 "Baloto result page must contain exactly five main numbers and one bonus number"
@@ -314,12 +314,12 @@ class BalotoResultPageParser:
 class MiLotoResultPageParser:
     """Extract the latest MiLoto result from the official historical-results page."""
 
-    _DRAW_RE = re.compile(r"SORTEO\\s*#(?P<number>\\d+)", re.IGNORECASE)
+    _DRAW_RE = re.compile(r"SORTEO\s*#(?P<number>\d+)", re.IGNORECASE)
     _DATE_RE = re.compile(
-        r"(?P<day>\\d{1,2})\\s+de\\s+(?P<month>[A-Za-zÁÉÍÓÚáéíóúñÑ]+)\\s+de\\s+(?P<year>\\d{4})",
+        r"(?P<day>\d{1,2})\s+de\s+(?P<month>[A-Za-zÁÉÍÓÚáéíóúñÑ]+)\s+de\s+(?P<year>\d{4})",
         re.IGNORECASE,
     )
-    _RESULT_RE = re.compile(r"(?P<date>\\d{1,2}\\s+de\\s+[A-Za-zÁÉÍÓÚáéíóúñÑ]+\\s+de\\s+\\d{4})\\s*(?:\\|\\s*)?(?P<result>(?:\\d{1,2}\\s*-\\s*){4}\\d{1,2})")
+    _RESULT_RE = re.compile(r"(?P<date>\d{1,2}\s+de\s+[A-Za-zÁÉÍÓÚáéíóúñÑ]+\s+de\s+\d{4})\s*(?:\.\s*)?(?P<result>(?:\d{1,2}\s*-\s*){4}\d{1,2})")
     _MONTHS = {
         "enero":"01","febrero":"02","marzo":"03","abril":"04","mayo":"05","junio":"06",
         "julio":"07","agosto":"08","septiembre":"09","setiembre":"09","octubre":"10",
@@ -342,7 +342,7 @@ class MiLotoResultPageParser:
         )
         if month is None:
             raise SourceParseError("MiLoto result page contains an unsupported month")
-        numbers = [int(value) for value in re.findall(r"\\d{1,2}", result_match.group("result"))]
+        numbers = [int(value) for value in re.findall(r"\d{1,2}", result_match.group("result"))]
         if len(numbers) != 5:
             raise SourceParseError("MiLoto result must contain exactly five numbers")
         return [{
@@ -400,7 +400,7 @@ class SuperAstroResultPageParser:
             if (
                 len(number) == 4 and number.isdigit()
                 and draw_number.isdigit()
-                and re.fullmatch(r"\\d{4}-\\d{2}-\\d{2}", draw_date)
+                and re.fullmatch(r"\d{4}-\d{2}-\d{2}", draw_date)
                 and sign
             ):
                 return [{
@@ -450,9 +450,9 @@ class PagaTodoResultPageParser:
             title = aliases[draw_type]
             pattern = re.compile(
                 re.escape(title)
-                + r".*?(?P<date>\\d{2}/\\d{2}/\\d{4}).*?"
-                + r"Número Ganador.*?(?P<number>\\d\\s*\\d\\s*\\d\\s*\\d)"
-                + r"\\s*-\\s*(?P<extra>\\d)",
+                + r".*?(?P<date>\d{2}/\d{2}/\d{4}).*?"
+                + r"Número Ganador.*?(?P<number>\d\s*\d\s*\d\s*\d)"
+                + r"\s*-\s*(?P<extra>\d)",
                 re.IGNORECASE | re.DOTALL,
             )
             match = pattern.search(text)
@@ -460,7 +460,7 @@ class PagaTodoResultPageParser:
                 raise SourceParseError(
                     f"Paga Todo result page is missing {draw_type}"
                 )
-            raw_number = re.sub(r"\\s+", "", match.group("number"))
+            raw_number = re.sub(r"\s+", "", match.group("number"))
             day, month, year = match.group("date").split("/")
             records.append({
                 "draw_type": draw_type,
