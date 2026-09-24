@@ -16,7 +16,7 @@ class FourDigitAdapter(MappingSourceAdapter):
         draw_type = payload.get("draw_type")
         if draw_type not in self.spec.draw_types:
             raise SourceNormalizationError("Unsupported draw type for source")
-        raw_number = str(payload.get("number", "")).strip()
+        raw_number = str(payload.get("number", payload.get("result", ""))).strip()
         # Some official four-digit pages expose the bonus/additional value in
         # the same provider field (for example ``4660-9``). The parser keeps
         # that additional value in metadata; here we canonicalize only the
