@@ -1,7 +1,7 @@
 from datetime import date, time
 
 from fastapi import HTTPException, status
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -128,7 +128,7 @@ class LotteryDrawService:
         A conflicting payload for the same lottery/draw identity is rejected.
         """
         lottery = db.scalar(
-            select(Lottery).where(Lottery.code == record.lottery_code.lower())
+            select(Lottery).where(func.lower(Lottery.code) == record.lottery_code.lower())
         )
 
         if lottery is None:
