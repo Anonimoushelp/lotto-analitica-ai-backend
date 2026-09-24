@@ -11,7 +11,6 @@ down_revision = "e5a1c7d9f2b4"
 branch_labels = None
 depends_on = None
 
-
 LOTTERIES = (
     ("MILOTO", "MiLoto", "Colombia"),
     ("BALOTO", "Baloto", "Colombia"),
@@ -41,19 +40,19 @@ LOTTERIES = (
 )
 
 
+def _sql_row(code: str, name: str, country: str) -> str:
+    escaped_name = name.replace("'", "''")
+    return f"('{code}', '{escaped_name}', '{country}', TRUE, NOW(), NOW())"
+
+
 def upgrade() -> None:
+    rows = ",\n".join(
+        _sql_row(code, name, country)
+        for code, name, country in LOTTERIES
+    )
     op.execute(
-        """
-        INSERT INTO lotteries (code, name, country, active, created_at, updated_at)
-        VALUES
-        """
-        + ",\n".join(
-            f"('{code}', '{name.replace("'", "''")}', '{country}', TRUE, NOW(), NOW())"
-            for code, name, country in LOTTERIES
-        )
-        + """
-        ON CONFLICT (code) DO NOTHING
-        """
+        "INSERT INTO lotteries (code, name, country, active, created_at, updated_at) "
+        "VALUES " + rows + " ON CONFLICT (code) DO NOTHING"
     )
 
 
