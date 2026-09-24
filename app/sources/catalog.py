@@ -33,6 +33,7 @@ from app.sources.parsers import (
     BalotoResultPageParser,
     HtmlTableParser,
     MiLotoResultPageParser,
+    PagaTodoResultPageParser,
     SuperAstroResultPageParser,
 )
 from app.sources.provider_parser_adapter import (
@@ -178,7 +179,7 @@ def build_ingestion_catalog() -> tuple[IngestionJob, ...]:
     four_digit = (
         ("ANTIOQUENITA", AntioquenitaJsonParser, AntioquenitaAdapter),
         ("CHONTICO", ChonticoJsonParser, ChonticoAdapter),
-        ("DORADO", DoradoJsonParser, DoradoAdapter),
+        ("DORADO", PagaTodoResultPageParser, DoradoAdapter),
         ("CAFETERITO", CafeteritoJsonParser, CafeteritoAdapter),
         ("PAISITA", PaisitaJsonParser, PaisitaAdapter),
         ("FANTASTICA", FantasticaJsonParser, FantasticaAdapter),
@@ -190,8 +191,16 @@ def build_ingestion_catalog() -> tuple[IngestionJob, ...]:
                 key=f"{code.lower()}-primary-json",
                 lottery_code=code,
                 url=spec.primary_url or "",
-                pipeline_factory=lambda p=parser_type, a=adapter_type: _four_digit_pipeline(
-                    p(), a()
+                pipeline_factory=(
+                    lambda p=parser_type, a=adapter_type, c=code: SourceIngestionPipeline(
+                        fetcher=HttpSourceFetcher(),
+                        parser=(
+                            p(draw_types=get_source_spec(c).draw_types)
+                            if c == "DORADO"
+                            else ProviderParserAdapter(p())
+                        ),
+                        adapter=a(),
+                    )
                 ),
                 interval_seconds=900,
                 enabled=spec.primary_verified and spec.primary_url is not None,
