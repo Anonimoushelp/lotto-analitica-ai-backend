@@ -306,7 +306,7 @@ class MiLotoResultPageParser:
         re.IGNORECASE,
     )
     _RESULT_RE = re.compile(r"(?P<date>\d{1,2}\s+de\s+[A-Za-zÁÉÍÓÚáéíóúñÑ]+\s+de\s+\d{4})\s*(?:\.\s*)?(?P<result>(?:\d{1,2}\s*-\s*){4}\d{1,2})")
-    _MONTHS = {
+    _MONTHS: ClassVar[dict[str, str]] = {
         "enero":"01","febrero":"02","marzo":"03","abril":"04","mayo":"05","junio":"06",
         "julio":"07","agosto":"08","septiembre":"09","setiembre":"09","octubre":"10",
         "noviembre":"11","diciembre":"12",
@@ -410,7 +410,7 @@ class SuperAstroResultPageParser:
 class PagaTodoResultPageParser:
     """Extract El Dorado results from the official Paga Todo La Quinta page."""
 
-    _MONTHS = {
+    _MONTHS: ClassVar[dict[str, str]] = {
         "01": "01", "02": "02", "03": "03", "04": "04", "05": "05",
         "06": "06", "07": "07", "08": "08", "09": "09", "10": "10",
         "11": "11", "12": "12",
