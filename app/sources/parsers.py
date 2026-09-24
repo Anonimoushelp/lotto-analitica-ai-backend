@@ -5,7 +5,7 @@ import re
 import unicodedata
 from collections.abc import Iterable, Mapping
 from html.parser import HTMLParser
-from typing import Any, Protocol
+from typing import Any, ClassVar, Protocol
 
 from app.sources.fetchers import SourceFetchResult
 
@@ -243,7 +243,7 @@ class BalotoResultPageParser:
         r"(?P<month>[A-Za-zÁÉÍÓÚáéíóúñÑ]+)\\s+de\\s+(?P<year>\\d{4})",
         re.IGNORECASE,
     )
-    _MONTHS = {
+    _MONTHS: ClassVar[dict[str, str]] = {
         "enero": "01", "febrero": "02", "marzo": "03", "abril": "04",
         "mayo": "05", "junio": "06", "julio": "07", "agosto": "08",
         "septiembre": "09", "setiembre": "09", "octubre": "10",
@@ -342,7 +342,7 @@ class MiLotoResultPageParser:
 class SuperAstroResultPageParser:
     """Extract the latest Sol or Luna result from the official results tables."""
 
-    _HEADER = {"numero", "signo", "sorteo", "fecha"}
+    _HEADER: ClassVar[set[str]] = {"numero", "signo", "sorteo", "fecha"}
 
     def __init__(self, *, draw_type: str) -> None:
         if draw_type not in {"ASTRO_SOL", "ASTRO_LUNA"}:
