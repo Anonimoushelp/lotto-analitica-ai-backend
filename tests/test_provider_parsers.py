@@ -118,7 +118,7 @@ def test_baloto_result_page_parser_extracts_official_revancha_result() -> None:
         fetched_at=datetime.now(UTC),
     )
 
-    record = list(BalotoResultPageParser(draw_type="REVANCHA").parse(result))[0]
+    record = next(iter(BalotoResultPageParser(draw_type="REVANCHA").parse(result)))
 
     assert record["game_type"] == "REVANCHA"
     assert record["draw_number"] == "2711"
@@ -140,7 +140,7 @@ def test_miloto_result_page_parser_extracts_latest_result() -> None:
         content_type="text/html; charset=utf-8",
         fetched_at=datetime.now(UTC),
     )
-    record = list(MiLotoResultPageParser().parse(result))[0]
+    record = next(iter(MiLotoResultPageParser().parse(result)))
     assert record["draw_type"] == "MILOTO"
     assert record["draw_number"] == "611"
     assert record["draw_date"] == "2026-09-22"
@@ -160,8 +160,8 @@ def test_super_astro_result_page_parser_extracts_sol_and_luna() -> None:
         content_type="text/html; charset=utf-8",
         fetched_at=datetime.now(UTC),
     )
-    sol = list(SuperAstroResultPageParser(draw_type="ASTRO_SOL").parse(result))[0]
-    luna = list(SuperAstroResultPageParser(draw_type="ASTRO_LUNA").parse(result))[0]
+    sol = next(iter(SuperAstroResultPageParser(draw_type="ASTRO_SOL").parse(result)))
+    luna = next(iter(SuperAstroResultPageParser(draw_type="ASTRO_LUNA").parse(result)))
     assert sol["number"] == "8311"
     assert sol["draw_number"] == "5537"
     assert sol["draw_date"] == "2026-09-23"
