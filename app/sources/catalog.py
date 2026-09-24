@@ -40,8 +40,6 @@ from app.sources.provider_parser_adapter import (
     ProviderParserAdapter,
 )
 from app.sources.provider_parsers import (
-    BalotoFamilyJsonParser,
-    MiLotoJsonParser,
     SuperAstroJsonParser,
 )
 from app.sources.registry import get_source_spec
