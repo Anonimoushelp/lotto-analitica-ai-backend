@@ -411,7 +411,7 @@ class SuperAstroResultPageParser:
                 "metadata": {"sign": match.group("sign")},
             }]
 
-                raise SourceParseError("Super Astro result page is missing the requested draw")
+        raise SourceParseError("Super Astro result page is missing the requested draw")
 
     @staticmethod
     def _normalize_header(value: str) -> str:
