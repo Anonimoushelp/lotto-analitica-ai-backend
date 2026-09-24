@@ -235,15 +235,13 @@ class HtmlTableParser:
 
 
 class BalotoResultPageParser:
-    """Extract the latest Baloto or Revancha result from the official history page."""
+    """Extract a Baloto or Revancha result from an official draw page."""
 
+    _DRAW_RE = re.compile(r"SORTEO\\s+(?P<number>[\\d.]+)", re.IGNORECASE)
     _DATE_RE = re.compile(
-        r"(?P<day>\d{1,2})\s+de\s+"
-        r"(?P<month>[A-Za-zÁÉÍÓÚáéíóúñÑ]+)\s+de\s+(?P<year>\d{4})",
+        r"(?P<day>\\d{1,2})\\s+de\\s+"
+        r"(?P<month>[A-Za-zÁÉÍÓÚáéíóúñÑ]+)\\s+de\\s+(?P<year>\\d{4})",
         re.IGNORECASE,
-    )
-    _RESULT_RE = re.compile(
-        r"(?P<result>(?:\d{1,2}\s*-\s*){5}\d{1,2})"
     )
     _MONTHS = {
         "enero": "01", "febrero": "02", "marzo": "03", "abril": "04",
@@ -264,32 +262,22 @@ class BalotoResultPageParser:
             raise SourceParseError("Baloto result page is not valid UTF-8") from exc
 
         text = " ".join(re.sub(r"<[^>]+>", " ", html).split())
-        marker = re.search(
-            r"HISTÓRICO\s+DE\s+RESULTADOS(.*?)(?:Página\s+1\s+de|BALOTO\s+\.)",
+        draw_match = self._DRAW_RE.search(text)
+        date_match = self._DATE_RE.search(text)
+        if not draw_match or not date_match:
+            raise SourceParseError("Baloto result page is missing the official draw header")
+
+        result_block = re.search(
+            r"MIRA EL VIDEO OFICIAL DEL SORTEO\\s+(.*?)(?:TOTAL GANADORES|TOTAL DE GANADORES)",
             text,
             re.IGNORECASE | re.DOTALL,
         )
-        history = marker.group(1) if marker else text
-        date_matches = list(self._DATE_RE.finditer(history))
-        result_matches = list(self._RESULT_RE.finditer(history))
-        if not date_matches or len(result_matches) < 2:
-            raise SourceParseError(
-                "Baloto result page is missing the official historical results"
-            )
-
-        pair_index = 0 if self.draw_type == "BALOTO" else 1
-        if len(result_matches) <= pair_index or len(date_matches) <= pair_index:
-            raise SourceParseError(
-                "Baloto result page does not contain both Baloto and Revancha results"
-            )
-
-        date_match = date_matches[0]
-        result_match = result_matches[pair_index]
-        numbers = [int(value) for value in re.findall(r"\d{1,2}", result_match.group("result"))]
-        if len(numbers) != 6:
-            raise SourceParseError(
-                "Baloto result page must contain exactly five main numbers and one bonus number"
-            )
+        if result_block is None:
+            raise SourceParseError("Baloto result page is missing the official result block")
+        numbers = [int(value) for value in re.findall(r"(?<!\\d)(\\d{1,2})(?!\\d)", result_block.group(1))]
+        if len(numbers) < 6:
+            raise SourceParseError("Baloto result page must contain five main numbers and one bonus number")
+        numbers = numbers[:6]
 
         month = self._MONTHS.get(
             unicodedata.normalize("NFKD", date_match.group("month"))
@@ -298,15 +286,13 @@ class BalotoResultPageParser:
         if month is None:
             raise SourceParseError("Baloto result page contains an unsupported month")
 
+        draw_number = draw_match.group("number").replace(".", "")
         return [{
             "game_type": self.draw_type,
-            "draw_number": None,
+            "draw_number": draw_number,
             "draw_date": f"{date_match.group('year')}-{month}-{int(date_match.group('day')):02d}",
             "main_numbers": numbers[:5],
-            "metadata": {
-                "source_format": "official_history_page",
-                "result_sequence": pair_index + 1,
-            },
+            "metadata": {"source_format": "official_draw_page"},
             "revancha_bonus" if self.draw_type == "REVANCHA" else "superbalota": [numbers[5]],
         }]
 
