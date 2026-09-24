@@ -367,37 +367,51 @@ class SuperAstroResultPageParser:
             if self._HEADER.issubset(set(headers)):
                 matching_tables.append(rows)
 
-        table_index = 0 if self.draw_type == "ASTRO_SOL" else 1
-        if len(matching_tables) <= table_index:
-            raise SourceParseError(
-                "Super Astro result page is missing the requested draw table"
-            )
+        if matching_tables:
+            table_index = 0 if self.draw_type == "ASTRO_SOL" else 1
+            if len(matching_tables) > table_index:
+                rows = matching_tables[table_index]
+                headers = [self._normalize_header(cell) for cell in rows[0]]
+                header_map = {name: index for index, name in enumerate(headers)}
+                for row in rows[1:]:
+                    if len(row) <= max(header_map.values()):
+                        continue
+                    number = row[header_map["numero"]].strip()
+                    sign = row[header_map["signo"]].strip()
+                    draw_number = row[header_map["sorteo"]].strip()
+                    draw_date = row[header_map["fecha"]].strip()
+                    if (
+                        len(number) == 4 and number.isdigit()
+                        and draw_number.isdigit()
+                        and re.fullmatch(r"\d{4}-\d{2}-\d{2}", draw_date)
+                        and sign
+                    ):
+                        return [{
+                            "draw_type": self.draw_type,
+                            "draw_number": draw_number,
+                            "draw_date": draw_date,
+                            "number": number,
+                            "metadata": {"sign": sign},
+                        }]
 
-        rows = matching_tables[table_index]
-        headers = [self._normalize_header(cell) for cell in rows[0]]
-        header_map = {name: index for index, name in enumerate(headers)}
-        for row in rows[1:]:
-            if len(row) <= max(header_map.values()):
-                continue
-            number = row[header_map["numero"]].strip()
-            sign = row[header_map["signo"]].strip()
-            draw_number = row[header_map["sorteo"]].strip()
-            draw_date = row[header_map["fecha"]].strip()
-            if (
-                len(number) == 4 and number.isdigit()
-                and draw_number.isdigit()
-                and re.fullmatch(r"\d{4}-\d{2}-\d{2}", draw_date)
-                and sign
-            ):
-                return [{
-                    "draw_type": self.draw_type,
-                    "draw_number": draw_number,
-                    "draw_date": draw_date,
-                    "number": number,
-                    "metadata": {"sign": sign},
-                }]
+        flat_text = " ".join(re.sub(r"<[^>]+>", " ", html).split())
+        row_re = re.compile(
+            r"(?P<number>\d{4})\s+(?P<sign>[A-Za-zÁÉÍÓÚáéíóúñÑ]+)\s+"
+            r"(?P<draw>\d+)\s+(?P<date>\d{4}-\d{2}-\d{2})"
+        )
+        matches = list(row_re.finditer(flat_text))
+        target = 0 if self.draw_type == "ASTRO_SOL" else 1
+        if len(matches) > target:
+            match = matches[target]
+            return [{
+                "draw_type": self.draw_type,
+                "draw_number": match.group("draw"),
+                "draw_date": match.group("date"),
+                "number": match.group("number"),
+                "metadata": {"sign": match.group("sign")},
+            }]
 
-        raise SourceParseError("Super Astro result page is missing the requested draw")
+                raise SourceParseError("Super Astro result page is missing the requested draw")
 
     @staticmethod
     def _normalize_header(value: str) -> str:
