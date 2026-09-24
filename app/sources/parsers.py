@@ -237,10 +237,10 @@ class HtmlTableParser:
 class BalotoResultPageParser:
     """Extract a Baloto or Revancha result from an official draw page."""
 
-    _DRAW_RE = re.compile(r"SORTEO\\s+(?P<number>[\\d.]+)", re.IGNORECASE)
+    _DRAW_RE = re.compile(r"SORTEO\s+(?P<number>[\d.]+)", re.IGNORECASE)
     _DATE_RE = re.compile(
-        r"(?P<day>\\d{1,2})\\s+de\\s+"
-        r"(?P<month>[A-Za-zÁÉÍÓÚáéíóúñÑ]+)\\s+de\\s+(?P<year>\\d{4})",
+        r"(?P<day>\d{1,2})\s+de\s+"
+        r"(?P<month>[A-Za-zÁÉÍÓÚáéíóúñÑ]+)\s+de\s+(?P<year>\d{4})",
         re.IGNORECASE,
     )
     _MONTHS: ClassVar[dict[str, str]] = {
@@ -268,13 +268,13 @@ class BalotoResultPageParser:
             raise SourceParseError("Baloto result page is missing the official draw header")
 
         result_block = re.search(
-            r"MIRA EL VIDEO OFICIAL DEL SORTEO\\s+(.*?)(?:TOTAL GANADORES|TOTAL DE GANADORES)",
+            r"MIRA EL VIDEO OFICIAL DEL SORTEO\s+(.*?)(?:TOTAL GANADORES|TOTAL DE GANADORES)",
             text,
             re.IGNORECASE | re.DOTALL,
         )
         if result_block is None:
             raise SourceParseError("Baloto result page is missing the official result block")
-        numbers = [int(value) for value in re.findall(r"(?<!\\d)(\\d{1,2})(?!\\d)", result_block.group(1))]
+        numbers = [int(value) for value in re.findall(r"(?<!\d)(\d{1,2})(?!\d)", result_block.group(1))]
         if len(numbers) < 6:
             raise SourceParseError("Baloto result page must contain five main numbers and one bonus number")
         numbers = numbers[:6]
