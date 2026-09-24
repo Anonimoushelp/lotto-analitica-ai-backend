@@ -23,7 +23,6 @@ from app.sources.four_digit_parsers import (
     AntioquenitaJsonParser,
     CafeteritoJsonParser,
     ChonticoJsonParser,
-    DoradoJsonParser,
     FantasticaJsonParser,
     PaisitaJsonParser,
 )
