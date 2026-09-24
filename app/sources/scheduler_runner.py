@@ -7,11 +7,16 @@ from app.sources.catalog import build_ingestion_catalog
 from app.sources.orchestrator import IngestionOrchestrator
 from app.sources.scheduler import PersistentIngestionScheduler
 
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s %(levelname)s %(name)s %(message)s",
+)
 logger = logging.getLogger(__name__)
 
 
 def main() -> int:
     jobs = build_ingestion_catalog()
+    logger.info("scheduled_ingestion_start jobs=%s", len(jobs))
     orchestrator = IngestionOrchestrator(session_factory=SessionLocal)
     scheduler = PersistentIngestionScheduler(
         orchestrator=orchestrator,
@@ -40,7 +45,10 @@ def main() -> int:
         len(results),
         failed,
     )
-    # Individual source failures are recorded in persistent scheduler state.\n    # The cron process itself must exit successfully so one blocked provider\n    # does not turn the whole scheduled cycle into a Railway crash.\n    return 0
+    # Individual source failures are recorded in persistent scheduler state.
+    # The cron process itself must exit successfully so one blocked provider
+    # does not turn the whole scheduled cycle into a Railway crash.
+    return 0
 
 
 if __name__ == "__main__":
