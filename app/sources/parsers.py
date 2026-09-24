@@ -235,19 +235,16 @@ class HtmlTableParser:
 
 
 class BalotoResultPageParser:
-    """Extract one official Baloto/Revancha result page rendered as HTML."""
+    """Extract the latest Baloto or Revancha result from the official history page."""
 
-    _DRAW_RE = re.compile(r"SORTEO\\s+(?P<number>\\d{1,6})", re.IGNORECASE)
     _DATE_RE = re.compile(
         r"(?P<day>\\d{1,2})\\s+de\\s+"
         r"(?P<month>[A-Za-zÁÉÍÓÚáéíóúñÑ]+)\\s+de\\s+(?P<year>\\d{4})",
         re.IGNORECASE,
     )
-    _RESULT_BLOCK_RE = re.compile(
-        r"MIRA\\s+EL\\s+VIDEO\\s+OFICIAL\\s+DEL\\s+SORTEO(?P<body>.*?)TOTAL\\s+GANADORES",
-        re.IGNORECASE | re.DOTALL,
+    _RESULT_RE = re.compile(
+        r"(?P<result>(?:\\d{1,2}\\s*-\\s*){5}\\d{1,2})"
     )
-    _NUMBER_RE = re.compile(r"(?<!\\d)(\\d{1,2})(?!\\d)")
     _MONTHS = {
         "enero": "01", "febrero": "02", "marzo": "03", "abril": "04",
         "mayo": "05", "junio": "06", "julio": "07", "agosto": "08",
@@ -267,13 +264,28 @@ class BalotoResultPageParser:
             raise SourceParseError("Baloto result page is not valid UTF-8") from exc
 
         text = " ".join(re.sub(r"<[^>]+>", " ", html).split())
-        draw_match = self._DRAW_RE.search(text)
-        date_match = self._DATE_RE.search(text)
-        block_match = self._RESULT_BLOCK_RE.search(text)
-        if not draw_match or not date_match or not block_match:
-            raise SourceParseError("Baloto result page is missing the official result block")
+        marker = re.search(
+            r"HISTÓRICO\\s+DE\\s+RESULTADOS(.*?)(?:Página\\s+1\\s+de|BALOTO\\s+\\$)",
+            text,
+            re.IGNORECASE | re.DOTALL,
+        )
+        history = marker.group(1) if marker else text
+        date_matches = list(self._DATE_RE.finditer(history))
+        result_matches = list(self._RESULT_RE.finditer(history))
+        if not date_matches or len(result_matches) < 2:
+            raise SourceParseError(
+                "Baloto result page is missing the official historical results"
+            )
 
-        numbers = [int(value) for value in self._NUMBER_RE.findall(block_match.group("body"))]
+        pair_index = 0 if self.draw_type == "BALOTO" else 1
+        if len(result_matches) <= pair_index or len(date_matches) <= pair_index:
+            raise SourceParseError(
+                "Baloto result page does not contain both Baloto and Revancha results"
+            )
+
+        date_match = date_matches[0]
+        result_match = result_matches[pair_index]
+        numbers = [int(value) for value in re.findall(r"\\d{1,2}", result_match.group("result"))]
         if len(numbers) != 6:
             raise SourceParseError(
                 "Baloto result page must contain exactly five main numbers and one bonus number"
@@ -286,15 +298,17 @@ class BalotoResultPageParser:
         if month is None:
             raise SourceParseError("Baloto result page contains an unsupported month")
 
-        payload: dict[str, Any] = {
+        return [{
             "game_type": self.draw_type,
-            "draw_number": draw_match.group("number"),
+            "draw_number": None,
             "draw_date": f"{date_match.group('year')}-{month}-{int(date_match.group('day')):02d}",
             "main_numbers": numbers[:5],
-            "metadata": {"source_format": "official_result_page"},
-        }
-        payload["revancha_bonus" if self.draw_type == "REVANCHA" else "superbalota"] = [numbers[5]]
-        return [payload]
+            "metadata": {
+                "source_format": "official_history_page",
+                "result_sequence": pair_index + 1,
+            },
+            "revancha_bonus" if self.draw_type == "REVANCHA" else "superbalota": [numbers[5]],
+        }]
 
 
 class MiLotoResultPageParser:
@@ -340,16 +354,9 @@ class MiLotoResultPageParser:
 
 
 class SuperAstroResultPageParser:
-    """Extract the latest Sol or Luna result from the official results page."""
+    """Extract the latest Sol or Luna result from the official results tables."""
 
-    _HEADER_RE = re.compile(
-        r"NÚMERO\\s*\\|\\s*SIGNORE?O\\s*\\|\\s*SORTEO\\s*\\|\\s*FECHA",
-        re.IGNORECASE,
-    )
-    _ROW_RE = re.compile(
-        r"(?P<number>\\d{4})\\s*\\|\\s*(?P<sign>[A-Za-zÁÉÍÓÚáéíóúñÑ]+)\\s*\\|\\s*"
-        r"(?P<draw>\\d{4})\\s*\\|\\s*(?P<date>\\d{4}-\\d{2}-\\d{2})"
-    )
+    _HEADER = {"numero", "signo", "sorteo", "fecha"}
 
     def __init__(self, *, draw_type: str) -> None:
         if draw_type not in {"ASTRO_SOL", "ASTRO_LUNA"}:
@@ -361,18 +368,108 @@ class SuperAstroResultPageParser:
             html = result.content.decode("utf-8")
         except UnicodeDecodeError as exc:
             raise SourceParseError("Super Astro result page is not valid UTF-8") from exc
+
+        parser = _ResultTableParser()
+        parser.feed(html)
+        parser.close()
+
+        matching_tables: list[list[list[str]]] = []
+        for rows in parser.tables:
+            if not rows:
+                continue
+            headers = [self._normalize_header(cell) for cell in rows[0]]
+            if self._HEADER.issubset(set(headers)):
+                matching_tables.append(rows)
+
+        table_index = 0 if self.draw_type == "ASTRO_SOL" else 1
+        if len(matching_tables) <= table_index:
+            raise SourceParseError(
+                "Super Astro result page is missing the requested draw table"
+            )
+
+        rows = matching_tables[table_index]
+        headers = [self._normalize_header(cell) for cell in rows[0]]
+        header_map = {name: index for index, name in enumerate(headers)}
+        for row in rows[1:]:
+            if len(row) <= max(header_map.values()):
+                continue
+            number = row[header_map["numero"]].strip()
+            sign = row[header_map["signo"]].strip()
+            draw_number = row[header_map["sorteo"]].strip()
+            draw_date = row[header_map["fecha"]].strip()
+            if (
+                len(number) == 4 and number.isdigit()
+                and draw_number.isdigit()
+                and re.fullmatch(r"\\d{4}-\\d{2}-\\d{2}", draw_date)
+                and sign
+            ):
+                return [{
+                    "draw_type": self.draw_type,
+                    "draw_number": draw_number,
+                    "draw_date": draw_date,
+                    "number": number,
+                    "metadata": {"sign": sign},
+                }]
+
+        raise SourceParseError("Super Astro result page is missing the requested draw")
+
+    @staticmethod
+    def _normalize_header(value: str) -> str:
+        value = unicodedata.normalize("NFKD", value).encode(
+            "ascii", "ignore"
+        ).decode("ascii").casefold()
+        return " ".join(value.split())
+
+
+class PagaTodoResultPageParser:
+    """Extract El Dorado results from the official Paga Todo La Quinta page."""
+
+    _MONTHS = {
+        "01": "01", "02": "02", "03": "03", "04": "04", "05": "05",
+        "06": "06", "07": "07", "08": "08", "09": "09", "10": "10",
+        "11": "11", "12": "12",
+    }
+
+    def __init__(self, *, draw_types: tuple[str, ...]) -> None:
+        self.draw_types = draw_types
+
+    def parse(self, result: SourceFetchResult) -> Iterable[Mapping[str, Any]]:
+        try:
+            html = result.content.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise SourceParseError("Paga Todo result page is not valid UTF-8") from exc
+
         text = " ".join(re.sub(r"<[^>]+>", " ", html).split())
-        sections = self._HEADER_RE.split(text)
-        section_index = 1 if self.draw_type == "ASTRO_SOL" else 2
-        if len(sections) <= section_index:
-            raise SourceParseError("Super Astro result page is missing the requested draw table")
-        row = self._ROW_RE.search(sections[section_index])
-        if row is None:
-            raise SourceParseError("Super Astro result page is missing the requested draw")
-        return [{
-            "draw_type": self.draw_type,
-            "draw_number": row.group("draw"),
-            "draw_date": row.group("date"),
-            "number": row.group("number"),
-            "metadata": {"sign": row.group("sign")},
-        }]
+        records: list[Mapping[str, Any]] = []
+        aliases = {
+            "DORADO_DIA": "Sorteo El Dorado Día",
+            "DORADO_TARDE": "Sorteo El Dorado Tarde",
+            "DORADO_NOCHE": "Sorteo El Dorado Noche",
+        }
+        for draw_type in self.draw_types:
+            title = aliases[draw_type]
+            pattern = re.compile(
+                re.escape(title)
+                + r".*?(?P<date>\\d{2}/\\d{2}/\\d{4}).*?"
+                + r"Número Ganador.*?(?P<number>\\d\\s*\\d\\s*\\d\\s*\\d)"
+                + r"\\s*-\\s*(?P<extra>\\d)",
+                re.IGNORECASE | re.DOTALL,
+            )
+            match = pattern.search(text)
+            if match is None:
+                raise SourceParseError(
+                    f"Paga Todo result page is missing {draw_type}"
+                )
+            raw_number = re.sub(r"\\s+", "", match.group("number"))
+            day, month, year = match.group("date").split("/")
+            records.append({
+                "draw_type": draw_type,
+                "draw_date": f"{year}-{month}-{day}",
+                "result": raw_number,
+                "metadata": {
+                    "additional_value": match.group("extra"),
+                    "source_format": "official_la_quinta_page",
+                },
+            })
+
+        return records
