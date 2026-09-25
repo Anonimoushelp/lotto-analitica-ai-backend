@@ -539,3 +539,38 @@ def test_controlled_ingestion_uses_real_http_fetcher_html_to_raw_record(db):
     assert persisted.metadata_json["series"] == "032"
     assert persisted.source_url == record.source_url
     assert persisted.source_timestamp == record.source_timestamp.replace(tzinfo=None)
+
+
+def test_raw_record_persistence_accepts_canonical_source_url_change(db):
+    lottery = Lottery(name="MiLoto", code="miloto", country="Colombia")
+    db.add(lottery)
+    db.commit()
+
+    payload = {
+        "draw_number": "611",
+        "draw_date": "2026-09-21",
+        "main_numbers": [4, 9, 18, 27, 35],
+    }
+    first = MiLotoAdapter().normalize(
+        {
+            **payload,
+            "source_name": "MiLoto",
+            "source_url": "https://www.baloto.com/miloto/resultados/",
+            "source_timestamp": datetime(2026, 9, 21, 16, 0, tzinfo=UTC),
+        }
+    )
+    second = MiLotoAdapter().normalize(
+        {
+            **payload,
+            "source_name": "MiLoto",
+            "source_url": "https://www.baloto.com/miloto/resultados/?page=1",
+            "source_timestamp": datetime(2026, 9, 21, 16, 5, tzinfo=UTC),
+        }
+    )
+
+    first_saved = LotteryDrawService.persist_raw_record(db=db, record=first)
+    second_saved = LotteryDrawService.persist_raw_record(db=db, record=second)
+
+    assert second_saved.id == first_saved.id
+    assert second_saved.source_url == second.source_url
+    assert db.query(LotteryDraw).count() == 1
