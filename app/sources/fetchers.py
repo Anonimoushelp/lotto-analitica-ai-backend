@@ -206,7 +206,10 @@ class EmbeddedIframeSourceFetcher(HttpSourceFetcher):
 
 
 class CundinamarcaActaSourceFetcher(HttpSourceFetcher):
-    """Select and fetch the latest official Cundinamarca results acta."""
+    """Select and fetch the latest official Cundinamarca results acta.
+
+    The official index has used more than one PDF path/naming convention.
+    """
 
     _PDF_URL_RE = re.compile(
         r"""(?:href|data-href|src)\s*=\s*["']([^"']+\.pdf(?:\?[^"']*)?)["']""",
