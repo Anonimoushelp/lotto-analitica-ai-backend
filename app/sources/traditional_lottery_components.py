@@ -40,7 +40,7 @@ class TraditionalLotteryHtmlParser:
         re.IGNORECASE,
     )
     _LABELED_RESULT_SERIES_RE = re.compile(
-        r"\\b(?:premio\\s+mayor|resultado)\\s*[:#-]?\\s*(\\d{4})\\s*-\\s*(\\d{1,4})\\b",
+        r"\b(?:premio\s+mayor|resultado)\s*[:#-]?\s*(\d{4})\s*-\s*(\d{1,4})\b",
         re.IGNORECASE,
     )
     _LABELED_NUMBER_RE = re.compile(
