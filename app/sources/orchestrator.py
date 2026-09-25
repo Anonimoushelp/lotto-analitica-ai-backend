@@ -21,9 +21,10 @@ SleepFn = Callable[[float], None]
 
 
 def _is_retryable_ingestion_error(exc: Exception) -> bool:
-    if isinstance(exc, HTTPException) and exc.status_code in {400, 404, 409, 422}:
-        return False
-    return True
+    return not (
+        isinstance(exc, HTTPException)
+        and exc.status_code in {400, 404, 409, 422}
+    )
 
 
 @dataclass(frozen=True)
