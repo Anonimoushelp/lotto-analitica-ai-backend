@@ -261,8 +261,8 @@ def test_cundinamarca_acta_fetcher_selects_latest_official_acta():
     page_url = "https://www.loteriadecundinamarca.com.co/?p=actas-de-resultados"
     page = """
     <html><body>
-      <a href="/public/files/actas/2026/Acta%20Sorteo%204820.pdf">4820</a>
-      <a href="/public/files/actas/2026/Acta%20Sorteo%204821.pdf">4821</a>
+      <a href="public/files/actas/2026/Acta%20Sorteo%204820.pdf">4820</a>
+      <a href="public/files/actas/2026/Acta%20Sorteo%204821.pdf">4821</a>
     </body></html>
     """
 
