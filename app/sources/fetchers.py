@@ -130,8 +130,8 @@ class EmbeddedIframeSourceFetcher(HttpSourceFetcher):
     """
 
     _IFRAME_RE = re.compile(
-        r"<iframe\\b[^>]*?(?:src|data-src)\\s*=\\s*"
-        r"([\\\"'])(.*?)\\1[^>]*>",
+        r"<iframe\b[^>]*?(?:src|data-src)\s*=\s*"
+        r"([\"'])(.*?)\1[^>]*>",
         re.IGNORECASE | re.DOTALL,
     )
     _HINTS = (
@@ -152,7 +152,8 @@ class EmbeddedIframeSourceFetcher(HttpSourceFetcher):
             return initial
 
         candidates: list[tuple[int, str]] = []
-        for match in self._IFRAME_RE.finditer(initial.content.decode("utf-8", errors="ignore")):
+        html = initial.content.decode("utf-8", errors="ignore")
+        for match in self._IFRAME_RE.finditer(html):
             raw_url = match.group(2).strip()
             if not raw_url:
                 continue
