@@ -233,7 +233,7 @@ class CundinamarcaActaSourceFetcher(HttpSourceFetcher):
         latest_draw: int,
     ) -> str | None:
         parsed = urlparse(indexed_url)
-        path = parsed.path
+        path = unquote(parsed.path)
         match = re.search(r"(\d{3,6})(\.pdf)$", path, re.IGNORECASE)
         if match is None:
             return None
