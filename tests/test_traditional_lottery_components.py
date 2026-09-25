@@ -89,3 +89,37 @@ def test_traditional_parser_accepts_abbreviated_month_and_numeric_date():
     assert numeric[0]["draw_date"] == "2026-09-21"
     assert abbreviated[0]["main_numbers"] == [4008]
     assert numeric[0]["main_numbers"] == [4008]
+
+
+def test_traditional_parser_accepts_iso_date_and_colon_draw_label():
+    parser, _ = build_traditional_lottery_components("LOTERIA_CAUCA")
+    records = list(
+        parser.parse(
+            _result(
+                "<html><body>Sorteo: 2629 Fecha: 2026-09-19 "
+                "3 4 0 9 Serie 260</body></html>"
+            ),
+            "LOTERIA_CAUCA",
+        )
+    )
+    assert records[0]["draw_number"] == "2629"
+    assert records[0]["draw_date"] == "2026-09-19"
+    assert records[0]["main_numbers"] == [3409]
+    assert records[0]["metadata"]["series"] == "260"
+
+
+def test_traditional_parser_accepts_month_first_real_format():
+    parser, _ = build_traditional_lottery_components("LOTERIA_VALLE")
+    records = list(
+        parser.parse(
+            _result(
+                "<html><body>Sorteo 4867 Septiembre 23 2026 "
+                "Número 4356 Serie 149</body></html>"
+            ),
+            "LOTERIA_VALLE",
+        )
+    )
+    assert records[0]["draw_number"] == "4867"
+    assert records[0]["draw_date"] == "2026-09-23"
+    assert records[0]["main_numbers"] == [4356]
+    assert records[0]["metadata"]["series"] == "149"
