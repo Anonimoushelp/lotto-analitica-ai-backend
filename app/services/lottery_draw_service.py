@@ -11,23 +11,22 @@ from app.repositories.lottery_draw_repository import LotteryDrawRepository
 from app.sources.contracts import RawDrawRecord
 
 
-_NON_SEMANTIC_DRAW_METADATA_KEYS = frozenset({
-    "source_verified",
-    "source_format",
-})
-
-
-def _semantic_draw_metadata(metadata: dict | None) -> dict:
-    if not metadata:
-        return {}
-    return {
-        key: value
-        for key, value in metadata.items()
-        if key not in _NON_SEMANTIC_DRAW_METADATA_KEYS
-    }
-
-
 class LotteryDrawService:
+    _NON_SEMANTIC_DRAW_METADATA_KEYS = frozenset({
+        "source_verified",
+        "source_format",
+    })
+
+    @staticmethod
+    def _semantic_draw_metadata(metadata: dict | None) -> dict:
+        if not metadata:
+            return {}
+        return {
+            key: value
+            for key, value in metadata.items()
+            if key not in LotteryDrawService._NON_SEMANTIC_DRAW_METADATA_KEYS
+        }
+
 
     @staticmethod
     def list_draws(
@@ -178,8 +177,8 @@ class LotteryDrawService:
                 and existing.draw_time == record.draw_time
                 and existing.main_numbers == record.main_numbers
                 and existing.bonus_numbers == record.bonus_numbers
-                and _semantic_draw_metadata(existing.metadata_json)
-                == _semantic_draw_metadata(record.metadata)
+                and LotteryDrawService._semantic_draw_metadata(existing.metadata_json)
+                == LotteryDrawService._semantic_draw_metadata(record.metadata)
             )
             if same_payload:
                 # Provenance is traceability, not draw identity. A provider may
