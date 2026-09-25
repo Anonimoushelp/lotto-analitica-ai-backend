@@ -3,8 +3,8 @@ from __future__ import annotations
 import html as html_lib
 import re
 import unicodedata
-from datetime import date, timedelta
 from collections.abc import Iterable, Mapping
+from datetime import date, timedelta
 from io import BytesIO
 
 from pypdf import PdfReader
