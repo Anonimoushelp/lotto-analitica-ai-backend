@@ -114,3 +114,64 @@ def test_traditional_catalog_uses_source_specific_endpoints_and_fetchers():
         _traditional_fetcher("LOTERIA_CUNDINAMARCA"),
         CundinamarcaActaSourceFetcher,
     )
+
+def test_persistent_scheduler_retries_failed_jobs_after_fifteen_minutes():
+    from datetime import UTC, datetime
+
+    from sqlalchemy import create_engine
+    from sqlalchemy.orm import sessionmaker
+    from sqlalchemy.pool import StaticPool
+
+    engine = create_engine(
+        "sqlite://",
+        connect_args={"check_same_thread": False},
+        poolclass=StaticPool,
+    )
+    IngestionScheduleState.__table__.create(bind=engine)
+    SessionLocal = sessionmaker(bind=engine)
+
+    from app.sources.orchestrator import IngestionJob, IngestionRunResult
+
+    job = IngestionJob(
+        key="test-failed-retry",
+        lottery_code="MILOTO",
+        url="https://example.test/results",
+        pipeline_factory=lambda: None,
+        interval_seconds=3600,
+    )
+    now = datetime(2026, 9, 25, 20, 0, tzinfo=UTC)
+
+    class StubOrchestrator:
+        def __init__(self):
+            self.calls = []
+
+        def run_job(self, job):
+            self.calls.append(job.key)
+            return IngestionRunResult(
+                run_id=f"run-{len(self.calls)}",
+                job_key=job.key,
+                lottery_code=job.lottery_code,
+                status="failed",
+                attempts=3,
+                records_seen=0,
+                records_persisted=0,
+                error="test failure",
+                started_at=now,
+                finished_at=now,
+            )
+
+    orchestrator = StubOrchestrator()
+    scheduler = PersistentIngestionScheduler(
+        orchestrator=orchestrator,
+        jobs=(job,),
+        session_factory=SessionLocal,
+    )
+
+    first = scheduler.run_due(now)
+    before_retry = scheduler.run_due(now.replace(minute=14))
+    retry = scheduler.run_due(now.replace(minute=15))
+
+    assert len(first) == 1
+    assert before_retry == []
+    assert len(retry) == 1
+    assert orchestrator.calls == ["test-failed-retry", "test-failed-retry"]

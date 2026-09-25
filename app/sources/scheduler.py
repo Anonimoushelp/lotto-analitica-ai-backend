@@ -59,6 +59,8 @@ class IngestionScheduler:
 class PersistentIngestionScheduler:
     """Database-backed scheduler safe across ephemeral Railway cron executions."""
 
+    FAILED_RETRY_SECONDS = 900
+
     def __init__(
         self,
         *,
@@ -108,6 +110,12 @@ class PersistentIngestionScheduler:
             next_run_at = state.next_run_at
             if next_run_at.tzinfo is None:
                 next_run_at = next_run_at.replace(tzinfo=now.tzinfo)
+            if state.last_status == "failed" and state.updated_at is not None:
+                updated_at = state.updated_at
+                if updated_at.tzinfo is None:
+                    updated_at = updated_at.replace(tzinfo=now.tzinfo)
+                retry_at = updated_at + timedelta(seconds=self.FAILED_RETRY_SECONDS)
+                next_run_at = min(next_run_at, retry_at)
             if next_run_at > now:
                 db.rollback()
                 return False
@@ -135,6 +143,11 @@ class PersistentIngestionScheduler:
             state.last_run_id = result.run_id
             state.last_status = result.status
             state.last_attempts = result.attempts
+            if result.status == "failed":
+                retry_at = result.finished_at + timedelta(
+                    seconds=self.FAILED_RETRY_SECONDS
+                )
+                state.next_run_at = min(state.next_run_at, retry_at)
             state.last_error = result.error
             state.updated_at = result.finished_at
             db.commit()
