@@ -216,7 +216,7 @@ class CundinamarcaActaSourceFetcher(HttpSourceFetcher):
         re.IGNORECASE,
     )
     _DRAW_RE = re.compile(
-        r"""(?:sorteo|resultado|acta)[^0-9]{0,60}(\d{3,6})(?!\d)""",
+        r"""\bsorteo(?:%20|\s|[-_])*(\d{3,6})(?!\d)""",
         re.IGNORECASE,
     )
 
