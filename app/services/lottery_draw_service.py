@@ -5,10 +5,15 @@ from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
+import logging
+
 from app.models.lottery import Lottery
 from app.models.lottery_draw import LotteryDraw
 from app.repositories.lottery_draw_repository import LotteryDrawRepository
 from app.sources.contracts import RawDrawRecord
+
+
+logger = logging.getLogger(__name__)
 
 
 class LotteryDrawService:
@@ -200,6 +205,26 @@ class LotteryDrawService:
                     db.refresh(existing)
                 return existing
 
+            logger.error(
+                "ingestion_conflict lottery_code=%s existing_id=%s "
+                "existing_draw_type=%s existing_draw_number=%s "
+                "existing_draw_date=%s existing_main_numbers=%s "
+                "existing_metadata=%s incoming_draw_type=%s "
+                "incoming_draw_number=%s incoming_draw_date=%s "
+                "incoming_main_numbers=%s incoming_metadata=%s",
+                record.lottery_code,
+                existing.id,
+                existing.draw_type,
+                existing.draw_number,
+                existing.draw_date,
+                existing.main_numbers,
+                existing.metadata_json,
+                record.draw_type,
+                record.draw_number,
+                record.draw_date,
+                record.main_numbers,
+                record.metadata,
+            )
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Conflicting draw payload for an existing lottery/draw identity",
