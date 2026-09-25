@@ -376,6 +376,8 @@ class CundinamarcaActaSourceFetcher(HttpSourceFetcher):
                     b"%PDF"
                 ):
                     draw_match = self._DRAW_RE.search(unquote(candidate.url))
+                    if draw_match is None:
+                        draw_match = self._DRAW_RE.search(unquote(candidate_url))
                     if draw_match is not None:
                         fallback_matches.append(
                             (year, int(draw_match.group(1)), candidate.url)

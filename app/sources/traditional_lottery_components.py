@@ -3,8 +3,8 @@ from __future__ import annotations
 import html as html_lib
 import re
 import unicodedata
-from datetime import date, timedelta
 from collections.abc import Iterable, Mapping
+from datetime import date, timedelta
 from io import BytesIO
 
 from pypdf import PdfReader
@@ -41,7 +41,7 @@ class TraditionalLotteryHtmlParser:
         r"\b([A-Za-zÁÉÍÓÚáéíóúñÑ]+\.?)\s*[,\s]+(\d{1,2})"
         r"\s*(?:(?:,\s*)|(?:(?:de|del)\s+))?(\d{4})\b",
         re.IGNORECASE,
-    ),
+    )
     _FLEXIBLE_TEXTUAL_DATE_RE = re.compile(
         r"(?<!\d)(\d{1,2})\s*(?:[,/-]\s*)?"
         r"(?:de\s+)?(enero|febrero|marzo|abril|mayo|junio|julio|"
