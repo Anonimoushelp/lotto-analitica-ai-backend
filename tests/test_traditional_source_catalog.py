@@ -9,3 +9,10 @@ def test_dynamic_traditional_sources_are_not_enabled():
     assert get_traditional_source("LOTERIA_SANTANDER").verified is False
     assert catalog["loteria_manizales-traditional-html"].enabled is False
     assert catalog["loteria_santander-traditional-html"].enabled is False
+
+
+def test_suspended_or_extraordinary_traditional_sources_are_disabled_in_ingestion_catalog():
+    catalog = {job.lottery_code: job for job in build_ingestion_catalog()}
+
+    assert catalog["LOTERIA_QUINDIO"].enabled is False
+    assert catalog["EXTRA_COLOMBIA"].enabled is False
