@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import html as html_lib
 import re
 import unicodedata
 from collections.abc import Iterable, Mapping
@@ -31,7 +32,7 @@ class TraditionalLotteryHtmlParser:
         r"(?<!\d)(\d{4})-(\d{1,2})-(\d{1,2})(?!\d)"
     )
     _MONTH_FIRST_DATE_RE = re.compile(
-        r"\b([A-Za-zÁÉÍÓÚáéíóúñÑ]+\.?)\s+(\d{1,2})"
+        r"\b([A-Za-zÁÉÍÓÚáéíóúñÑ]+\.?)\s*[,\s]+(\d{1,2})"
         r"\s*(?:de\s+)?(\d{4})\b",
         re.IGNORECASE,
     )
@@ -69,7 +70,7 @@ class TraditionalLotteryHtmlParser:
         except UnicodeDecodeError as exc:
             raise SourceParseError("Traditional lottery HTML is not valid UTF-8") from exc
 
-        text = " ".join(re.sub(r"<[^>]+>", " ", html).split())
+        text = " ".join(html_lib.unescape(re.sub(r"<[^>]+>", " ", html)).split())
         text = re.sub(r"\s+", " ", text).strip()
         search_text = self._strip_accents(text)
         draw_match = self._DRAW_RE.search(search_text)
@@ -126,25 +127,12 @@ class TraditionalLotteryHtmlParser:
                 "Traditional lottery source does not expose a recognizable four-digit result"
             )
 
-        if iso_date_match:
-            year, month, day = iso_date_match.groups()
-            draw_date = f"{year}-{int(month):02d}-{int(day):02d}"
-        elif numeric_date_match:
-            day, month, year = numeric_date_match.groups()
-            draw_date = f"{year}-{int(month):02d}-{int(day):02d}"
-        elif date_match:
-            month = self._month(date_match.group(2))
-            if month is None:
-                raise SourceParseError("Traditional lottery source has an unsupported month")
-            draw_date = f"{date_match.group(3)}-{month}-{int(date_match.group(1)):02d}"
-        else:
-            month = self._month(month_first_date_match.group(1))
-            if month is None:
-                raise SourceParseError("Traditional lottery source has an unsupported month")
-            draw_date = (
-                f"{month_first_date_match.group(3)}-{month}-"
-                f"{int(month_first_date_match.group(2)):02d}"
-            )
+        draw_date = self._parse_date(
+            iso_date_match=iso_date_match,
+            numeric_date_match=numeric_date_match,
+            date_match=date_match,
+            month_first_date_match=month_first_date_match,
+        )
 
         code = (lottery_code or self.lottery_code).upper()
         profile = get_traditional_source(code)
@@ -170,6 +158,43 @@ class TraditionalLotteryHtmlParser:
                 "source_timestamp": result.fetched_at,
             }
         ]
+
+    def _parse_date(
+        self,
+        *,
+        iso_date_match: re.Match[str] | None,
+        numeric_date_match: re.Match[str] | None,
+        date_match: re.Match[str] | None,
+        month_first_date_match: re.Match[str] | None,
+    ) -> str:
+        if iso_date_match:
+            year, month, day = iso_date_match.groups()
+            return f"{year}-{int(month):02d}-{int(day):02d}"
+        if numeric_date_match:
+            day, month, year = numeric_date_match.groups()
+            return f"{year}-{int(month):02d}-{int(day):02d}"
+        candidates = []
+        if month_first_date_match:
+            candidates.append(
+                (
+                    month_first_date_match.group(1),
+                    month_first_date_match.group(2),
+                    month_first_date_match.group(3),
+                )
+            )
+        if date_match:
+            candidates.append(
+                (
+                    date_match.group(2),
+                    date_match.group(1),
+                    date_match.group(3),
+                )
+            )
+        for month_name, day, year in candidates:
+            month = self._month(month_name)
+            if month is not None:
+                return f"{year}-{month}-{int(day):02d}"
+        raise SourceParseError("Traditional lottery source has an unsupported month")
 
     @staticmethod
     def _strip_accents(value: str) -> str:
