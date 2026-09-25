@@ -155,17 +155,33 @@ class LotteryDrawService:
             )
 
         if existing is not None:
-            same_record = (
-                existing.draw_number == record.draw_number
+            same_payload = (
+                existing.draw_type == record.draw_type
+                and existing.draw_number == record.draw_number
                 and existing.draw_date == record.draw_date
                 and existing.draw_time == record.draw_time
                 and existing.main_numbers == record.main_numbers
                 and existing.bonus_numbers == record.bonus_numbers
-                and existing.source == record.source_name
-                and existing.source_url == record.source_url
                 and existing.metadata_json == record.metadata
             )
-            if same_record:
+            if same_payload:
+                # Provenance is traceability, not draw identity. A provider may
+                # redirect or canonicalize its URL between fetches without
+                # changing the published draw. Keep the newest provenance while
+                # preserving the existing canonical row.
+                changed = False
+                if existing.source != record.source_name:
+                    existing.source = record.source_name
+                    changed = True
+                if existing.source_url != record.source_url:
+                    existing.source_url = record.source_url
+                    changed = True
+                if record.source_timestamp is not None and existing.source_timestamp != record.source_timestamp:
+                    existing.source_timestamp = record.source_timestamp
+                    changed = True
+                if changed:
+                    db.commit()
+                    db.refresh(existing)
                 return existing
 
             raise HTTPException(
