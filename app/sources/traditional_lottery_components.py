@@ -57,7 +57,7 @@ class TraditionalLotteryHtmlParser:
         re.IGNORECASE,
     )
     _SPACED_SERIES_RE = re.compile(
-        r"(?:serie|series)\s*[:#-]?\s*(\d)\s*(\d)\s*(\d)\s*(\d)?",
+        r"(?:serie|series)\s*[:#-]?\s*(\d)(?:\s+(\d))(?:\s+(\d))(?:\s+(\d))?",
         re.IGNORECASE,
     )
 
@@ -152,14 +152,14 @@ class TraditionalLotteryHtmlParser:
         }
         if labeled_result_series_match:
             metadata["series"] = labeled_result_series_match.group(2)
-        elif series_match:
-            metadata["series"] = series_match.group(1)
         else:
             for match in spaced_series_matches:
                 digits = [group for group in match.groups() if group is not None]
                 if 1 <= len(digits) <= 4:
                     metadata["series"] = "".join(digits)
                     break
+            if "series" not in metadata and series_match:
+                metadata["series"] = series_match.group(1)
 
         return [
             {
