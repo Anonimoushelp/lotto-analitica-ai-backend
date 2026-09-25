@@ -409,7 +409,7 @@ def test_persist_idempotency_allows_missing_optional_core_fields():
         lottery_code="LOTERIA_TOLIMA",
         draw_type="LOTERIA_TOLIMA_ORDINARY",
         draw_number="4188",
-        draw_date=datetime(2026, 9, 21).date(),
+        draw_date=datetime(2026, 9, 21, tzinfo=UTC).date(),
         draw_time=None,
         main_numbers=[4008],
         bonus_numbers=None,
