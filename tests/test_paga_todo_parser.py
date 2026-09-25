@@ -1,4 +1,4 @@
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from app.sources.fetchers import SourceFetchResult
 from app.sources.parsers import PagaTodoResultPageParser
@@ -7,9 +7,9 @@ from app.sources.parsers import PagaTodoResultPageParser
 def test_paga_todo_parser_decodes_html_entities():
     html = b"""
     <section>
-      <h2>Sorteo El Dorado D&amp;iacute;a</h2>
+      <h2>Sorteo El Dorado D&iacute;a</h2>
       <div>19/09/2026</div>
-      <div>N&amp;uacute;mero Ganador</div>
+      <div>N&uacute;mero Ganador</div>
       <div>4 6 6 0 - 9 La Quinta</div>
     </section>
     """
@@ -18,7 +18,7 @@ def test_paga_todo_parser_decodes_html_entities():
         status_code=200,
         content=html,
         content_type="text/html",
-        fetched_at=datetime.now(timezone.utc),
+        fetched_at=datetime.now(UTC),
     )
 
     records = list(
@@ -36,3 +36,4 @@ def test_paga_todo_parser_decodes_html_entities():
             },
         }
     ]
+]
