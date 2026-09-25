@@ -3,6 +3,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from dataclasses import dataclass
 
+from app.catalog.colombia_lotteries_2026 import LotteryStatus, get_colombia_lottery
 from app.sources.adapters import (
     BalotoAdapter,
     MiLotoAdapter,
@@ -259,7 +260,11 @@ def build_ingestion_catalog() -> tuple[IngestionJob, ...]:
                 url=profile.result_url or "",
                 pipeline_factory=lambda c=code: _traditional_pipeline(c),
                 interval_seconds=3600,
-                enabled=profile.verified and profile.result_url is not None,
+                enabled=(
+                    profile.verified
+                    and profile.result_url is not None
+                    and get_colombia_lottery(code).status is LotteryStatus.ACTIVE
+                ),
             )
         )
 
