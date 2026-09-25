@@ -91,3 +91,26 @@ def test_persistent_scheduler_claims_each_due_job_once():
     assert state is not None
     assert state.last_status == "success"
     assert state.last_run_id == "run-1"
+
+
+def test_traditional_catalog_uses_source_specific_endpoints_and_fetchers():
+    from app.sources.catalog import _traditional_fetcher
+    from app.sources.fetchers import EmbeddedIframeSourceFetcher
+    from app.sources.traditional_lottery import get_traditional_source
+
+    expected_urls = {
+        "LOTERIA_CUNDINAMARCA": "https://loteriadecundinamarca.com.co/",
+        "LOTERIA_CRUZ_ROJA": "https://lotecruz.org.co/",
+        "LOTERIA_VALLE": "https://loteriadelvalle.com/",
+        "LOTERIA_RISARALDA": "https://ventas.loteriadelrisaralda.com/resultados",
+        "LOTERIA_BOYACA": "https://loteriadeboyaca.gov.co/resultados/",
+    }
+    for code, expected_url in expected_urls.items():
+        profile = get_traditional_source(code)
+        assert profile.result_url == expected_url
+        assert profile.verified is True
+
+    assert isinstance(
+        _traditional_fetcher("LOTERIA_CUNDINAMARCA"),
+        EmbeddedIframeSourceFetcher,
+    )
