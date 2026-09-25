@@ -39,6 +39,10 @@ class TraditionalLotteryHtmlParser:
         r"\b(?:resultado|result)\s*[:#-]?\s*(\d{4})\b",
         re.IGNORECASE,
     )
+    _LABELED_RESULT_SERIES_RE = re.compile(
+        r"\\b(?:premio\\s+mayor|resultado)\\s*[:#-]?\\s*(\\d{4})\\s*-\\s*(\\d{1,4})\\b",
+        re.IGNORECASE,
+    )
     _LABELED_NUMBER_RE = re.compile(
         r"\bnumero\s*[:#-]?\s*(\d{4})\b",
         re.IGNORECASE,
@@ -74,7 +78,8 @@ class TraditionalLotteryHtmlParser:
         numeric_date_match = self._NUMERIC_DATE_RE.search(text)
         iso_date_match = self._ISO_DATE_RE.search(text)
         result_match = self._RESULT_RE.search(search_text)
-        labeled_result_series_match = self._LABELED_RESULT_SERIES_RE.search(search_text)\n        labeled_number_matches = self._LABELED_NUMBER_RE.findall(search_text)
+        labeled_result_series_match = self._LABELED_RESULT_SERIES_RE.search(search_text)
+        labeled_number_matches = self._LABELED_NUMBER_RE.findall(search_text)
         number_matches = self._NUMBER_RE.findall(text)
         spaced_number_matches = [
             "".join(match) for match in self._SPACED_NUMBER_RE.findall(text)
@@ -96,7 +101,11 @@ class TraditionalLotteryHtmlParser:
             )
 
         draw_number = draw_match.group(1) if draw_match else None
-        raw_number = (\n            labeled_result_series_match.group(1)\n            if labeled_result_series_match\n            else result_match.group(1) if result_match else None\n        )
+        raw_number = (
+            labeled_result_series_match.group(1)
+            if labeled_result_series_match
+            else result_match.group(1) if result_match else None
+        )
         if raw_number is None:
             for candidate in labeled_number_matches:
                 if draw_number is None or candidate != draw_number:
