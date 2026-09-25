@@ -193,11 +193,26 @@ class LotteryDrawService:
         if existing is not None:
             same_core_payload = (
                 existing.draw_type == record.draw_type
-                and existing.draw_number == record.draw_number
-                and existing.draw_date == record.draw_date
-                and existing.draw_time == record.draw_time
-                and existing.main_numbers == record.main_numbers
-                and existing.bonus_numbers == record.bonus_numbers
+                and (
+                    record.draw_number is None
+                    or existing.draw_number == record.draw_number
+                )
+                and (
+                    record.draw_date is None
+                    or existing.draw_date == record.draw_date
+                )
+                and (
+                    record.draw_time is None
+                    or existing.draw_time == record.draw_time
+                )
+                and (
+                    record.main_numbers is None
+                    or existing.main_numbers == record.main_numbers
+                )
+                and (
+                    record.bonus_numbers is None
+                    or existing.bonus_numbers == record.bonus_numbers
+                )
             )
             metadata_compatible, merged_metadata = LotteryDrawService._merge_draw_metadata(
                 existing.metadata_json,
@@ -205,9 +220,10 @@ class LotteryDrawService:
             )
             if same_core_payload and metadata_compatible:
                 # Provenance and newly available metadata may be refreshed
-                # without creating a second row. A previously absent metadata
-                # field is enrichment; a conflicting existing value remains a
-                # real payload conflict.
+                # without creating a second row. Source records may omit
+                # optional core fields such as draw_time/bonus_numbers; those
+                # omissions must not turn an otherwise identical identity into
+                # a conflict.
                 changed = existing.metadata_json != merged_metadata
                 if changed:
                     existing.metadata_json = merged_metadata
