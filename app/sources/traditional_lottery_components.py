@@ -24,7 +24,7 @@ class TraditionalLotteryHtmlParser:
     )
     _DATE_RE = re.compile(
         r"(?<!\d)(\d{1,2})\s*(?:de\s+)?"
-        r"([A-Za-zÁÉÍÓÚáéíóúñÑ]+\.?)\s*(?:(?:de|del)\s+)?"
+        r"([A-Za-zÁÉÍÓÚáéíóúñÑ]+\.?)\s*(?:,\s*)?(?:(?:de|del)\s+)?"
         r"(\d{4})(?!\d)",
         re.IGNORECASE,
     )
