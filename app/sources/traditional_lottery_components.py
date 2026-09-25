@@ -21,7 +21,7 @@ class TraditionalLotteryHtmlParser:
     )
     _DATE_RE = re.compile(
         r"(?<!\d)(\d{1,2})\s*(?:de\s+)?"
-        r"([A-Za-zÁÉÍÓÚáéíóúñÑ]+\.?)\s*(?:de\s+)?"
+        r"([A-Za-zÁÉÍÓÚáéíóúñÑ]+\.?)\s*(?:(?:de|del)\s+)?"
         r"(\d{4})(?!\d)",
         re.IGNORECASE,
     )
@@ -33,7 +33,7 @@ class TraditionalLotteryHtmlParser:
     )
     _MONTH_FIRST_DATE_RE = re.compile(
         r"\b([A-Za-zÁÉÍÓÚáéíóúñÑ]+\.?)\s*[,\s]+(\d{1,2})"
-        r"\s*(?:,\s*|de\s+)?(\d{4})\b",
+        r"\s*(?:(?:,\s*)|(?:(?:de|del)\s+))?(\d{4})\b",
         re.IGNORECASE,
     )
     _RESULT_RE = re.compile(
