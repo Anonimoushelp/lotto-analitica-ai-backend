@@ -142,11 +142,11 @@ class EmbeddedIframeSourceFetcher(HttpSourceFetcher):
         "acta",
     )
     _RESULT_SIGNAL_RE = re.compile(
-        r"\\b(?:sorteo|resultado|premio|ganador)\\b",
+        r"\b(?:sorteo|resultado|premio|ganador)\b",
         re.IGNORECASE,
     )
     _FOUR_DIGIT_RE = re.compile(
-        r"\\b\\d{4}\\b|(?<!\\d)(?:\\d\\s*){4}(?!\\d)"
+        r"\b\d{4}\b|(?<!\d)(?:\d\s*){4}(?!\d)"
     )
 
     def fetch(self, url: str) -> SourceFetchResult:
