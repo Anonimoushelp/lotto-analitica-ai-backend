@@ -42,9 +42,9 @@ from app.sources.provider_parser_adapter import (
 from app.sources.provider_parsers import (
     SuperAstroJsonParser,
 )
+from app.sources.provider_registry import build_traditional_lottery_components
 from app.sources.registry import get_source_spec
 from app.sources.traditional_lottery import get_traditional_source
-from app.sources.provider_registry import build_traditional_lottery_components
 
 
 @dataclass(frozen=True)
