@@ -140,3 +140,37 @@ def test_traditional_parser_accepts_quindio_result_series_pair():
     assert records[0]["draw_date"] == "2026-09-17"
     assert records[0]["main_numbers"] == [3853]
     assert records[0]["metadata"]["series"] == "160"
+
+
+def test_traditional_parser_accepts_month_first_date_with_comma():
+    parser, _ = build_traditional_lottery_components("LOTERIA_BOYACA")
+    records = list(
+        parser.parse(
+            _result(
+                "<html><body>Sorteo 4642 Septiembre 19, 2026 "
+                "Número 8004 Serie 240</body></html>"
+            ),
+            "LOTERIA_BOYACA",
+        )
+    )
+    assert records[0]["draw_number"] == "4642"
+    assert records[0]["draw_date"] == "2026-09-19"
+    assert records[0]["main_numbers"] == [8004]
+    assert records[0]["metadata"]["series"] == "240"
+
+
+def test_traditional_parser_decodes_html_entities_in_date():
+    parser, _ = build_traditional_lottery_components("LOTERIA_RISARALDA")
+    records = list(
+        parser.parse(
+            _result(
+                "<html><body>Sorteo 2967 viernes 18 de septiembre "
+                "de 2026 Número 6711 Serie 284</body></html>"
+            ),
+            "LOTERIA_RISARALDA",
+        )
+    )
+    assert records[0]["draw_number"] == "2967"
+    assert records[0]["draw_date"] == "2026-09-18"
+    assert records[0]["main_numbers"] == [6711]
+    assert records[0]["metadata"]["series"] == "284"
