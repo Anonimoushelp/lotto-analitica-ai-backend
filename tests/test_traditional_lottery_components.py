@@ -123,3 +123,20 @@ def test_traditional_parser_accepts_month_first_real_format():
     assert records[0]["draw_date"] == "2026-09-23"
     assert records[0]["main_numbers"] == [4356]
     assert records[0]["metadata"]["series"] == "149"
+
+
+def test_traditional_parser_accepts_quindio_result_series_pair():
+    parser, _ = build_traditional_lottery_components("LOTERIA_QUINDIO")
+    records = list(
+        parser.parse(
+            _result(
+                "<html><body>Resultado Sorteo 3016 del 2026-09-17 "
+                "Premio Mayor 3853-160</body></html>"
+            ),
+            "LOTERIA_QUINDIO",
+        )
+    )
+    assert records[0]["draw_number"] == "3016"
+    assert records[0]["draw_date"] == "2026-09-17"
+    assert records[0]["main_numbers"] == [3853]
+    assert records[0]["metadata"]["series"] == "160"
