@@ -3,7 +3,7 @@ from __future__ import annotations
 import html as html_lib
 import re
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Protocol
 from urllib.parse import unquote, urljoin, urlparse
 
@@ -338,8 +338,8 @@ class CundinamarcaActaSourceFetcher(HttpSourceFetcher):
                 raise SourceFetchError(
                     f"No official Cundinamarca result acta links found in {index.url}"
                 )
-            today = datetime.now().date()
-            anchor = datetime(2026, 2, 16).date()
+            today = datetime.now(UTC).date()
+            anchor = datetime(2026, 2, 16, tzinfo=UTC).date()
             estimated_draw = 4790 + max(0, (today - anchor).days // 7)
             year = today.year
             fallback_urls = [
