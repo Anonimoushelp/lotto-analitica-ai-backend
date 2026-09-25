@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Protocol
-from urllib.parse import urlparse
+from urllib.parse import urljoin, urlparse
 
 import httpx
 
@@ -117,4 +118,73 @@ class HttpSourceFetcher:
             content=content,
             content_type=response.headers.get("content-type", ""),
             fetched_at=datetime.now().astimezone(),
+        )
+
+
+class EmbeddedIframeSourceFetcher(HttpSourceFetcher):
+    """Fetch a same-origin iframe embedded by an official result page.
+
+    Some lottery operator sites publish the current result inside an iframe on
+    the official home page. This keeps that navigation in the source-fetching
+    layer so parsing remains focused on the final result document.
+    """
+
+    _IFRAME_RE = re.compile(
+        r"<iframe\\b[^>]*?(?:src|data-src)\\s*=\\s*"
+        r"([\\\"'])(.*?)\\1[^>]*>",
+        re.IGNORECASE | re.DOTALL,
+    )
+    _HINTS = (
+        "resultado",
+        "resultados",
+        "sorteo",
+        "premio",
+        "acta",
+    )
+
+    def fetch(self, url: str) -> SourceFetchResult:
+        initial = super().fetch(url)
+        if "html" not in initial.content_type.casefold():
+            return initial
+
+        host = urlparse(initial.url).hostname
+        if not host:
+            return initial
+
+        candidates: list[tuple[int, str]] = []
+        for match in self._IFRAME_RE.finditer(initial.content.decode("utf-8", errors="ignore")):
+            raw_url = match.group(2).strip()
+            if not raw_url:
+                continue
+            iframe_url = urljoin(initial.url, raw_url)
+            parsed = urlparse(iframe_url)
+            if parsed.scheme.lower() != "https" or not parsed.hostname:
+                continue
+            if parsed.hostname.casefold() != host.casefold():
+                continue
+            haystack = f"{raw_url} {match.group(0)}".casefold()
+            score = sum(haystack.count(hint) for hint in self._HINTS)
+            candidates.append((score, iframe_url))
+
+        if not candidates:
+            return initial
+
+        candidates.sort(key=lambda item: (-item[0], item[1]))
+        nested_fetcher = HttpSourceFetcher(
+            timeout=self.timeout,
+            user_agent=self.user_agent,
+            allowed_hosts={host.casefold()},
+            max_response_bytes=self.max_response_bytes,
+            transport=self.transport,
+        )
+
+        for _, iframe_url in candidates:
+            try:
+                nested = nested_fetcher.fetch(iframe_url)
+            except SourceFetchError:
+                continue
+            return nested
+
+        raise SourceFetchError(
+            f"Embedded result iframe could not be fetched for {initial.url}"
         )
