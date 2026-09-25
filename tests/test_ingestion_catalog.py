@@ -99,7 +99,7 @@ def test_traditional_catalog_uses_source_specific_endpoints_and_fetchers():
     from app.sources.traditional_lottery import get_traditional_source
 
     expected_urls = {
-        "LOTERIA_CUNDINAMARCA": "https://loteriadecundinamarca.com.co/",
+        "LOTERIA_CUNDINAMARCA": "https://www.loteriadecundinamarca.com.co/?d=mision&p=plataforma-estrategica&view=nosotros",
         "LOTERIA_CRUZ_ROJA": "https://lotecruz.org.co/",
         "LOTERIA_VALLE": "https://loteriadelvalle.com/",
         "LOTERIA_RISARALDA": "https://ventas.loteriadelrisaralda.com/resultados",
