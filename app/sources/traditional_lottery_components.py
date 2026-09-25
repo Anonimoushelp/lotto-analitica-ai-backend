@@ -93,6 +93,9 @@ class TraditionalLotteryHtmlParser:
         labeled_result_series_match = self._LABELED_RESULT_SERIES_RE.search(search_text)
         labeled_number_matches = self._LABELED_NUMBER_RE.findall(search_text)
         number_matches = self._NUMBER_RE.findall(text)
+        winner_spaced_number_match = self._WINNER_SPACED_NUMBER_RE.search(
+            search_text
+        )
         spaced_number_matches = [
             "".join(match) for match in self._SPACED_NUMBER_RE.findall(text)
         ]
@@ -115,10 +118,18 @@ class TraditionalLotteryHtmlParser:
 
         draw_number = draw_match.group(1) if draw_match else None
         raw_number = (
-            labeled_result_series_match.group(1)
+            winner_spaced_number_match.group(0).replace(" ", "")
+            if winner_spaced_number_match
+            else labeled_result_series_match.group(1)
             if labeled_result_series_match
             else result_match.group(1) if result_match else None
         )
+        if winner_spaced_number_match:
+            raw_number = "".join(
+                group
+                for group in winner_spaced_number_match.groups()
+                if group is not None
+            )
         if raw_number is None:
             for candidate in labeled_number_matches:
                 if draw_number is None or candidate != draw_number:
