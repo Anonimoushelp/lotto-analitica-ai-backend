@@ -165,7 +165,7 @@ class IngestionOrchestrator:
             job_key=job.key,
             lottery_code=job.lottery_code,
             status="failed",
-            attempts=job.max_attempts,
+            attempts=attempt,
             records_seen=0,
             records_persisted=0,
             error=str(last_error) if last_error else "unknown ingestion failure",
