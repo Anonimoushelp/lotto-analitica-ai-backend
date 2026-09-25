@@ -16,7 +16,7 @@ class TraditionalLotterySource:
 _PROFILES = {
     "LOTERIA_CUNDINAMARCA": TraditionalLotterySource(
         "Lotería de Cundinamarca — resultados",
-        "https://loteriadecundinamarca.com.co/",
+        "https://www.loteriadecundinamarca.com.co/?d=mision&p=plataforma-estrategica&view=nosotros",
         "traditional_result_page_embedded",
         "traditional_four_digit_series",
         True,
