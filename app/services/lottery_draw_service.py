@@ -12,6 +12,7 @@ from app.sources.contracts import RawDrawRecord
 
 
 class LotteryDrawService:
+    _INGESTION_PARSER_VERSION = "2026-09-25-v2"
     _NON_SEMANTIC_DRAW_METADATA_KEYS = frozenset({
         "source_verified",
         "source_format",
@@ -218,13 +219,15 @@ class LotteryDrawService:
             )
 
         if existing is not None:
+            incoming_metadata = dict(record.metadata or {})
+            incoming_metadata["parser_version"] = LotteryDrawService._INGESTION_PARSER_VERSION
             same_core_payload = LotteryDrawService._core_payload_compatible(
                 existing,
                 record,
             )
             metadata_compatible, merged_metadata = LotteryDrawService._merge_draw_metadata(
                 existing.metadata_json,
-                record.metadata,
+                incoming_metadata,
             )
             if same_core_payload and metadata_compatible:
                 # Provenance and newly available metadata may be refreshed
@@ -252,6 +255,23 @@ class LotteryDrawService:
                     db.refresh(existing)
                 return existing
 
+            existing_parser_version = (existing.metadata_json or {}).get("parser_version")
+            incoming_is_verified = bool(record.metadata.get("source_verified", False))
+            if existing_parser_version is None and incoming_is_verified:
+                # Repair rows created by the pre-v2 parser when the source now
+                # provides the same draw identity but a corrected canonical
+                # payload. Once repaired, subsequent conflicts remain strict.
+                existing.draw_time = record.draw_time
+                existing.main_numbers = record.main_numbers
+                existing.bonus_numbers = record.bonus_numbers
+                existing.metadata_json = incoming_metadata
+                existing.source = record.source_name
+                existing.source_url = record.source_url
+                existing.source_timestamp = record.source_timestamp
+                db.commit()
+                db.refresh(existing)
+                return existing
+
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
                 detail="Conflicting draw payload for an existing lottery/draw identity",
@@ -269,7 +289,7 @@ class LotteryDrawService:
             source=record.source_name,
             source_url=record.source_url,
             source_timestamp=record.source_timestamp,
-            metadata_json=record.metadata,
+            metadata_json=incoming_metadata,
             validation_json={
                 "format_valid": True,
                 "date_valid": True,
