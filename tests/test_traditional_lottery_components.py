@@ -286,3 +286,42 @@ def test_cundinamarca_acta_fetcher_selects_latest_official_acta():
 
     assert "4821" in result.url
     assert "application/pdf" in result.content_type
+
+
+
+def test_boyaca_real_layout_prefers_labeled_winner_over_secondary_numbers():
+    parser, _ = build_traditional_lottery_components("LOTERIA_BOYACA")
+    records = list(
+        parser.parse(
+            _result(
+                "<html><body>"
+                "Resultado sorteo #4642 "
+                "Sábado 19 de septiembre de 2026 "
+                "Número Ganador 8 0 0 4 "
+                "Serie 2 4 0 "
+                "Resultados secos 7735 186"
+                "</body></html>"
+            )
+        )
+    )
+    assert records[0]["draw_number"] == "4642"
+    assert records[0]["draw_date"] == "2026-09-19"
+    assert records[0]["main_numbers"] == [8004]
+    assert records[0]["metadata"]["series"] == "240"
+
+
+def test_risaralda_date_allows_comma_after_month():
+    parser, _ = build_traditional_lottery_components("LOTERIA_RISARALDA")
+    records = list(
+        parser.parse(
+            _result(
+                "<html><body>"
+                "Sorteo 2967 viernes, 18 de septiembre, 2026 "
+                "Premio mayor 6 7 1 1 Serie 284"
+                "</body></html>"
+            )
+        )
+    )
+    assert records[0]["draw_number"] == "2967"
+    assert records[0]["draw_date"] == "2026-09-18"
+    assert records[0]["main_numbers"] == [6711]
