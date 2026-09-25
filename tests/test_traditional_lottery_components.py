@@ -174,3 +174,23 @@ def test_traditional_parser_decodes_html_entities_in_date():
     assert records[0]["draw_date"] == "2026-09-18"
     assert records[0]["main_numbers"] == [6711]
     assert records[0]["metadata"]["series"] == "284"
+
+
+def test_traditional_parser_accepts_cruz_roja_homepage_format():
+    parser, _ = build_traditional_lottery_components("LOTERIA_CRUZ_ROJA")
+    records = list(
+        parser.parse(
+            _result(
+                "<html><body>"
+                "SORTEO 3171 DEL 15/09/2026 "
+                "NÚMERO GANADOR PREMIO MAYOR "
+                "0 0 1 6 SERIE 173"
+                "</body></html>"
+            )
+        )
+    )
+    assert records[0]["draw_number"] == "3171"
+    assert records[0]["draw_date"] == "2026-09-15"
+    assert records[0]["main_numbers"] == [16]
+    assert records[0]["metadata"]["raw_result"] == "0016"
+    assert records[0]["metadata"]["series"] == "173"
