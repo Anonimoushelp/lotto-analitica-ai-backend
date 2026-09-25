@@ -40,6 +40,15 @@ class TraditionalLotteryHtmlParser:
         r"\b([A-Za-zÁÉÍÓÚáéíóúñÑ]+\.?)\s*[,\s]+(\d{1,2})"
         r"\s*(?:(?:,\s*)|(?:(?:de|del)\s+))?(\d{4})\b",
         re.IGNORECASE,
+    ),
+    _FLEXIBLE_TEXTUAL_DATE_RE = re.compile(
+        r"(?<!\d)(\d{1,2})\s*(?:[,/-]\s*)?"
+        r"(?:de\s+)?(enero|febrero|marzo|abril|mayo|junio|julio|"
+        r"agosto|septiembre|setiembre|sept|septiembre|octubre|"
+        r"noviembre|diciembre|ene|feb|mar|abr|may|jun|jul|ago|"
+        r"sep|set|oct|nov|dic)\s*(?:[,/-]\s*)?"
+        r"(?:de\s+)?(\d{4})(?!\d)",
+        re.IGNORECASE,
     )
     _RESULT_RE = re.compile(
         r"\b(?:resultado|result)\s*[:#-]?\s*(\d{4})\b",
@@ -90,6 +99,9 @@ class TraditionalLotteryHtmlParser:
         draw_match = self._DRAW_RE.search(search_text)
         date_matches = list(self._DATE_RE.finditer(search_text))
         month_first_date_matches = list(self._MONTH_FIRST_DATE_RE.finditer(search_text))
+        flexible_textual_date_matches = list(
+            self._FLEXIBLE_TEXTUAL_DATE_RE.finditer(search_text)
+        )
         numeric_date_matches = list(self._NUMERIC_DATE_RE.finditer(search_text))
         iso_date_matches = list(self._ISO_DATE_RE.finditer(search_text))
         date_match = date_matches[0] if date_matches else None
@@ -160,6 +172,7 @@ class TraditionalLotteryHtmlParser:
             numeric_date_matches=numeric_date_matches,
             date_matches=date_matches,
             month_first_date_matches=month_first_date_matches,
+            flexible_textual_date_matches=flexible_textual_date_matches,
         )
 
         code = (lottery_code or self.lottery_code).upper()
@@ -200,6 +213,7 @@ class TraditionalLotteryHtmlParser:
         numeric_date_matches: list[re.Match[str]],
         date_matches: list[re.Match[str]],
         month_first_date_matches: list[re.Match[str]],
+        flexible_textual_date_matches: list[re.Match[str]],
     ) -> str:
         # Prefer unambiguous numeric/ISO dates, then inspect every textual
         # candidate instead of trusting the first match on a long HTML page.
@@ -214,6 +228,8 @@ class TraditionalLotteryHtmlParser:
         for match in month_first_date_matches:
             candidates.append((match.group(1), match.group(2), match.group(3)))
         for match in date_matches:
+            candidates.append((match.group(2), match.group(1), match.group(3)))
+        for match in flexible_textual_date_matches:
             candidates.append((match.group(2), match.group(1), match.group(3)))
 
         for month_name, day, year in candidates:
