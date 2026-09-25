@@ -9,7 +9,11 @@ from sqlalchemy.orm import Session
 from app.db.session import SessionLocal
 from app.models.lottery import Lottery
 from app.services.lottery_draw_service import LotteryDrawService
-from app.sources.fetchers import HttpSourceFetcher, SourceFetcher
+from app.sources.fetchers import (
+    EmbeddedIframeSourceFetcher,
+    HttpSourceFetcher,
+    SourceFetcher,
+)
 from app.sources.ingestion import SourceIngestionPipeline
 from app.sources.provider_registry import build_traditional_lottery_components
 from app.sources.traditional_lottery import get_traditional_source
@@ -29,7 +33,15 @@ class ControlledIngestionExecutor:
         fetcher: SourceFetcher | None = None,
     ) -> None:
         self.session_factory = session_factory
-        self.fetcher = fetcher or HttpSourceFetcher()
+        self.fetcher = fetcher
+
+    @staticmethod
+    def _build_profile_fetcher(fetcher_key: str) -> SourceFetcher:
+        if fetcher_key == "http":
+            return HttpSourceFetcher()
+        if fetcher_key == "same_origin_iframe":
+            return EmbeddedIframeSourceFetcher()
+        raise RuntimeError(f"Unsupported traditional source fetcher: {fetcher_key}")
 
     def __call__(self, lottery_code: str, draw_type: str) -> str:
         code = lottery_code.upper()
@@ -40,8 +52,9 @@ class ControlledIngestionExecutor:
             )
 
         parser, adapter = build_traditional_lottery_components(code)
+        fetcher = self.fetcher or self._build_profile_fetcher(profile.fetcher_key)
         pipeline = SourceIngestionPipeline(
-            fetcher=self.fetcher,
+            fetcher=fetcher,
             parser=parser,
             adapter=adapter,
         )
