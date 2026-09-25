@@ -147,7 +147,12 @@ class PersistentIngestionScheduler:
                 retry_at = result.finished_at + timedelta(
                     seconds=self.FAILED_RETRY_SECONDS
                 )
-                state.next_run_at = min(state.next_run_at, retry_at)
+                next_run_at = state.next_run_at
+                if next_run_at.tzinfo is None:
+                    next_run_at = next_run_at.replace(
+                        tzinfo=result.finished_at.tzinfo
+                    )
+                state.next_run_at = min(next_run_at, retry_at)
             state.last_error = result.error
             state.updated_at = result.finished_at
             db.commit()
