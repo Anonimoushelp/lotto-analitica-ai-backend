@@ -50,6 +50,33 @@ class LotteryDrawService:
         return True, merged
 
     @staticmethod
+    def _core_payload_compatible(existing: LotteryDraw, record: RawDrawRecord) -> bool:
+        """Treat omitted optional source fields as non-conflicting."""
+        return (
+            existing.draw_type == record.draw_type
+            and (
+                record.draw_number is None
+                or existing.draw_number == record.draw_number
+            )
+            and (
+                record.draw_date is None
+                or existing.draw_date == record.draw_date
+            )
+            and (
+                record.draw_time is None
+                or existing.draw_time == record.draw_time
+            )
+            and (
+                record.main_numbers is None
+                or existing.main_numbers == record.main_numbers
+            )
+            and (
+                record.bonus_numbers is None
+                or existing.bonus_numbers == record.bonus_numbers
+            )
+        )
+
+    @staticmethod
     def list_draws(
         db: Session,
         lottery_id: int | None = None,
@@ -191,28 +218,9 @@ class LotteryDrawService:
             )
 
         if existing is not None:
-            same_core_payload = (
-                existing.draw_type == record.draw_type
-                and (
-                    record.draw_number is None
-                    or existing.draw_number == record.draw_number
-                )
-                and (
-                    record.draw_date is None
-                    or existing.draw_date == record.draw_date
-                )
-                and (
-                    record.draw_time is None
-                    or existing.draw_time == record.draw_time
-                )
-                and (
-                    record.main_numbers is None
-                    or existing.main_numbers == record.main_numbers
-                )
-                and (
-                    record.bonus_numbers is None
-                    or existing.bonus_numbers == record.bonus_numbers
-                )
+            same_core_payload = LotteryDrawService._core_payload_compatible(
+                existing,
+                record,
             )
             metadata_compatible, merged_metadata = LotteryDrawService._merge_draw_metadata(
                 existing.metadata_json,
