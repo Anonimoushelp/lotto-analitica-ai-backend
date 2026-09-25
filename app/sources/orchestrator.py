@@ -7,6 +7,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
 
+from fastapi import HTTPException
 from sqlalchemy.orm import Session
 
 from app.services.lottery_draw_service import LotteryDrawService
@@ -17,6 +18,12 @@ logger = logging.getLogger(__name__)
 PipelineFactory = Callable[[], SourceIngestionPipeline]
 SessionFactory = Callable[[], Session]
 SleepFn = Callable[[float], None]
+
+
+def _is_retryable_ingestion_error(exc: Exception) -> bool:
+    if isinstance(exc, HTTPException) and exc.status_code in {400, 404, 409, 422}:
+        return False
+    return True
 
 
 @dataclass(frozen=True)
@@ -145,8 +152,10 @@ class IngestionOrchestrator:
                     attempt,
                     job.max_attempts,
                 )
-                if attempt < job.max_attempts:
+                if attempt < job.max_attempts and _is_retryable_ingestion_error(exc):
                     self.sleep(job.backoff_seconds * (2 ** (attempt - 1)))
+                elif not _is_retryable_ingestion_error(exc):
+                    break
             finally:
                 db.close()
 
