@@ -10,15 +10,17 @@ class TraditionalLotterySource:
     parser_key: str
     adapter_key: str
     verified: bool
+    fetcher_key: str = "http"
 
 
 _PROFILES = {
     "LOTERIA_CUNDINAMARCA": TraditionalLotterySource(
         "Lotería de Cundinamarca — resultados",
-        "https://www.loteriadecundinamarca.com.co/calendario",
-        "traditional_result_page",
+        "https://loteriadecundinamarca.com.co/",
+        "traditional_result_page_embedded",
         "traditional_four_digit_series",
         True,
+        fetcher_key="same_origin_iframe",
     ),
     "LOTERIA_TOLIMA": TraditionalLotterySource(
         "Lotería del Tolima — resultados",
@@ -29,7 +31,7 @@ _PROFILES = {
     ),
     "LOTERIA_CRUZ_ROJA": TraditionalLotterySource(
         "Lotería de la Cruz Roja — resultados",
-        "https://lotecruz.org.co/resultados/",
+        "https://lotecruz.org.co/",
         "traditional_result_page",
         "traditional_four_digit_series",
         True,
@@ -50,7 +52,7 @@ _PROFILES = {
     ),
     "LOTERIA_VALLE": TraditionalLotterySource(
         "Lotería del Valle — resultados",
-        "https://loteriadelvalle.com/resultados/",
+        "https://loteriadelvalle.com/",
         "traditional_result_page",
         "traditional_four_digit_series",
         True,
@@ -99,7 +101,7 @@ _PROFILES = {
     ),
     "LOTERIA_BOYACA": TraditionalLotterySource(
         "Lotería de Boyacá — resultados",
-        "https://www.loteriadeboyaca.com/resultados/",
+        "https://loteriadeboyaca.gov.co/resultados/",
         "traditional_result_page",
         "traditional_four_digit_series",
         True,
