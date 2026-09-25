@@ -56,6 +56,10 @@ class TraditionalLotteryHtmlParser:
         r"(?:serie|series)\s*[:#-]?\s*(\d{1,4})",
         re.IGNORECASE,
     )
+    _SPACED_SERIES_RE = re.compile(
+        r"(?:serie|series)\s*[:#-]?\s*(\d)\s*(\d)\s*(\d)\s*(\d)?",
+        re.IGNORECASE,
+    )
 
     def __init__(self, lottery_code: str) -> None:
         self.lottery_code = lottery_code.upper()
@@ -90,6 +94,7 @@ class TraditionalLotteryHtmlParser:
             "".join(match) for match in self._SPACED_NUMBER_RE.findall(text)
         ]
         series_match = self._SERIES_RE.search(search_text)
+        spaced_series_matches = self._SPACED_SERIES_RE.finditer(search_text)
 
         if not date_match and not month_first_date_match and not numeric_date_match and not iso_date_match:
             raise SourceParseError(
@@ -149,6 +154,12 @@ class TraditionalLotteryHtmlParser:
             metadata["series"] = labeled_result_series_match.group(2)
         elif series_match:
             metadata["series"] = series_match.group(1)
+        else:
+            for match in spaced_series_matches:
+                digits = [group for group in match.groups() if group is not None]
+                if 1 <= len(digits) <= 4:
+                    metadata["series"] = "".join(digits)
+                    break
 
         return [
             {
