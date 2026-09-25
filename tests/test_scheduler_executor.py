@@ -163,7 +163,7 @@ def test_controlled_executor_uses_profile_fetcher(monkeypatch):
                 SimpleNamespace(
                     draw_type="LOTERIA_CUNDINAMARCA_ORDINARY",
                     draw_number="4821",
-                    draw_date=datetime(2026, 9, 21).date(),
+                    draw_date=datetime(2026, 9, 21, tzinfo=UTC).date(),
                     draw_time=None,
                     main_numbers=[5341],
                     bonus_numbers=[],
