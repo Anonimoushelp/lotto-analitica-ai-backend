@@ -202,7 +202,6 @@ class LotteryDrawService:
             )
 
         incoming_metadata = dict(record.metadata or {})
-        incoming_metadata["parser_version"] = LotteryDrawService._INGESTION_PARSER_VERSION
 
         existing = None
         if record.draw_number is not None:
@@ -256,7 +255,7 @@ class LotteryDrawService:
                     db.refresh(existing)
                 return existing
 
-            existing_parser_version = (existing.metadata_json or {}).get("parser_version")
+            existing_parser_version = (existing.validation_json or {}).get("ingestion_parser_version")
             incoming_is_verified = bool(record.metadata.get("source_verified", False))
             if existing_parser_version is None and incoming_is_verified:
                 # Repair rows created by the pre-v2 parser when the source now
@@ -266,6 +265,11 @@ class LotteryDrawService:
                 existing.main_numbers = record.main_numbers
                 existing.bonus_numbers = record.bonus_numbers
                 existing.metadata_json = incoming_metadata
+                existing.validation_json = {
+                    **(existing.validation_json or {}),
+                    "ingestion_parser_version": LotteryDrawService._INGESTION_PARSER_VERSION,
+                    "source_verified": incoming_is_verified,
+                }
                 existing.source = record.source_name
                 existing.source_url = record.source_url
                 existing.source_timestamp = record.source_timestamp
@@ -296,6 +300,7 @@ class LotteryDrawService:
                 "date_valid": True,
                 "duplicate": False,
                 "source_verified": bool(record.metadata.get("source_verified", False)),
+                "ingestion_parser_version": LotteryDrawService._INGESTION_PARSER_VERSION,
             },
         )
 
