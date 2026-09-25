@@ -55,6 +55,11 @@ class TraditionalLotteryHtmlParser:
     _SPACED_NUMBER_RE = re.compile(
         r"(?<!\d)(\d)\s+(\d)\s+(\d)\s+(\d)(?!\d)"
     )
+    _WINNER_SPACED_NUMBER_RE = re.compile(
+        r"\bnumero\s+ganador\b\s*[:#-]?\s*"
+        r"(\d)(?:\s+(\d))(?:\s+(\d))(?:\s+(\d))\b",
+        re.IGNORECASE,
+    )
     _SERIES_RE = re.compile(
         r"(?:serie|series)\s*[:#-]?\s*(\d{1,4})",
         re.IGNORECASE,
@@ -118,18 +123,16 @@ class TraditionalLotteryHtmlParser:
 
         draw_number = draw_match.group(1) if draw_match else None
         raw_number = (
-            winner_spaced_number_match.group(0).replace(" ", "")
+            "".join(
+                group
+                for group in winner_spaced_number_match.groups()
+                if group is not None
+            )
             if winner_spaced_number_match
             else labeled_result_series_match.group(1)
             if labeled_result_series_match
             else result_match.group(1) if result_match else None
         )
-        if winner_spaced_number_match:
-            raw_number = "".join(
-                group
-                for group in winner_spaced_number_match.groups()
-                if group is not None
-            )
         if raw_number is None:
             for candidate in labeled_number_matches:
                 if draw_number is None or candidate != draw_number:
