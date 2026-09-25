@@ -74,10 +74,14 @@ class TraditionalLotteryHtmlParser:
         text = re.sub(r"\s+", " ", text).strip()
         search_text = self._strip_accents(text)
         draw_match = self._DRAW_RE.search(search_text)
-        date_match = self._DATE_RE.search(search_text)
-        month_first_date_match = self._MONTH_FIRST_DATE_RE.search(search_text)
-        numeric_date_match = self._NUMERIC_DATE_RE.search(search_text)
-        iso_date_match = self._ISO_DATE_RE.search(search_text)
+        date_matches = list(self._DATE_RE.finditer(search_text))
+        month_first_date_matches = list(self._MONTH_FIRST_DATE_RE.finditer(search_text))
+        numeric_date_matches = list(self._NUMERIC_DATE_RE.finditer(search_text))
+        iso_date_matches = list(self._ISO_DATE_RE.finditer(search_text))
+        date_match = date_matches[0] if date_matches else None
+        month_first_date_match = month_first_date_matches[0] if month_first_date_matches else None
+        numeric_date_match = numeric_date_matches[0] if numeric_date_matches else None
+        iso_date_match = iso_date_matches[0] if iso_date_matches else None
         result_match = self._RESULT_RE.search(search_text)
         labeled_result_series_match = self._LABELED_RESULT_SERIES_RE.search(search_text)
         labeled_number_matches = self._LABELED_NUMBER_RE.findall(search_text)
@@ -128,10 +132,10 @@ class TraditionalLotteryHtmlParser:
             )
 
         draw_date = self._parse_date(
-            iso_date_match=iso_date_match,
-            numeric_date_match=numeric_date_match,
-            date_match=date_match,
-            month_first_date_match=month_first_date_match,
+            iso_date_matches=iso_date_matches,
+            numeric_date_matches=numeric_date_matches,
+            date_matches=date_matches,
+            month_first_date_matches=month_first_date_matches,
         )
 
         code = (lottery_code or self.lottery_code).upper()
@@ -162,39 +166,32 @@ class TraditionalLotteryHtmlParser:
     def _parse_date(
         self,
         *,
-        iso_date_match: re.Match[str] | None,
-        numeric_date_match: re.Match[str] | None,
-        date_match: re.Match[str] | None,
-        month_first_date_match: re.Match[str] | None,
+        iso_date_matches: list[re.Match[str]],
+        numeric_date_matches: list[re.Match[str]],
+        date_matches: list[re.Match[str]],
+        month_first_date_matches: list[re.Match[str]],
     ) -> str:
-        if iso_date_match:
-            year, month, day = iso_date_match.groups()
+        # Prefer unambiguous numeric/ISO dates, then inspect every textual
+        # candidate instead of trusting the first match on a long HTML page.
+        for match in iso_date_matches:
+            year, month, day = match.groups()
             return f"{year}-{int(month):02d}-{int(day):02d}"
-        if numeric_date_match:
-            day, month, year = numeric_date_match.groups()
+        for match in numeric_date_matches:
+            day, month, year = match.groups()
             return f"{year}-{int(month):02d}-{int(day):02d}"
+
         candidates = []
-        if month_first_date_match:
-            candidates.append(
-                (
-                    month_first_date_match.group(1),
-                    month_first_date_match.group(2),
-                    month_first_date_match.group(3),
-                )
-            )
-        if date_match:
-            candidates.append(
-                (
-                    date_match.group(2),
-                    date_match.group(1),
-                    date_match.group(3),
-                )
-            )
+        for match in month_first_date_matches:
+            candidates.append((match.group(1), match.group(2), match.group(3)))
+        for match in date_matches:
+            candidates.append((match.group(2), match.group(1), match.group(3)))
+
         for month_name, day, year in candidates:
             month = self._month(month_name)
             if month is not None:
                 return f"{year}-{month}-{int(day):02d}"
         raise SourceParseError("Traditional lottery source has an unsupported month")
+
 
     @staticmethod
     def _strip_accents(value: str) -> str:
