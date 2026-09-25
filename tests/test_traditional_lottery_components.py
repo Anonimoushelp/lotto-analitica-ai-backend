@@ -439,3 +439,34 @@ def test_traditional_parser_accepts_textual_month_with_slash_separators():
     assert records[0]["draw_date"] == "2026-09-18"
     assert records[0]["main_numbers"] == [8535]
     assert records[0]["metadata"]["series"] == "183"
+
+
+def test_cundinamarca_acta_fetcher_falls_back_when_index_is_dynamic():
+    page_url = "https://www.loteriadecundinamarca.com.co/?p=actas-de-resultados"
+    page = "<html><body><div>Actas cargadas dinámicamente</div></body></html>"
+
+    def handler(request):
+        if "actas-de-resultados" in str(request.url):
+            return httpx.Response(
+                200,
+                text=page,
+                headers={"content-type": "text/html; charset=utf-8"},
+            )
+        match = re.search(r"Sorteo\s+(\d+)\.pdf$", unquote(request.url.path))
+        assert match is not None
+        draw = int(match.group(1))
+        if draw == 4821:
+            return httpx.Response(
+                200,
+                content=b"%PDF-1.7 fake",
+                headers={"content-type": "application/pdf"},
+            )
+        return httpx.Response(404)
+
+    fetcher = CundinamarcaActaSourceFetcher(
+        transport=httpx.MockTransport(handler)
+    )
+    result = fetcher.fetch(page_url)
+
+    assert "Sorteo%204821.pdf" in result.url
+    assert "application/pdf" in result.content_type
