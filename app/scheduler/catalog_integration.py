@@ -91,12 +91,13 @@ def build_catalog_scheduler_bindings() -> tuple[CatalogDrawBinding, ...]:
             if lottery.ordinary_weekday is not None
             else None
         )
+        source = _operator_source(lottery)
         status = (
             IntegrationStatus.SUSPENDED
             if lottery.status is LotteryStatus.SUSPENDED_ORDINARY
             else (
                 IntegrationStatus.READY_FOR_CONTROLLED_TEST
-                if lottery.primary_source_verified
+                if source.verified
                 else IntegrationStatus.PENDING_SOURCE
             )
         )
@@ -105,7 +106,7 @@ def build_catalog_scheduler_bindings() -> tuple[CatalogDrawBinding, ...]:
                 lottery.code,
                 draw_type,
                 calendar_rule,
-                _operator_source(lottery),
+                source,
                 status,
             )
         )
