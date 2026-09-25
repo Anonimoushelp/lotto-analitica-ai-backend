@@ -112,12 +112,12 @@ class TraditionalLotteryHtmlParser:
                     raw_number = candidate
                     break
         if raw_number is None:
-            for candidate in number_matches:
+            for candidate in spaced_number_matches:
                 if draw_number is None or candidate != draw_number:
                     raw_number = candidate
                     break
         if raw_number is None:
-            for candidate in spaced_number_matches:
+            for candidate in number_matches:
                 if draw_number is None or candidate != draw_number:
                     raw_number = candidate
                     break
