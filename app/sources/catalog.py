@@ -10,7 +10,7 @@ from app.sources.adapters import (
     SuperAstroAdapter,
 )
 from app.sources.contracts import SourceAdapter
-from app.sources.fetchers import HttpSourceFetcher
+from app.sources.fetchers import EmbeddedIframeSourceFetcher, HttpSourceFetcher
 from app.sources.four_digit_adapters import (
     AntioquenitaAdapter,
     CafeteritoAdapter,
@@ -44,10 +44,7 @@ from app.sources.provider_parsers import (
 )
 from app.sources.registry import get_source_spec
 from app.sources.traditional_lottery import get_traditional_source
-from app.sources.traditional_lottery_components import (
-    TraditionalLotteryAdapter,
-    TraditionalLotteryHtmlParser,
-)
+from app.sources.provider_registry import build_traditional_lottery_components
 
 
 @dataclass(frozen=True)
@@ -72,11 +69,23 @@ def _four_digit_pipeline(parser: object, adapter: SourceAdapter) -> SourceIngest
     return _json_pipeline(parser, adapter)
 
 
+def _traditional_fetcher(code: str):
+    profile = get_traditional_source(code)
+    if profile.fetcher_key == "http":
+        return HttpSourceFetcher()
+    if profile.fetcher_key == "same_origin_iframe":
+        return EmbeddedIframeSourceFetcher()
+    raise ValueError(
+        f"Unsupported traditional fetcher for {code}: {profile.fetcher_key}"
+    )
+
+
 def _traditional_pipeline(code: str) -> SourceIngestionPipeline:
+    parser, adapter = build_traditional_lottery_components(code)
     return SourceIngestionPipeline(
-        fetcher=HttpSourceFetcher(),
-        parser=TraditionalLotteryHtmlParser(code),
-        adapter=TraditionalLotteryAdapter(code),
+        fetcher=_traditional_fetcher(code),
+        parser=parser,
+        adapter=adapter,
     )
 
 
