@@ -380,6 +380,37 @@ class CundinamarcaActaSourceFetcher(HttpSourceFetcher):
                         fallback_matches.append(
                             (year, int(draw_match.group(1)), candidate.url)
                         )
+                    continue
+
+                # A legacy official URL can return an HTML wrapper with the
+                # actual PDF link inside it. Follow same-origin PDF links from
+                # that wrapper instead of treating the 200 HTML response as a
+                # missing acta.
+                if "html" in candidate.content_type.casefold():
+                    wrapper_html = candidate.content.decode("utf-8", errors="ignore")
+                    wrapper_urls = [
+                        match.group(1)
+                        for match in self._PDF_URL_RE.finditer(wrapper_html)
+                    ]
+                    wrapper_urls.extend(
+                        match.group(1)
+                        for match in self._QUOTED_PDF_URL_RE.finditer(wrapper_html)
+                    )
+                    for raw_wrapper_url in dict.fromkeys(wrapper_urls):
+                        wrapper_url = urljoin(candidate.url, html_lib.unescape(raw_wrapper_url))
+                        try:
+                            pdf_candidate = fallback_fetcher.fetch(wrapper_url)
+                        except SourceFetchError:
+                            continue
+                        if (
+                            "pdf" in pdf_candidate.content_type.casefold()
+                            or pdf_candidate.content.startswith(b"%PDF")
+                        ):
+                            draw_match = self._DRAW_RE.search(unquote(pdf_candidate.url))
+                            if draw_match is not None:
+                                fallback_matches.append(
+                                    (year, int(draw_match.group(1)), pdf_candidate.url)
+                                )
             if not fallback_matches:
                 raise SourceFetchError(
                     f"No official Cundinamarca result acta links found in {index.url}"
