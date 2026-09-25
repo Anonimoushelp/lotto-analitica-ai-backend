@@ -153,7 +153,9 @@ class TraditionalLotteryHtmlParser:
             "digit_count": 4,
             "source_verified": profile.verified,
         }
-        if series_match:
+        if labeled_result_series_match:
+            metadata["series"] = labeled_result_series_match.group(2)
+        elif series_match:
             metadata["series"] = series_match.group(1)
 
         return [
