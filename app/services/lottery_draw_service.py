@@ -17,16 +17,26 @@ class LotteryDrawService:
         "source_format",
     })
 
-    @staticmethod
-    def _semantic_draw_metadata(metadata: dict | None) -> dict:
-        if not metadata:
-            return {}
-        return {
-            key: value
-            for key, value in metadata.items()
-            if key not in LotteryDrawService._NON_SEMANTIC_DRAW_METADATA_KEYS
-        }
+    @classmethod
+    def _merge_draw_metadata(
+        cls,
+        existing_metadata: dict | None,
+        incoming_metadata: dict | None,
+    ) -> tuple[bool, dict]:
+        existing = dict(existing_metadata or {})
+        incoming = dict(incoming_metadata or {})
+        merged = dict(existing)
 
+        for key, value in incoming.items():
+            if key in cls._NON_SEMANTIC_DRAW_METADATA_KEYS:
+                if merged.get(key) != value:
+                    merged[key] = value
+                continue
+            if key in merged and merged[key] != value:
+                return False, existing
+            merged[key] = value
+
+        return True, merged
 
     @staticmethod
     def list_draws(
@@ -170,29 +180,36 @@ class LotteryDrawService:
             )
 
         if existing is not None:
-            same_payload = (
+            same_core_payload = (
                 existing.draw_type == record.draw_type
                 and existing.draw_number == record.draw_number
                 and existing.draw_date == record.draw_date
                 and existing.draw_time == record.draw_time
                 and existing.main_numbers == record.main_numbers
                 and existing.bonus_numbers == record.bonus_numbers
-                and LotteryDrawService._semantic_draw_metadata(existing.metadata_json)
-                == LotteryDrawService._semantic_draw_metadata(record.metadata)
             )
-            if same_payload:
-                # Provenance is traceability, not draw identity. A provider may
-                # redirect or canonicalize its URL between fetches without
-                # changing the published draw. Keep the newest provenance while
-                # preserving the existing canonical row.
-                changed = False
+            metadata_compatible, merged_metadata = self._merge_draw_metadata(
+                existing.metadata_json,
+                record.metadata,
+            )
+            if same_core_payload and metadata_compatible:
+                # Provenance and newly available metadata may be refreshed
+                # without creating a second row. A previously absent metadata
+                # field is enrichment; a conflicting existing value remains a
+                # real payload conflict.
+                changed = existing.metadata_json != merged_metadata
+                if changed:
+                    existing.metadata_json = merged_metadata
                 if existing.source != record.source_name:
                     existing.source = record.source_name
                     changed = True
                 if existing.source_url != record.source_url:
                     existing.source_url = record.source_url
                     changed = True
-                if record.source_timestamp is not None and existing.source_timestamp != record.source_timestamp:
+                if (
+                    record.source_timestamp is not None
+                    and existing.source_timestamp != record.source_timestamp
+                ):
                     existing.source_timestamp = record.source_timestamp
                     changed = True
                 if changed:

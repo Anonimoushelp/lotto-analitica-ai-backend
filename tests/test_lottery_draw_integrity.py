@@ -330,6 +330,45 @@ def test_persist_raw_record_ignores_provenance_only_metadata_changes(db):
     assert same.id == first.id
 
 
+def test_persist_raw_record_enriches_missing_metadata_without_conflict(db):
+    lottery = seed_lottery(db, "MiLoto")
+    first = LotteryDrawService.create_draw(
+        db=db,
+        lottery_id=lottery.id,
+        draw_number="609",
+        draw_date=date(2026, 9, 18),
+        main_numbers=[1234],
+        draw_type="MILOTO_ORDINARY",
+        source="legacy",
+        metadata_json={"raw_result": "1234", "source_verified": False},
+    )
+
+    record = RawDrawRecord(
+        lottery_code="miloto",
+        draw_type="MILOTO_ORDINARY",
+        draw_number="609",
+        draw_date=date(2026, 9, 18),
+        draw_time=None,
+        main_numbers=[1234],
+        metadata={
+            "raw_result": "1234",
+            "series": "055",
+            "source_verified": True,
+        },
+        source_name="official",
+        source_url="https://example.test/results",
+    )
+
+    same = LotteryDrawService.persist_raw_record(db=db, record=record)
+
+    assert same.id == first.id
+    assert same.metadata_json == {
+        "raw_result": "1234",
+        "source_verified": True,
+        "series": "055",
+    }
+
+
 def test_persist_raw_record_rejects_semantic_metadata_change(db):
     lottery = seed_lottery(db, "MiLoto")
     LotteryDrawService.create_draw(

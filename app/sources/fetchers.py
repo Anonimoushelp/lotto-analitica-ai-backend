@@ -208,8 +208,12 @@ class EmbeddedIframeSourceFetcher(HttpSourceFetcher):
 class CundinamarcaActaSourceFetcher(HttpSourceFetcher):
     """Select and fetch the latest official Cundinamarca results acta."""
 
-    _ACTA_RE = re.compile(
-        r"""(?:href|data-href)\s*=\s*["']([^"']*(?:/)?public/files/actas/(20\d{2})/Acta(?:%20|\s)+Sorteo(?:%20|\s)+(\d{1,6})(?:%20|\s)*\.pdf[^"']*)["']""",
+    _PDF_URL_RE = re.compile(
+        r"""(?:href|data-href|src)\s*=\s*["']([^"']+\.pdf(?:\?[^"']*)?)["']""",
+        re.IGNORECASE,
+    )
+    _DRAW_RE = re.compile(
+        r"""(?:sorteo|resultado|acta)[^0-9]{0,60}(\d{3,6})(?!\d)""",
         re.IGNORECASE,
     )
 
@@ -221,13 +225,22 @@ class CundinamarcaActaSourceFetcher(HttpSourceFetcher):
             )
 
         html = index.content.decode("utf-8", errors="ignore")
-        matches = []
-        for match in self._ACTA_RE.finditer(html):
+        matches: list[tuple[int, int, str]] = []
+        for match in self._PDF_URL_RE.finditer(html):
             raw_url = html_lib.unescape(match.group(1))
             decoded_url = unquote(raw_url)
-            matches.append(
-                (int(match.group(2)), int(match.group(3)), decoded_url)
-            )
+            lowered = decoded_url.casefold()
+            if not any(
+                keyword in lowered for keyword in ("acta", "sorteo", "resultado")
+            ):
+                continue
+            draw_match = self._DRAW_RE.search(decoded_url)
+            if draw_match is None:
+                continue
+            year_match = re.search(r"(20\d{2})", decoded_url)
+            year = int(year_match.group(1)) if year_match else 0
+            draw_number = int(draw_match.group(1))
+            matches.append((year, draw_number, decoded_url))
 
         if not matches:
             raise SourceFetchError(

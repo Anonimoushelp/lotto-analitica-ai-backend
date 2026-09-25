@@ -257,6 +257,38 @@ def test_cundinamarca_acta_parser_extracts_official_pdf_fields(monkeypatch):
     assert normalized.metadata["series"] == "078"
 
 
+
+
+def test_cundinamarca_acta_fetcher_accepts_result_pdf_links_without_fixed_path():
+    page_url = "https://www.loteriadecundinamarca.com.co/?p=actas-de-resultados"
+    page = """
+    <html><body>
+      <a href="/public/files/documentos/2026/acta-resultados-sorteo-4820.pdf">4820</a>
+      <a href="/public/files/actas/2026/Acta%20Sorteo%204821.pdf">4821</a>
+    </body></html>
+    """
+
+    def handler(request):
+        if request.url.path == "/":
+            return httpx.Response(
+                200,
+                text=page,
+                headers={"content-type": "text/html; charset=utf-8"},
+            )
+        return httpx.Response(
+            200,
+            content=b"%PDF-1.7 fake",
+            headers={"content-type": "application/pdf"},
+        )
+
+    fetcher = CundinamarcaActaSourceFetcher(
+        transport=httpx.MockTransport(handler)
+    )
+    result = fetcher.fetch(page_url)
+
+    assert "4821" in result.url
+    assert "application/pdf" in result.content_type
+
 def test_cundinamarca_acta_fetcher_selects_latest_official_acta():
     page_url = "https://www.loteriadecundinamarca.com.co/?p=actas-de-resultados"
     page = """
@@ -310,13 +342,13 @@ def test_boyaca_real_layout_prefers_labeled_winner_over_secondary_numbers():
     assert records[0]["metadata"]["series"] == "240"
 
 
-def test_risaralda_date_allows_comma_after_month():
+def test_risaralda_date_allows_comma_after_day_and_month():
     parser, _ = build_traditional_lottery_components("LOTERIA_RISARALDA")
     records = list(
         parser.parse(
             _result(
                 "<html><body>"
-                "Sorteo 2967 viernes, 18 de septiembre, 2026 "
+                "Sorteo 2967 viernes, 18, de septiembre, 2026 "
                 "Premio mayor 6 7 1 1 Serie 284"
                 "</body></html>"
             )
