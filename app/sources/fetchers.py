@@ -313,6 +313,10 @@ class CundinamarcaActaSourceFetcher(HttpSourceFetcher):
         for raw_url in dict.fromkeys(raw_urls):
             raw_url = html_lib.unescape(raw_url)
             decoded_url = unquote(raw_url)
+            # Some official pages expose relative links that only resolve
+            # correctly from their legacy /index.php/contratacion/ location.
+            # Preserve the raw URL here; the final fetch stage tries the
+            # canonical URL first and the legacy-relative form when needed.
             lowered = decoded_url.casefold()
             if not any(
                 keyword in lowered for keyword in ("acta", "sorteo", "resultado")
@@ -342,11 +346,19 @@ class CundinamarcaActaSourceFetcher(HttpSourceFetcher):
             anchor = datetime(2026, 2, 16, tzinfo=UTC).date()
             estimated_draw = 4790 + max(0, (today - anchor).days // 7)
             year = today.year
-            fallback_urls = [
-                f"https://{host}/public/files/actas/{year}/"
-                f"Acta%20Sorteo%20{draw}.pdf"
-                for draw in range(max(4790, estimated_draw - 8), estimated_draw + 9)
-            ]
+            fallback_urls = []
+            for draw in range(max(4790, estimated_draw - 8), estimated_draw + 9):
+                filename = f"Acta%20Sorteo%20{draw}.pdf"
+                # The official distributor page has historically emitted
+                # relative PDF links from an /index.php/contratacion/ page.
+                # Keep both the canonical public path and that legacy-relative
+                # resolution path so a dynamic/empty index remains recoverable.
+                fallback_urls.extend(
+                    [
+                        f"https://{host}/public/files/actas/{year}/{filename}",
+                        f"https://{host}/index.php/contratacion/public/files/actas/{year}/{filename}",
+                    ]
+                )
             fallback_fetcher = HttpSourceFetcher(
                 timeout=self.timeout,
                 user_agent=self.user_agent,
