@@ -188,7 +188,7 @@ class LotteryDrawService:
                 and existing.main_numbers == record.main_numbers
                 and existing.bonus_numbers == record.bonus_numbers
             )
-            metadata_compatible, merged_metadata = self._merge_draw_metadata(
+            metadata_compatible, merged_metadata = LotteryDrawService._merge_draw_metadata(
                 existing.metadata_json,
                 record.metadata,
             )
