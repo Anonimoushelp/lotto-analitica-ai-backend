@@ -36,4 +36,3 @@ def test_paga_todo_parser_decodes_html_entities():
             },
         }
     ]
-]
