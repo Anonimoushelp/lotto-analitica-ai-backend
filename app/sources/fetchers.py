@@ -215,6 +215,10 @@ class CundinamarcaActaSourceFetcher(HttpSourceFetcher):
         r"""(?:href|data-href|src)\s*=\s*["']([^"']+\.pdf(?:\?[^"']*)?)["']""",
         re.IGNORECASE,
     )
+    _QUOTED_PDF_URL_RE = re.compile(
+        r"""["']((?:https?:)?//[^"'\s]+\.pdf(?:\?[^"'\s]*)?|/[^"'\s]+\.pdf(?:\?[^"'\s]*)?)["']""",
+        re.IGNORECASE,
+    )
     _DRAW_RE = re.compile(
         r"""\bsorteo(?:%20|\s|[-_])*(\d{3,6})(?!\d)""",
         re.IGNORECASE,
@@ -229,8 +233,10 @@ class CundinamarcaActaSourceFetcher(HttpSourceFetcher):
 
         html = index.content.decode("utf-8", errors="ignore")
         matches: list[tuple[int, int, str]] = []
-        for match in self._PDF_URL_RE.finditer(html):
-            raw_url = html_lib.unescape(match.group(1))
+        raw_urls = [match.group(1) for match in self._PDF_URL_RE.finditer(html)]
+        raw_urls.extend(match.group(1) for match in self._QUOTED_PDF_URL_RE.finditer(html))
+        for raw_url in dict.fromkeys(raw_urls):
+            raw_url = html_lib.unescape(raw_url)
             decoded_url = unquote(raw_url)
             lowered = decoded_url.casefold()
             if not any(

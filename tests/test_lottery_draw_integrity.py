@@ -369,6 +369,37 @@ def test_persist_raw_record_enriches_missing_metadata_without_conflict(db):
     }
 
 
+def test_persist_raw_record_accepts_canonical_numeric_raw_result(db):
+    lottery = seed_lottery(db, "Tolima")
+    first = LotteryDrawService.create_draw(
+        db=db,
+        lottery_id=lottery.id,
+        draw_number="4188",
+        draw_date=date(2026, 9, 21),
+        main_numbers=[4008],
+        draw_type="TOLIMA_ORDINARY",
+        source="legacy",
+        metadata_json={"raw_result": 4008, "digit_count": 4, "series": "055"},
+    )
+
+    record = RawDrawRecord(
+        lottery_code="tolima",
+        draw_type="TOLIMA_ORDINARY",
+        draw_number="4188",
+        draw_date=date(2026, 9, 21),
+        draw_time=None,
+        main_numbers=[4008],
+        metadata={"raw_result": "4008", "digit_count": 4, "series": "055"},
+        source_name="official",
+        source_url="https://example.test/tolima",
+    )
+
+    same = LotteryDrawService.persist_raw_record(db=db, record=record)
+
+    assert same.id == first.id
+    assert same.metadata_json["raw_result"] == "4008"
+
+
 def test_persist_raw_record_rejects_semantic_metadata_change(db):
     lottery = seed_lottery(db, "MiLoto")
     LotteryDrawService.create_draw(

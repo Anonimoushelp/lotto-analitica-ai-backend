@@ -17,6 +17,14 @@ class LotteryDrawService:
         "source_format",
     })
 
+    @staticmethod
+    def _metadata_comparison_value(key: str, value):
+        if key == "raw_result" and value is not None:
+            return str(value).zfill(4)
+        if key == "digit_count" and value is not None:
+            return int(value)
+        return value
+
     @classmethod
     def _merge_draw_metadata(
         cls,
@@ -32,8 +40,11 @@ class LotteryDrawService:
                 if merged.get(key) != value:
                     merged[key] = value
                 continue
-            if key in merged and merged[key] != value:
-                return False, existing
+            if key in merged:
+                existing_value = cls._metadata_comparison_value(key, merged[key])
+                incoming_value = cls._metadata_comparison_value(key, value)
+                if existing_value != incoming_value:
+                    return False, existing
             merged[key] = value
 
         return True, merged
