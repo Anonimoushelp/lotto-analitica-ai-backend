@@ -25,6 +25,7 @@ from app.sources.provider_parser_adapter import (
     HtmlProviderParserAdapter,
     ProviderParserAdapter,
 )
+from app.sources.traditional_lottery import get_traditional_source
 
 
 PROVIDER_COMPONENTS = {
@@ -112,10 +113,35 @@ TRADITIONAL_LOTTERY_CODES = {
 }
 
 
+TRADITIONAL_PARSER_FACTORIES = {
+    "traditional_result_page": TraditionalLotteryHtmlParser,
+    "traditional_result_page_embedded": TraditionalLotteryHtmlParser,
+}
+
+TRADITIONAL_ADAPTER_FACTORIES = {
+    "traditional_four_digit_series": TraditionalLotteryAdapter,
+}
+
+
 def build_traditional_lottery_components(lottery_code: str):
     code = lottery_code.upper()
     if code not in TRADITIONAL_LOTTERY_CODES:
         raise KeyError(
             f"No traditional lottery components configured for {lottery_code}"
         )
-    return TraditionalLotteryHtmlParser(code), TraditionalLotteryAdapter(code)
+
+    profile = get_traditional_source(code)
+    try:
+        parser_factory = TRADITIONAL_PARSER_FACTORIES[profile.parser_key]
+    except KeyError as exc:
+        raise KeyError(
+            f"No traditional parser configured for {code}: {profile.parser_key}"
+        ) from exc
+    try:
+        adapter_factory = TRADITIONAL_ADAPTER_FACTORIES[profile.adapter_key]
+    except KeyError as exc:
+        raise KeyError(
+            f"No traditional adapter configured for {code}: {profile.adapter_key}"
+        ) from exc
+
+    return parser_factory(code), adapter_factory(code)
