@@ -15,7 +15,7 @@ class TraditionalLotteryHtmlParser:
     """Extract a four-digit major result plus series from a lottery result page."""
 
     _DRAW_RE = re.compile(
-        r"\b(?:sorteo|draw)\s*(?:numero|no\.?|#)?\s*(\d{1,6})",
+        r"\b(?:sorteo|draw)\s*[:#-]?\s*(?:numero|no\.?)?\s*[:#-]?\s*(\d{1,6})",
         re.IGNORECASE,
     )
     _DATE_RE = re.compile(
@@ -26,6 +26,9 @@ class TraditionalLotteryHtmlParser:
     )
     _NUMERIC_DATE_RE = re.compile(
         r"(?<!\d)(\d{1,2})[/-](\d{1,2})[/-](\d{4})(?!\d)"
+    )
+    _ISO_DATE_RE = re.compile(
+        r"(?<!\d)(\d{4})-(\d{1,2})-(\d{1,2})(?!\d)"
     )
     _MONTH_FIRST_DATE_RE = re.compile(
         r"\b([A-Za-zÁÉÍÓÚáéíóúñÑ]+\.?)\s+(\d{1,2})"
@@ -69,6 +72,7 @@ class TraditionalLotteryHtmlParser:
         date_match = self._DATE_RE.search(text)
         month_first_date_match = self._MONTH_FIRST_DATE_RE.search(text)
         numeric_date_match = self._NUMERIC_DATE_RE.search(text)
+        iso_date_match = self._ISO_DATE_RE.search(text)
         result_match = self._RESULT_RE.search(search_text)
         labeled_number_matches = self._LABELED_NUMBER_RE.findall(search_text)
         number_matches = self._NUMBER_RE.findall(text)
@@ -77,7 +81,7 @@ class TraditionalLotteryHtmlParser:
         ]
         series_match = self._SERIES_RE.search(search_text)
 
-        if not date_match and not month_first_date_match and not numeric_date_match:
+        if not date_match and not month_first_date_match and not numeric_date_match and not iso_date_match:
             raise SourceParseError(
                 "Traditional lottery source does not expose a recognizable date/result"
             )
@@ -113,7 +117,10 @@ class TraditionalLotteryHtmlParser:
                 "Traditional lottery source does not expose a recognizable four-digit result"
             )
 
-        if numeric_date_match:
+        if iso_date_match:
+            year, month, day = iso_date_match.groups()
+            draw_date = f"{year}-{int(month):02d}-{int(day):02d}"
+        elif numeric_date_match:
             day, month, year = numeric_date_match.groups()
             draw_date = f"{year}-{int(month):02d}-{int(day):02d}"
         elif date_match:
