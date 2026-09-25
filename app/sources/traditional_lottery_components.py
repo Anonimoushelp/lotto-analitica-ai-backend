@@ -3,6 +3,7 @@ from __future__ import annotations
 import html as html_lib
 import re
 import unicodedata
+from datetime import date, timedelta
 from collections.abc import Iterable, Mapping
 from io import BytesIO
 
@@ -136,6 +137,8 @@ class TraditionalLotteryHtmlParser:
             )
 
         draw_number = draw_match.group(1) if draw_match else None
+        code = (lottery_code or self.lottery_code).upper()
+        profile = get_traditional_source(code)
         raw_number = (
             "".join(
                 group
@@ -167,21 +170,37 @@ class TraditionalLotteryHtmlParser:
                 "Traditional lottery source does not expose a recognizable four-digit result"
             )
 
-        draw_date = self._parse_date(
-            iso_date_matches=iso_date_matches,
-            numeric_date_matches=numeric_date_matches,
-            date_matches=date_matches,
-            month_first_date_matches=month_first_date_matches,
-            flexible_textual_date_matches=flexible_textual_date_matches,
-        )
+        try:
+            draw_date = self._parse_date(
+                iso_date_matches=iso_date_matches,
+                numeric_date_matches=numeric_date_matches,
+                date_matches=date_matches,
+                month_first_date_matches=month_first_date_matches,
+                flexible_textual_date_matches=flexible_textual_date_matches,
+            )
+            date_inferred_from_draw_schedule = False
+        except SourceParseError:
+            # Risaralda's official sales page can serve the result data through
+            # a dynamic renderer while omitting the human-readable date from
+            # the raw HTTP HTML. The draw number is authoritative and this
+            # lottery runs weekly on Fridays. Use a dated official draw anchor
+            # only for this verified source as a deterministic fallback.
+            if code != "LOTERIA_RISARALDA" or draw_number is None:
+                raise
+            anchor_draw = 2967
+            anchor_date = date(2026, 9, 18)
+            draw_date = (
+                anchor_date + timedelta(days=(int(draw_number) - anchor_draw) * 7)
+            ).isoformat()
+            date_inferred_from_draw_schedule = True
 
-        code = (lottery_code or self.lottery_code).upper()
-        profile = get_traditional_source(code)
         metadata = {
             "raw_result": raw_number,
             "digit_count": 4,
             "source_verified": profile.verified,
         }
+        if date_inferred_from_draw_schedule:
+            metadata["date_inferred_from_draw_schedule"] = True
         if labeled_result_series_match:
             metadata["series"] = labeled_result_series_match.group(2)
         else:
