@@ -368,7 +368,7 @@ def test_cundinamarca_acta_fetcher_discovers_newer_contiguous_acta():
     )
 
     def handler(request):
-        match = re.search(r"Sorteo%20(\d+)\.pdf$", request.url.path)
+        match = re.search(r"Sorteo[ %20]+(\d+)\.pdf$", unquote(request.url.path))
         assert match is not None
         draw = int(match.group(1))
         if draw <= 4821:
