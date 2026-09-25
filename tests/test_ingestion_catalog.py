@@ -95,11 +95,11 @@ def test_persistent_scheduler_claims_each_due_job_once():
 
 def test_traditional_catalog_uses_source_specific_endpoints_and_fetchers():
     from app.sources.catalog import _traditional_fetcher
-    from app.sources.fetchers import EmbeddedIframeSourceFetcher
+    from app.sources.fetchers import CundinamarcaActaSourceFetcher
     from app.sources.traditional_lottery import get_traditional_source
 
     expected_urls = {
-        "LOTERIA_CUNDINAMARCA": "https://www.loteriadecundinamarca.com.co/?d=mision&p=plataforma-estrategica&view=nosotros",
+        "LOTERIA_CUNDINAMARCA": "https://www.loteriadecundinamarca.com.co/?p=actas-de-resultados&view=distribuidores",
         "LOTERIA_CRUZ_ROJA": "https://lotecruz.org.co/",
         "LOTERIA_VALLE": "https://loteriadelvalle.com/",
         "LOTERIA_RISARALDA": "https://ventas.loteriadelrisaralda.com/resultados",
@@ -112,5 +112,5 @@ def test_traditional_catalog_uses_source_specific_endpoints_and_fetchers():
 
     assert isinstance(
         _traditional_fetcher("LOTERIA_CUNDINAMARCA"),
-        EmbeddedIframeSourceFetcher,
+        CundinamarcaActaSourceFetcher,
     )
