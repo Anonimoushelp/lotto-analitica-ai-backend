@@ -194,3 +194,23 @@ def test_traditional_parser_accepts_cruz_roja_homepage_format():
     assert records[0]["main_numbers"] == [16]
     assert records[0]["metadata"]["raw_result"] == "0016"
     assert records[0]["metadata"]["series"] == "173"
+
+
+def test_traditional_parser_preserves_spaced_series_from_boyaca_layout():
+    parser, _ = build_traditional_lottery_components("LOTERIA_BOYACA")
+    records = list(
+        parser.parse(
+            _result(
+                "<html><body>"
+                "Resultado sorteo #4642 "
+                "Sábado 19 de septiembre de 2026 "
+                "Número Ganador 8 0 0 4 "
+                "Serie 2 4 0"
+                "</body></html>"
+            )
+        )
+    )
+    assert records[0]["draw_number"] == "4642"
+    assert records[0]["draw_date"] == "2026-09-19"
+    assert records[0]["main_numbers"] == [8004]
+    assert records[0]["metadata"]["series"] == "240"
