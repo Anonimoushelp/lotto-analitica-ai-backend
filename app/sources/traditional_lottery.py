@@ -16,11 +16,11 @@ class TraditionalLotterySource:
 _PROFILES = {
     "LOTERIA_CUNDINAMARCA": TraditionalLotterySource(
         "Lotería de Cundinamarca — resultados",
-        "https://www.loteriadecundinamarca.com.co/?d=mision&p=plataforma-estrategica&view=nosotros",
-        "traditional_result_page_embedded",
+        "https://www.loteriadecundinamarca.com.co/?p=actas-de-resultados&view=distribuidores",
+        "traditional_cundinamarca_acta_pdf",
         "traditional_four_digit_series",
         True,
-        fetcher_key="same_origin_iframe",
+        fetcher_key="cundinamarca_acta_pdf",
     ),
     "LOTERIA_TOLIMA": TraditionalLotterySource(
         "Lotería del Tolima — resultados",

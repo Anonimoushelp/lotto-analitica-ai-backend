@@ -10,6 +10,7 @@ from app.db.session import SessionLocal
 from app.models.lottery import Lottery
 from app.services.lottery_draw_service import LotteryDrawService
 from app.sources.fetchers import (
+    CundinamarcaActaSourceFetcher,
     EmbeddedIframeSourceFetcher,
     HttpSourceFetcher,
     SourceFetcher,
@@ -41,6 +42,8 @@ class ControlledIngestionExecutor:
             return HttpSourceFetcher()
         if fetcher_key == "same_origin_iframe":
             return EmbeddedIframeSourceFetcher()
+        if fetcher_key == "cundinamarca_acta_pdf":
+            return CundinamarcaActaSourceFetcher()
         raise RuntimeError(f"Unsupported traditional source fetcher: {fetcher_key}")
 
     def __call__(self, lottery_code: str, draw_type: str) -> str:

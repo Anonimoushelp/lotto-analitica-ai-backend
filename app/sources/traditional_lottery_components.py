@@ -4,6 +4,9 @@ import html as html_lib
 import re
 import unicodedata
 from collections.abc import Iterable, Mapping
+from io import BytesIO
+
+from pypdf import PdfReader
 
 from app.sources.contracts import SourceSpec
 from app.sources.fetchers import SourceFetchResult
@@ -247,6 +250,104 @@ class TraditionalLotteryHtmlParser:
             "december": "12",
         }
         return aliases.get(normalized)
+
+
+class CundinamarcaActaPdfParser:
+    """Parse the official Cundinamarca results acta PDF."""
+
+    _DRAW_RE = re.compile(r"\bsorteo\s*[:#-]?\s*(\d{1,6})\b", re.IGNORECASE)
+    _DATE_RE = re.compile(
+        r"\ba\s+los\s+(\d{1,2})\s+del\s+mes\s+de\s+"
+        r"([A-Za-zÁÉÍÓÚáéíóúñÑ]+)\s+de\s+(\d{4})\b",
+        re.IGNORECASE,
+    )
+    _MAJOR_RE = re.compile(r"\bpremio\s+mayor\b", re.IGNORECASE)
+    _TOKEN_RE = re.compile(r"(?<!\d)(\d{1,4})(?!\d)")
+
+    def __init__(self, lottery_code: str) -> None:
+        self.lottery_code = lottery_code.upper()
+
+    def parse(
+        self,
+        result: SourceFetchResult,
+        lottery_code: str | None = None,
+    ) -> Iterable[Mapping[str, object]]:
+        if "pdf" not in result.content_type.casefold() and not result.content.startswith(
+            b"%PDF"
+        ):
+            raise SourceParseError(
+                "Cundinamarca official acta source is not a PDF document"
+            )
+
+        try:
+            reader = PdfReader(BytesIO(result.content))
+            text = " ".join(
+                (page.extract_text() or "") for page in reader.pages
+            )
+        except Exception as exc:
+            raise SourceParseError(
+                "Cundinamarca official acta PDF could not be parsed"
+            ) from exc
+
+        text = " ".join(text.split())
+        search_text = TraditionalLotteryHtmlParser._strip_accents(text)
+
+        draw_match = self._DRAW_RE.search(search_text)
+        date_match = self._DATE_RE.search(search_text)
+        major_match = self._MAJOR_RE.search(search_text)
+        if not draw_match or not date_match or not major_match:
+            raise SourceParseError(
+                "Cundinamarca official acta does not expose draw/date/major-result fields"
+            )
+
+        window = search_text[major_match.end() : major_match.end() + 300]
+        tokens = list(self._TOKEN_RE.finditer(window))
+        four_digit = [match for match in tokens if len(match.group(1)) == 4]
+        if not four_digit:
+            raise SourceParseError(
+                "Cundinamarca official acta does not expose a four-digit major result"
+            )
+
+        major = four_digit[-1].group(1)
+        series_candidates = [
+            match.group(1)
+            for match in tokens
+            if match.start() > four_digit[-1].end()
+        ]
+        if not series_candidates:
+            raise SourceParseError(
+                "Cundinamarca official acta does not expose the major-result series"
+            )
+
+        month = TraditionalLotteryHtmlParser._month(date_match.group(2))
+        if month is None:
+            raise SourceParseError(
+                "Cundinamarca official acta has an unsupported month"
+            )
+
+        code = (lottery_code or self.lottery_code).upper()
+        profile = get_traditional_source(code)
+        metadata = {
+            "raw_result": major,
+            "digit_count": 4,
+            "series": series_candidates[0],
+            "source_verified": profile.verified,
+            "source_format": "official_acta_pdf",
+        }
+        return [
+            {
+                "lottery_code": code,
+                "draw_type": f"{code}_ORDINARY",
+                "draw_number": draw_match.group(1),
+                "draw_date": (
+                    f"{date_match.group(3)}-{month}-{int(date_match.group(1)):02d}"
+                ),
+                "main_numbers": [int(major)],
+                "metadata": metadata,
+                "source_url": result.url,
+                "source_timestamp": result.fetched_at,
+            }
+        ]
 
 
 class TraditionalLotteryAdapter(MappingSourceAdapter):

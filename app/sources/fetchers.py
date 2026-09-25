@@ -1,10 +1,11 @@
 from __future__ import annotations
 
+import html as html_lib
 import re
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Protocol
-from urllib.parse import urljoin, urlparse
+from urllib.parse import unquote, urljoin, urlparse
 
 import httpx
 
@@ -202,3 +203,52 @@ class EmbeddedIframeSourceFetcher(HttpSourceFetcher):
         raise SourceFetchError(
             f"Embedded result iframe could not be fetched for {initial.url}"
         )
+
+
+class CundinamarcaActaSourceFetcher(HttpSourceFetcher):
+    """Select and fetch the latest official Cundinamarca results acta."""
+
+    _ACTA_RE = re.compile(
+        r"""(?:href|data-href)\s*=\s*["']([^"']*/public/files/actas/(20\d{2})/Acta(?:%20|\s)+Sorteo(?:%20|\s)+(\d{1,6})\.pdf[^"']*)["']""",
+        re.IGNORECASE,
+    )
+
+    def fetch(self, url: str) -> SourceFetchResult:
+        index = super().fetch(url)
+        if "html" not in index.content_type.casefold():
+            raise SourceFetchError(
+                "Cundinamarca acta index must be an HTML document"
+            )
+
+        html = index.content.decode("utf-8", errors="ignore")
+        matches = []
+        for match in self._ACTA_RE.finditer(html):
+            raw_url = html_lib.unescape(match.group(1))
+            decoded_url = unquote(raw_url)
+            matches.append(
+                (int(match.group(2)), int(match.group(3)), decoded_url)
+            )
+
+        if not matches:
+            raise SourceFetchError(
+                f"No official Cundinamarca result acta links found in {index.url}"
+            )
+
+        _, _, latest_url = max(matches, key=lambda item: (item[0], item[1], item[2]))
+        acta_url = urljoin(index.url, latest_url)
+        host = urlparse(index.url).hostname
+        nested_fetcher = HttpSourceFetcher(
+            timeout=self.timeout,
+            user_agent=self.user_agent,
+            allowed_hosts={host.casefold()} if host else None,
+            max_response_bytes=self.max_response_bytes,
+            transport=self.transport,
+        )
+        result = nested_fetcher.fetch(acta_url)
+        if "pdf" not in result.content_type.casefold() and not result.content.startswith(
+            b"%PDF"
+        ):
+            raise SourceFetchError(
+                f"Official Cundinamarca acta is not a PDF: {result.url}"
+            )
+        return result

@@ -10,7 +10,11 @@ from app.sources.adapters import (
     SuperAstroAdapter,
 )
 from app.sources.contracts import SourceAdapter
-from app.sources.fetchers import EmbeddedIframeSourceFetcher, HttpSourceFetcher
+from app.sources.fetchers import (
+    CundinamarcaActaSourceFetcher,
+    EmbeddedIframeSourceFetcher,
+    HttpSourceFetcher,
+)
 from app.sources.four_digit_adapters import (
     AntioquenitaAdapter,
     CafeteritoAdapter,
@@ -75,6 +79,8 @@ def _traditional_fetcher(code: str):
         return HttpSourceFetcher()
     if profile.fetcher_key == "same_origin_iframe":
         return EmbeddedIframeSourceFetcher()
+    if profile.fetcher_key == "cundinamarca_acta_pdf":
+        return CundinamarcaActaSourceFetcher()
     raise ValueError(
         f"Unsupported traditional fetcher for {code}: {profile.fetcher_key}"
     )

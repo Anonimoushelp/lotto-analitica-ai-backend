@@ -183,6 +183,6 @@ def test_controlled_executor_uses_profile_fetcher(monkeypatch):
     executor = ControlledIngestionExecutor(session_factory=lambda: FakeDb())
     executor("LOTERIA_CUNDINAMARCA", "LOTERIA_CUNDINAMARCA_ORDINARY")
 
-    from app.sources.fetchers import EmbeddedIframeSourceFetcher
+    from app.sources.fetchers import CundinamarcaActaSourceFetcher
 
-    assert isinstance(captured["fetcher"], EmbeddedIframeSourceFetcher)
+    assert isinstance(captured["fetcher"], CundinamarcaActaSourceFetcher)
