@@ -225,6 +225,80 @@ class CundinamarcaActaSourceFetcher(HttpSourceFetcher):
         re.IGNORECASE,
     )
 
+    def _discover_newer_acta(
+        self,
+        *,
+        index_url: str,
+        indexed_url: str,
+        latest_draw: int,
+    ) -> str | None:
+        parsed = urlparse(indexed_url)
+        path = parsed.path
+        match = re.search(r"(\d{3,6})(\.pdf)$", path, re.IGNORECASE)
+        if match is None:
+            return None
+
+        prefix = path[: match.start(1)]
+        suffix = match.group(2)
+        host = parsed.hostname
+        if host is None:
+            return None
+
+        fetcher = HttpSourceFetcher(
+            timeout=self.timeout,
+            user_agent=self.user_agent,
+            allowed_hosts={host.casefold()},
+            max_response_bytes=self.max_response_bytes,
+            transport=self.transport,
+        )
+
+        def probe(draw_number: int) -> str | None:
+            candidate_path = f"{prefix}{draw_number}{suffix}"
+            candidate = parsed._replace(
+                path=candidate_path,
+                query="",
+                fragment="",
+            ).geturl()
+            try:
+                result = fetcher.fetch(candidate)
+            except SourceFetchError:
+                return None
+            if "pdf" in result.content_type.casefold() or result.content.startswith(
+                b"%PDF"
+            ):
+                return result.url
+            return None
+
+        first = latest_draw + 1
+        if probe(first) is None:
+            return None
+
+        low = first
+        step = 1
+        high = first
+        while step < 32:
+            candidate = latest_draw + step * 2
+            if probe(candidate) is None:
+                high = candidate
+                break
+            low = candidate
+            high = candidate
+            step *= 2
+        else:
+            return probe(low)
+
+        left, right = low, high - 1
+        best = probe(low)
+        while left <= right:
+            mid = (left + right) // 2
+            candidate = probe(mid)
+            if candidate is not None:
+                best = candidate
+                left = mid + 1
+            else:
+                right = mid - 1
+        return best
+
     def fetch(self, url: str) -> SourceFetchResult:
         index = super().fetch(url)
         if "html" not in index.content_type.casefold():
@@ -257,8 +331,20 @@ class CundinamarcaActaSourceFetcher(HttpSourceFetcher):
                 f"No official Cundinamarca result acta links found in {index.url}"
             )
 
-        _, _, latest_url = max(matches, key=lambda item: (item[0], item[1], item[2]))
-        acta_url = urljoin(index.url, latest_url)
+        _, latest_draw, latest_url = max(
+            matches, key=lambda item: (item[0], item[1], item[2])
+        )
+
+        # The official index can lag behind the public acta files. Discover a
+        # newer contiguous run by probing draw-number URLs with exponential
+        # expansion followed by binary search. This avoids hard-coding a draw
+        # number while keeping the normal path to a single indexed PDF fetch.
+        discovered_url = self._discover_newer_acta(
+            index_url=index.url,
+            indexed_url=latest_url,
+            latest_draw=latest_draw,
+        )
+        acta_url = discovered_url or urljoin(index.url, latest_url)
         host = urlparse(index.url).hostname
         nested_fetcher = HttpSourceFetcher(
             timeout=self.timeout,
