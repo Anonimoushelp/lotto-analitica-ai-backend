@@ -390,3 +390,32 @@ def test_cundinamarca_acta_fetcher_discovers_newer_contiguous_acta():
 
     assert discovered is not None
     assert "Sorteo%204821.pdf" in discovered
+
+
+def test_persist_idempotency_allows_missing_optional_core_fields():
+    from app.models.lottery_draw import LotteryDraw
+    from app.services.lottery_draw_service import LotteryDrawService
+    from app.sources.contracts import RawDrawRecord
+
+    existing = LotteryDraw(
+        draw_type="LOTERIA_TOLIMA_ORDINARY",
+        draw_number="4188",
+        draw_date=datetime(2026, 9, 21).date(),
+        draw_time=None,
+        main_numbers=[4008],
+        bonus_numbers=[55],
+    )
+    record = RawDrawRecord(
+        lottery_code="LOTERIA_TOLIMA",
+        draw_type="LOTERIA_TOLIMA_ORDINARY",
+        draw_number="4188",
+        draw_date=datetime(2026, 9, 21).date(),
+        draw_time=None,
+        main_numbers=[4008],
+        bonus_numbers=None,
+        source_name="LOTERIA_TOLIMA",
+        source_url="https://example.test",
+        source_timestamp=datetime(2026, 9, 25, tzinfo=UTC),
+        metadata={"raw_result": "4008", "digit_count": 4},
+    )
+    assert LotteryDrawService._core_payload_compatible(existing, record)
