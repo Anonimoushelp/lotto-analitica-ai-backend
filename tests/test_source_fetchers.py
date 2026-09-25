@@ -1,7 +1,11 @@
 import pytest
 from httpx import MockTransport, Response
 
-from app.sources.fetchers import HttpSourceFetcher, SourceFetchError
+from app.sources.fetchers import (
+    EmbeddedIframeSourceFetcher,
+    HttpSourceFetcher,
+    SourceFetchError,
+)
 
 
 def test_http_fetcher_requires_https():
