@@ -201,6 +201,9 @@ class LotteryDrawService:
                 detail=f"Lottery not found for source code: {record.lottery_code}",
             )
 
+        incoming_metadata = dict(record.metadata or {})
+        incoming_metadata["parser_version"] = LotteryDrawService._INGESTION_PARSER_VERSION
+
         existing = None
         if record.draw_number is not None:
             existing = LotteryDrawRepository.get_by_number(
@@ -219,8 +222,6 @@ class LotteryDrawService:
             )
 
         if existing is not None:
-            incoming_metadata = dict(record.metadata or {})
-            incoming_metadata["parser_version"] = LotteryDrawService._INGESTION_PARSER_VERSION
             same_core_payload = LotteryDrawService._core_payload_compatible(
                 existing,
                 record,
