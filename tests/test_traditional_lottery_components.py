@@ -419,3 +419,22 @@ def test_persist_idempotency_allows_missing_optional_core_fields():
         metadata={"raw_result": "4008", "digit_count": 4},
     )
     assert LotteryDrawService._core_payload_compatible(existing, record)
+
+
+def test_traditional_parser_accepts_textual_month_with_slash_separators():
+    parser, _ = build_traditional_lottery_components("LOTERIA_MEDELLIN")
+    records = list(
+        parser.parse(
+            _result(
+                "<html><body>"
+                "Sorteo número 4853 del 18/Septiembre/2026 "
+                "Número 8535 Serie 183"
+                "</body></html>"
+            ),
+            "LOTERIA_MEDELLIN",
+        )
+    )
+    assert records[0]["draw_number"] == "4853"
+    assert records[0]["draw_date"] == "2026-09-18"
+    assert records[0]["main_numbers"] == [8535]
+    assert records[0]["metadata"]["series"] == "183"
