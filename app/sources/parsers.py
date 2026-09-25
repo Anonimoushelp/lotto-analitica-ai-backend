@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import html as html_lib
 import json
 import re
 import unicodedata
@@ -439,7 +440,7 @@ class PagaTodoResultPageParser:
         except UnicodeDecodeError as exc:
             raise SourceParseError("Paga Todo result page is not valid UTF-8") from exc
 
-        text = " ".join(re.sub(r"<[^>]+>", " ", html).split())
+        text = " ".join(html_lib.unescape(re.sub(r"<[^>]+>", " ", html)).split())
         records: list[Mapping[str, Any]] = []
         aliases = {
             "DORADO_DIA": "Sorteo El Dorado Día",
