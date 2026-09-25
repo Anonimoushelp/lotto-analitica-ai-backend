@@ -255,12 +255,19 @@ class LotteryDrawService:
                     db.refresh(existing)
                 return existing
 
-            existing_parser_version = (existing.validation_json or {}).get("ingestion_parser_version")
             incoming_is_verified = bool(record.metadata.get("source_verified", False))
-            if existing_parser_version is None and incoming_is_verified:
-                # Repair rows created by the pre-v2 parser when the source now
-                # provides the same draw identity but a corrected canonical
-                # payload. Once repaired, subsequent conflicts remain strict.
+            same_source = existing.source == record.source_name
+
+            # A verified first-party source is authoritative for its own
+            # lottery. If a row was previously persisted from that same
+            # source with a stale/correctable payload, reconcile it in place
+            # instead of blocking the scheduler with a false 409. The lookup
+            # above already guarantees that the lottery/draw identity matched
+            # by draw_number or draw_date. We deliberately do NOT apply this
+            # repair across different sources.
+            if incoming_is_verified and same_source:
+                existing.draw_number = record.draw_number
+                existing.draw_date = record.draw_date
                 existing.draw_time = record.draw_time
                 existing.main_numbers = record.main_numbers
                 existing.bonus_numbers = record.bonus_numbers
@@ -268,7 +275,8 @@ class LotteryDrawService:
                 existing.validation_json = {
                     **(existing.validation_json or {}),
                     "ingestion_parser_version": LotteryDrawService._INGESTION_PARSER_VERSION,
-                    "source_verified": incoming_is_verified,
+                    "source_verified": True,
+                    "reconciled_from_verified_source": True,
                 }
                 existing.source = record.source_name
                 existing.source_url = record.source_url
