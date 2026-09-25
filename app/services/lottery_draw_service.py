@@ -1,11 +1,10 @@
+import logging
 from datetime import date, time
 
 from fastapi import HTTPException, status
 from sqlalchemy import func, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
-
-import logging
 
 from app.models.lottery import Lottery
 from app.models.lottery_draw import LotteryDraw
