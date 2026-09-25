@@ -209,7 +209,7 @@ class CundinamarcaActaSourceFetcher(HttpSourceFetcher):
     """Select and fetch the latest official Cundinamarca results acta."""
 
     _ACTA_RE = re.compile(
-        r"""(?:href|data-href)\s*=\s*["']([^"']*/public/files/actas/(20\d{2})/Acta(?:%20|\s)+Sorteo(?:%20|\s)+(\d{1,6})\.pdf[^"']*)["']""",
+        r"""(?:href|data-href)\s*=\s*["']([^"']+Acta(?:%20|\s)+Sorteo(?:%20|\s)+(\d{1,6})(?:%20|\s)*\.pdf[^"']*)["']""",
         re.IGNORECASE,
     )
 
