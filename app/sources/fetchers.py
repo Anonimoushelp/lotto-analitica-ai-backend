@@ -3,7 +3,7 @@ from __future__ import annotations
 import html as html_lib
 import re
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Protocol
 from urllib.parse import unquote, urljoin, urlparse
 
@@ -327,9 +327,52 @@ class CundinamarcaActaSourceFetcher(HttpSourceFetcher):
             matches.append((year, draw_number, decoded_url))
 
         if not matches:
-            raise SourceFetchError(
-                f"No official Cundinamarca result acta links found in {index.url}"
+            # The current official page can render the acta list dynamically,
+            # leaving no PDF anchors in the HTTP response. Fall back to the
+            # stable official PDF path and derive an expected draw window from
+            # the last verified 2026 anchor (draw 4790 on 2026-02-16).
+            # This avoids hard-coding today's draw while remaining resilient
+            # to a temporarily empty/dynamic index.
+            host = urlparse(index.url).hostname
+            if host is None:
+                raise SourceFetchError(
+                    f"No official Cundinamarca result acta links found in {index.url}"
+                )
+            today = datetime.now(UTC).date()
+            anchor = datetime(2026, 2, 16, tzinfo=UTC).date()
+            estimated_draw = 4790 + max(0, (today - anchor).days // 7)
+            year = today.year
+            fallback_urls = [
+                f"https://{host}/public/files/actas/{year}/"
+                f"Acta%20Sorteo%20{draw}.pdf"
+                for draw in range(max(4790, estimated_draw - 8), estimated_draw + 9)
+            ]
+            fallback_fetcher = HttpSourceFetcher(
+                timeout=self.timeout,
+                user_agent=self.user_agent,
+                allowed_hosts={host.casefold()},
+                max_response_bytes=self.max_response_bytes,
+                transport=self.transport,
             )
+            fallback_matches: list[tuple[int, int, str]] = []
+            for candidate_url in fallback_urls:
+                try:
+                    candidate = fallback_fetcher.fetch(candidate_url)
+                except SourceFetchError:
+                    continue
+                if "pdf" in candidate.content_type.casefold() or candidate.content.startswith(
+                    b"%PDF"
+                ):
+                    draw_match = self._DRAW_RE.search(unquote(candidate.url))
+                    if draw_match is not None:
+                        fallback_matches.append(
+                            (year, int(draw_match.group(1)), candidate.url)
+                        )
+            if not fallback_matches:
+                raise SourceFetchError(
+                    f"No official Cundinamarca result acta links found in {index.url}"
+                )
+            matches = fallback_matches
 
         _, latest_draw, latest_url = max(
             matches, key=lambda item: (item[0], item[1], item[2])
