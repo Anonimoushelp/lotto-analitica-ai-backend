@@ -151,3 +151,32 @@ class _NoopSession:
 
     def close(self):
         pass
+
+
+def test_orchestrator_does_not_retry_deterministic_conflict():
+    from fastapi import HTTPException
+
+    class ConflictPipeline:
+        def run(self, url: str):
+            raise HTTPException(status_code=409, detail="duplicate")
+
+    sleeps = []
+    job = IngestionJob(
+        key="conflict-source",
+        lottery_code="MILOTO",
+        url="https://example.test/results",
+        pipeline_factory=ConflictPipeline,
+        max_attempts=3,
+        backoff_seconds=2,
+    )
+    orchestrator = IngestionOrchestrator(
+        session_factory=lambda: _NoopSession(),
+        sleep=sleeps.append,
+    )
+
+    result = orchestrator.run_job(job)
+
+    assert result.status == "failed"
+    assert result.attempts == 1
+    assert result.error == "409: duplicate"
+    assert sleeps == []
