@@ -23,10 +23,10 @@ class TraditionalLotteryHtmlParser:
         re.IGNORECASE,
     )
     _DATE_RE = re.compile(
-        r"(?<!\d)(\d{1,2})\s*,?\s*"
-        r"(?:(?:de|del)\s*,?\s*)?"
-        r"([A-Za-zÁÉÍÓÚáéíóúñÑ]+\.?)\s*,?\s*"
-        r"(?:(?:de|del)\s*,?\s*)?"
+        r"(?<!\d)(\d{1,2})\s*"
+        r"(?:[,/-]\s*(?:(?:de|del)\s+)?|(?:de|del)\s+)?"
+        r"([A-Za-zÁÉÍÓÚáéíóúñÑ]+\.?)\s*"
+        r"(?:[,/-]\s*(?:(?:de|del)\s+)?|(?:de|del)\s+)?"
         r"(\d{4})(?!\d)",
         re.IGNORECASE,
     )

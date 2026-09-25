@@ -1,5 +1,6 @@
 import re
 from datetime import UTC, datetime
+from urllib.parse import unquote
 
 import httpx
 import pytest
@@ -368,7 +369,7 @@ def test_cundinamarca_acta_fetcher_discovers_newer_contiguous_acta():
     )
 
     def handler(request):
-        match = re.search(r"Sorteo%20(\d+)\.pdf$", request.url.path)
+        match = re.search(r"Sorteo[ %20]+(\d+)\.pdf$", unquote(request.url.path))
         assert match is not None
         draw = int(match.group(1))
         if draw <= 4821:
@@ -409,7 +410,7 @@ def test_persist_idempotency_allows_missing_optional_core_fields():
         lottery_code="LOTERIA_TOLIMA",
         draw_type="LOTERIA_TOLIMA_ORDINARY",
         draw_number="4188",
-        draw_date=datetime(2026, 9, 21).date(),
+        draw_date=datetime(2026, 9, 21, tzinfo=UTC).date(),
         draw_time=None,
         main_numbers=[4008],
         bonus_numbers=None,
@@ -419,3 +420,22 @@ def test_persist_idempotency_allows_missing_optional_core_fields():
         metadata={"raw_result": "4008", "digit_count": 4},
     )
     assert LotteryDrawService._core_payload_compatible(existing, record)
+
+
+def test_traditional_parser_accepts_textual_month_with_slash_separators():
+    parser, _ = build_traditional_lottery_components("LOTERIA_MEDELLIN")
+    records = list(
+        parser.parse(
+            _result(
+                "<html><body>"
+                "Sorteo número 4853 del 18/Septiembre/2026 "
+                "Número 8535 Serie 183"
+                "</body></html>"
+            ),
+            "LOTERIA_MEDELLIN",
+        )
+    )
+    assert records[0]["draw_number"] == "4853"
+    assert records[0]["draw_date"] == "2026-09-18"
+    assert records[0]["main_numbers"] == [8535]
+    assert records[0]["metadata"]["series"] == "183"
