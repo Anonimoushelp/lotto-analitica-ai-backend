@@ -1,12 +1,12 @@
 from datetime import UTC, datetime
 
+import httpx
 import pytest
 
 from app.scheduler.catalog_integration import (
     IntegrationStatus,
     build_catalog_scheduler_bindings,
 )
-import httpx
 
 from app.sources.fetchers import CundinamarcaActaSourceFetcher, SourceFetchResult
 from app.sources.provider_registry import build_traditional_lottery_components
@@ -231,7 +231,8 @@ def test_cundinamarca_acta_parser_extracts_official_pdf_fields(monkeypatch):
             )
 
     class Reader:
-        pages = [Page()]
+        def __init__(self):
+            self.pages = [Page()]
 
     monkeypatch.setattr(
         "app.sources.traditional_lottery_components.PdfReader",
