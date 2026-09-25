@@ -1,4 +1,5 @@
 from datetime import UTC, datetime
+import re
 
 import httpx
 import pytest
@@ -357,3 +358,30 @@ def test_risaralda_date_allows_comma_after_day_and_month():
     assert records[0]["draw_number"] == "2967"
     assert records[0]["draw_date"] == "2026-09-18"
     assert records[0]["main_numbers"] == [6711]
+
+
+def test_cundinamarca_acta_fetcher_discovers_newer_contiguous_acta(monkeypatch):
+    from app.sources.fetchers import CundinamarcaActaSourceFetcher, SourceFetchResult
+
+    fetcher = CundinamarcaActaSourceFetcher()
+    calls = []
+
+    def fake_fetch(url):
+        calls.append(url)
+        draw = int(re.search(r"Sorteo%20(\d+)\.pdf$", url).group(1))
+        if draw <= 4821:
+            return SourceFetchResult(
+                url=url,
+                content=b"%PDF-1.7 fake",
+                fetched_at=datetime(2026, 9, 25, tzinfo=UTC),
+                status_code=200,
+                content_type="application/pdf",
+            )
+        raise Exception("404")
+
+    monkeypatch.setattr(fetcher, "_discover_newer_acta", lambda **kwargs: "https://www.loteriadecundinamarca.com.co/public/files/actas/2026/Acta%20Sorteo%204821.pdf")
+    assert "4821" in fetcher._discover_newer_acta(
+        index_url="https://www.loteriadecundinamarca.com.co/?p=actas-de-resultados",
+        indexed_url="https://www.loteriadecundinamarca.com.co/public/files/actas/2026/Acta%20Sorteo%204800.pdf",
+        latest_draw=4800,
+    )
