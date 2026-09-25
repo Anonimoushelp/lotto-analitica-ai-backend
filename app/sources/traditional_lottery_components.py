@@ -15,7 +15,7 @@ class TraditionalLotteryHtmlParser:
     """Extract a four-digit major result plus series from a lottery result page."""
 
     _DRAW_RE = re.compile(
-        r"\b(?:sorteo|draw)\s*(?:numero|no\.?|#)?\s*(\d{1,6})",
+        r"\b(?:sorteo|draw)\s*[:#-]?\s*(?:numero|no\.?)?\s*[:#-]?\s*(\d{1,6})",
         re.IGNORECASE,
     )
     _DATE_RE = re.compile(
@@ -27,6 +27,9 @@ class TraditionalLotteryHtmlParser:
     _NUMERIC_DATE_RE = re.compile(
         r"(?<!\d)(\d{1,2})[/-](\d{1,2})[/-](\d{4})(?!\d)"
     )
+    _ISO_DATE_RE = re.compile(
+        r"(?<!\d)(\d{4})-(\d{1,2})-(\d{1,2})(?!\d)"
+    )
     _MONTH_FIRST_DATE_RE = re.compile(
         r"\b([A-Za-zÁÉÍÓÚáéíóúñÑ]+\.?)\s+(\d{1,2})"
         r"\s*(?:de\s+)?(\d{4})\b",
@@ -34,6 +37,10 @@ class TraditionalLotteryHtmlParser:
     )
     _RESULT_RE = re.compile(
         r"\b(?:resultado|result)\s*[:#-]?\s*(\d{4})\b",
+        re.IGNORECASE,
+    )
+    _LABELED_RESULT_SERIES_RE = re.compile(
+        r"\b(?:premio\s+mayor|resultado)\s*[:#-]?\s*(\d{4})\s*-\s*(\d{1,4})\b",
         re.IGNORECASE,
     )
     _LABELED_NUMBER_RE = re.compile(
@@ -69,7 +76,9 @@ class TraditionalLotteryHtmlParser:
         date_match = self._DATE_RE.search(text)
         month_first_date_match = self._MONTH_FIRST_DATE_RE.search(text)
         numeric_date_match = self._NUMERIC_DATE_RE.search(text)
+        iso_date_match = self._ISO_DATE_RE.search(text)
         result_match = self._RESULT_RE.search(search_text)
+        labeled_result_series_match = self._LABELED_RESULT_SERIES_RE.search(search_text)
         labeled_number_matches = self._LABELED_NUMBER_RE.findall(search_text)
         number_matches = self._NUMBER_RE.findall(text)
         spaced_number_matches = [
@@ -77,7 +86,7 @@ class TraditionalLotteryHtmlParser:
         ]
         series_match = self._SERIES_RE.search(search_text)
 
-        if not date_match and not month_first_date_match and not numeric_date_match:
+        if not date_match and not month_first_date_match and not numeric_date_match and not iso_date_match:
             raise SourceParseError(
                 "Traditional lottery source does not expose a recognizable date/result"
             )
@@ -92,14 +101,13 @@ class TraditionalLotteryHtmlParser:
             )
 
         draw_number = draw_match.group(1) if draw_match else None
-        raw_number = result_match.group(1) if result_match else None
+        raw_number = (
+            labeled_result_series_match.group(1)
+            if labeled_result_series_match
+            else result_match.group(1) if result_match else None
+        )
         if raw_number is None:
             for candidate in labeled_number_matches:
-                if draw_number is None or candidate != draw_number:
-                    raw_number = candidate
-                    break
-        if raw_number is None:
-            for candidate in number_matches:
                 if draw_number is None or candidate != draw_number:
                     raw_number = candidate
                     break
@@ -109,11 +117,19 @@ class TraditionalLotteryHtmlParser:
                     raw_number = candidate
                     break
         if raw_number is None:
+            for candidate in number_matches:
+                if draw_number is None or candidate != draw_number:
+                    raw_number = candidate
+                    break
+        if raw_number is None:
             raise SourceParseError(
                 "Traditional lottery source does not expose a recognizable four-digit result"
             )
 
-        if numeric_date_match:
+        if iso_date_match:
+            year, month, day = iso_date_match.groups()
+            draw_date = f"{year}-{int(month):02d}-{int(day):02d}"
+        elif numeric_date_match:
             day, month, year = numeric_date_match.groups()
             draw_date = f"{year}-{int(month):02d}-{int(day):02d}"
         elif date_match:
@@ -137,7 +153,9 @@ class TraditionalLotteryHtmlParser:
             "digit_count": 4,
             "source_verified": profile.verified,
         }
-        if series_match:
+        if labeled_result_series_match:
+            metadata["series"] = labeled_result_series_match.group(2)
+        elif series_match:
             metadata["series"] = series_match.group(1)
 
         return [
