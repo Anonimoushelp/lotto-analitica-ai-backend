@@ -148,3 +148,41 @@ def test_controlled_executor_extracts_and_persists_verified_result(monkeypatch):
     assert captured["metadata_json"]["raw_result"] == "0042"
     assert captured["metadata_json"]["series"] == "17"
     assert captured["source_url"].endswith("/resultados")
+
+
+
+def test_controlled_executor_uses_profile_fetcher(monkeypatch):
+    captured = {}
+
+    class Pipeline:
+        def __init__(self, **kwargs):
+            captured["fetcher"] = kwargs["fetcher"]
+
+        def run(self, _url):
+            return [
+                SimpleNamespace(
+                    draw_type="LOTERIA_CUNDINAMARCA_ORDINARY",
+                    draw_number="4821",
+                    draw_date=datetime(2026, 9, 21).date(),
+                    draw_time=None,
+                    main_numbers=[5341],
+                    bonus_numbers=[],
+                    source_name="Lotería de Cundinamarca — resultados",
+                    source_url="https://www.loteriadecundinamarca.com.co/",
+                    source_timestamp=datetime(2026, 9, 25, tzinfo=UTC),
+                    metadata={"series": "078", "raw_result": "5341"},
+                )
+            ]
+
+    monkeypatch.setattr("app.scheduler.executor.SourceIngestionPipeline", Pipeline)
+    monkeypatch.setattr(
+        "app.scheduler.executor.LotteryDrawService.create_draw",
+        lambda **kwargs: SimpleNamespace(id=900, draw_date=kwargs["draw_date"]),
+    )
+
+    executor = ControlledIngestionExecutor(session_factory=lambda: FakeDb())
+    executor("LOTERIA_CUNDINAMARCA", "LOTERIA_CUNDINAMARCA_ORDINARY")
+
+    from app.sources.fetchers import EmbeddedIframeSourceFetcher
+
+    assert isinstance(captured["fetcher"], EmbeddedIframeSourceFetcher)
