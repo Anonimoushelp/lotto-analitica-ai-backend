@@ -53,3 +53,36 @@ def test_http_fetcher_preserves_fetch_metadata():
     assert result.content == b'{"results": []}'
     assert result.content_type == "application/json"
     assert result.fetched_at is not None
+
+
+def test_embedded_iframe_fetcher_follows_same_origin_result_frame():
+    def handler(request):
+        if request.url.path == "/":
+            return Response(
+                200,
+                content=(
+                    b'<html><body>'
+                    b'<iframe src="https://other.example/track"></iframe>'
+                    b'<iframe class="resultados" src="/resultado-actual"></iframe>'
+                    b'</body></html>'
+                ),
+                headers={"content-type": "text/html; charset=utf-8"},
+            )
+        if request.url.path == "/resultado-actual":
+            return Response(
+                200,
+                content=b"<html><body>Sorteo 4821 Resultado 5341</body></html>",
+                headers={"content-type": "text/html; charset=utf-8"},
+            )
+        return Response(404, content=b"not found")
+
+    fetcher = EmbeddedIframeSourceFetcher(
+        allowed_hosts={"example.test"},
+        transport=MockTransport(handler),
+    )
+
+    result = fetcher.fetch("https://example.test/")
+
+    assert result.status_code == 200
+    assert result.url == "https://example.test/resultado-actual"
+    assert b"Sorteo 4821" in result.content
