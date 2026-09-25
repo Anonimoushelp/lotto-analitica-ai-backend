@@ -141,6 +141,13 @@ class EmbeddedIframeSourceFetcher(HttpSourceFetcher):
         "premio",
         "acta",
     )
+    _RESULT_SIGNAL_RE = re.compile(
+        r"\\b(?:sorteo|resultado|premio|ganador)\\b",
+        re.IGNORECASE,
+    )
+    _FOUR_DIGIT_RE = re.compile(
+        r"\\b\\d{4}\\b|(?<!\\d)(?:\\d\\s*){4}(?!\\d)"
+    )
 
     def fetch(self, url: str) -> SourceFetchResult:
         initial = super().fetch(url)
@@ -184,7 +191,13 @@ class EmbeddedIframeSourceFetcher(HttpSourceFetcher):
                 nested = nested_fetcher.fetch(iframe_url)
             except SourceFetchError:
                 continue
-            return nested
+
+            nested_html = nested.content.decode("utf-8", errors="ignore")
+            if (
+                self._RESULT_SIGNAL_RE.search(nested_html)
+                and self._FOUR_DIGIT_RE.search(nested_html)
+            ):
+                return nested
 
         raise SourceFetchError(
             f"Embedded result iframe could not be fetched for {initial.url}"
