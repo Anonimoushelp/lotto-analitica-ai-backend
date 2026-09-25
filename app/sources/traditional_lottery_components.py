@@ -73,10 +73,10 @@ class TraditionalLotteryHtmlParser:
         text = re.sub(r"\s+", " ", text).strip()
         search_text = self._strip_accents(text)
         draw_match = self._DRAW_RE.search(search_text)
-        date_match = self._DATE_RE.search(text)
-        month_first_date_match = self._MONTH_FIRST_DATE_RE.search(text)
-        numeric_date_match = self._NUMERIC_DATE_RE.search(text)
-        iso_date_match = self._ISO_DATE_RE.search(text)
+        date_match = self._DATE_RE.search(search_text)
+        month_first_date_match = self._MONTH_FIRST_DATE_RE.search(search_text)
+        numeric_date_match = self._NUMERIC_DATE_RE.search(search_text)
+        iso_date_match = self._ISO_DATE_RE.search(search_text)
         result_match = self._RESULT_RE.search(search_text)
         labeled_result_series_match = self._LABELED_RESULT_SERIES_RE.search(search_text)
         labeled_number_matches = self._LABELED_NUMBER_RE.findall(search_text)
@@ -201,6 +201,17 @@ class TraditionalLotteryHtmlParser:
             "oct": "10", "octubre": "10",
             "nov": "11", "noviembre": "11",
             "dic": "12", "diciembre": "12",
+            "jan": "01", "january": "01",
+            "february": "02",
+            "march": "03",
+            "april": "04",
+            "june": "06",
+            "july": "07",
+            "august": "08",
+            "september": "09",
+            "october": "10",
+            "november": "11",
+            "december": "12",
         }
         return aliases.get(normalized)
 
