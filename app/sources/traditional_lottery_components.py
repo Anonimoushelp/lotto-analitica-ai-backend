@@ -265,7 +265,21 @@ class TraditionalLotteryHtmlParser:
             "november": "11",
             "december": "12",
         }
-        return aliases.get(normalized)
+        month = aliases.get(normalized)
+        if month is not None:
+            return month
+        # Some operator pages contain truncated/typo-like month labels after
+        # HTML normalization. A stable three-letter prefix is sufficient to
+        # identify every supported calendar month without accepting arbitrary
+        # text.
+        prefixes = {
+            "ene": "01", "feb": "02", "mar": "03", "abr": "04",
+            "may": "05", "jun": "06", "jul": "07", "ago": "08",
+            "sep": "09", "set": "09", "oct": "10", "nov": "11",
+            "dic": "12", "jan": "01", "apr": "04", "aug": "08",
+            "dec": "12",
+        }
+        return prefixes.get(normalized[:3])
 
 
 class CundinamarcaActaPdfParser:
