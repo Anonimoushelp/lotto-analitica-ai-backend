@@ -388,8 +388,15 @@ class CundinamarcaActaSourceFetcher(HttpSourceFetcher):
                 # actual PDF link inside it. Follow same-origin PDF links from
                 # that wrapper instead of treating the 200 HTML response as a
                 # missing acta.
-                if "html" in candidate.content_type.casefold():
-                    wrapper_html = candidate.content.decode("utf-8", errors="ignore")
+                # Some official responses return a 200 wrapper with a
+                # non-HTML content-type (or a meta/JS wrapper) instead of
+                # serving the PDF bytes directly. Treat the body as text when
+                # it is not a PDF and discover same-origin .pdf URLs from
+                # either markup or embedded script/configuration.
+                if not candidate.content.startswith(b"%PDF"):
+                    wrapper_html = candidate.content.decode(
+                        "utf-8", errors="ignore"
+                    )
                     wrapper_urls = [
                         match.group(1)
                         for match in self._PDF_URL_RE.finditer(wrapper_html)
@@ -397,6 +404,12 @@ class CundinamarcaActaSourceFetcher(HttpSourceFetcher):
                     wrapper_urls.extend(
                         match.group(1)
                         for match in self._QUOTED_PDF_URL_RE.finditer(wrapper_html)
+                    )
+                    wrapper_urls.extend(
+                        re.findall(
+                            r"(?i)(?:https?:)?//[^\s\"']+?\.pdf(?:\?[^\s\"']*)?",
+                            wrapper_html,
+                        )
                     )
                     for raw_wrapper_url in dict.fromkeys(wrapper_urls):
                         wrapper_url = urljoin(candidate.url, html_lib.unescape(raw_wrapper_url))
@@ -409,6 +422,10 @@ class CundinamarcaActaSourceFetcher(HttpSourceFetcher):
                             or pdf_candidate.content.startswith(b"%PDF")
                         ):
                             draw_match = self._DRAW_RE.search(unquote(pdf_candidate.url))
+                            if draw_match is None:
+                                draw_match = self._DRAW_RE.search(
+                                    unquote(wrapper_url)
+                                )
                             if draw_match is not None:
                                 fallback_matches.append(
                                     (year, int(draw_match.group(1)), pdf_candidate.url)
