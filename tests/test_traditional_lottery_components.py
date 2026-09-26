@@ -396,6 +396,38 @@ def test_risaralda_date_allows_comma_after_day_and_month():
     assert records[0]["main_numbers"] == [6711]
 
 
+def test_cundinamarca_acta_fetcher_follows_non_html_pdf_wrapper(monkeypatch):
+    page_url = "https://www.loteriadecundinamarca.com.co/?p=actas-de-resultados"
+    wrapper = (
+        '<script>const pdf = "https://www.loteriadecundinamarca.com.co/'
+        'public/files/actas/2026/Acta%20Sorteo%204821.pdf";</script>'
+    )
+
+    def handler(request):
+        if request.url.path == "/":
+            return httpx.Response(
+                200,
+                text="<html><body>sin enlaces PDF</body></html>",
+                headers={"content-type": "text/html; charset=utf-8"},
+            )
+        if "4821.pdf" in request.url.path:
+            return httpx.Response(
+                200,
+                text=wrapper,
+                headers={"content-type": "text/plain; charset=utf-8"},
+            )
+        return httpx.Response(404, text="not found")
+
+    fetcher = CundinamarcaActaSourceFetcher(
+        transport=httpx.MockTransport(handler)
+    )
+    result = fetcher.fetch(page_url)
+
+    assert "4821" in result.url
+    assert result.content.startswith(b"%PDF")
+    assert "application/pdf" in result.content_type
+
+
 def test_cundinamarca_acta_fetcher_discovers_newer_contiguous_acta():
     page_url = "https://www.loteriadecundinamarca.com.co/?p=actas-de-resultados"
     indexed_url = (
