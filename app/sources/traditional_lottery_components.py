@@ -101,6 +101,14 @@ class TraditionalLotteryHtmlParser:
         search_text = self._strip_accents(text)
         draw_match = self._DRAW_RE.search(search_text)
         code = (lottery_code or self.lottery_code).upper()
+        if code == "LOTERIA_RISARALDA" and draw_match is None:
+            # The official sales page has used several equivalent labels
+            # (e.g. "Sorteo No.", "Sorteo Nro.", "Sorteo #").
+            draw_match = re.search(
+                r"\bsorteo\s*(?:n(?:o|ro)?\.?|numero|#)?\s*(\d{3,6})\b",
+                search_text,
+                re.IGNORECASE,
+            )
         date_matches = list(self._DATE_RE.finditer(search_text))
         month_first_date_matches = list(self._MONTH_FIRST_DATE_RE.finditer(search_text))
         flexible_textual_date_matches = list(
