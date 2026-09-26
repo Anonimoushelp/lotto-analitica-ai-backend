@@ -423,7 +423,7 @@ def test_cundinamarca_acta_fetcher_follows_non_html_pdf_wrapper():
                 )
             return httpx.Response(
                 200,
-                content=f"%PDF-1.7 fake Sorteo {draw}".encode(),
+                content=b"%PDF-1.7 fake Sorteo 4821",
                 headers={"content-type": "application/pdf"},
             )
         return httpx.Response(404, text="not found")
@@ -452,7 +452,7 @@ def test_cundinamarca_acta_fetcher_discovers_newer_contiguous_acta():
         if draw <= 4821:
             return httpx.Response(
                 200,
-                content=b"%PDF-1.7 fake",
+                content=f"%PDF-1.7 fake Sorteo {draw}".encode(),
                 headers={"content-type": "application/pdf"},
             )
         return httpx.Response(404)
