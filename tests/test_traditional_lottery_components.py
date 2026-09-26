@@ -344,6 +344,41 @@ def test_boyaca_real_layout_prefers_labeled_winner_over_secondary_numbers():
     assert records[0]["metadata"]["series"] == "240"
 
 
+def test_risaralda_parser_accepts_official_sorteo_n_label():
+    parser, _ = build_traditional_lottery_components("LOTERIA_RISARALDA")
+    records = list(
+        parser.parse(
+            _result(
+                "<html><body>"
+                "Sorteo N° 2968 "
+                "viernes 25 de septiembre de 2026 "
+                "Premio mayor 6 7 1 2 Serie 285"
+                "</body></html>"
+            )
+        )
+    )
+    assert records[0]["draw_number"] == "2968"
+    assert records[0]["draw_date"] == "2026-09-25"
+    assert records[0]["main_numbers"] == [6712]
+
+
+def test_risaralda_parser_accepts_sorteo_no_label():
+    parser, _ = build_traditional_lottery_components("LOTERIA_RISARALDA")
+    records = list(
+        parser.parse(
+            _result(
+                "<html><body>"
+                "Sorteo No. 2968 "
+                "Premio mayor 6 7 1 2 Serie 285"
+                "</body></html>"
+            )
+        )
+    )
+    assert records[0]["draw_number"] == "2968"
+    assert records[0]["draw_date"] == "2026-09-25"
+    assert records[0]["main_numbers"] == [6712]
+
+
 def test_risaralda_date_allows_comma_after_day_and_month():
     parser, _ = build_traditional_lottery_components("LOTERIA_RISARALDA")
     records = list(
@@ -359,6 +394,48 @@ def test_risaralda_date_allows_comma_after_day_and_month():
     assert records[0]["draw_number"] == "2967"
     assert records[0]["draw_date"] == "2026-09-18"
     assert records[0]["main_numbers"] == [6711]
+
+
+def test_cundinamarca_acta_fetcher_follows_non_html_pdf_wrapper():
+    page_url = "https://www.loteriadecundinamarca.com.co/?p=actas-de-resultados"
+    wrapper = (
+        '<script>const pdf = "https://www.loteriadecundinamarca.com.co/'
+        'public/files/actas/2026/Acta%20Sorteo%204821.pdf";</script>'
+    )
+
+    requests_for_4821 = 0
+
+    def handler(request):
+        nonlocal requests_for_4821
+        if request.url.path == "/":
+            return httpx.Response(
+                200,
+                text="<html><body>sin enlaces PDF</body></html>",
+                headers={"content-type": "text/html; charset=utf-8"},
+            )
+        if "4821.pdf" in request.url.path:
+            requests_for_4821 += 1
+            if requests_for_4821 == 1:
+                return httpx.Response(
+                    200,
+                    text=wrapper,
+                    headers={"content-type": "text/plain; charset=utf-8"},
+                )
+            return httpx.Response(
+                200,
+                content=b"%PDF-1.7 fake",
+                headers={"content-type": "application/pdf"},
+            )
+        return httpx.Response(404, text="not found")
+
+    fetcher = CundinamarcaActaSourceFetcher(
+        transport=httpx.MockTransport(handler)
+    )
+    result = fetcher.fetch(page_url)
+
+    assert "4821" in result.url
+    assert result.content.startswith(b"%PDF")
+    assert "application/pdf" in result.content_type
 
 
 def test_cundinamarca_acta_fetcher_discovers_newer_contiguous_acta():
