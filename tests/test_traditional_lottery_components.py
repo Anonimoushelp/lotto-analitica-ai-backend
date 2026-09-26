@@ -403,7 +403,10 @@ def test_cundinamarca_acta_fetcher_follows_non_html_pdf_wrapper():
         'public/files/actas/2026/Acta%20Sorteo%204821.pdf";</script>'
     )
 
+    requests_for_4821 = 0
+
     def handler(request):
+        nonlocal requests_for_4821
         if request.url.path == "/":
             return httpx.Response(
                 200,
@@ -411,16 +414,17 @@ def test_cundinamarca_acta_fetcher_follows_non_html_pdf_wrapper():
                 headers={"content-type": "text/html; charset=utf-8"},
             )
         if "4821.pdf" in request.url.path:
-            if request.headers.get("accept") == "application/pdf":
+            requests_for_4821 += 1
+            if requests_for_4821 == 1:
                 return httpx.Response(
                     200,
-                    content=b"%PDF-1.7 fake",
-                    headers={"content-type": "application/pdf"},
+                    text=wrapper,
+                    headers={"content-type": "text/plain; charset=utf-8"},
                 )
             return httpx.Response(
                 200,
-                text=wrapper,
-                headers={"content-type": "text/plain; charset=utf-8"},
+                content=b"%PDF-1.7 fake",
+                headers={"content-type": "application/pdf"},
             )
         return httpx.Response(404, text="not found")
 
