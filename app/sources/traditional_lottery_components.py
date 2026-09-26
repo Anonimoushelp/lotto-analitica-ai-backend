@@ -34,7 +34,7 @@ class TraditionalLotteryHtmlParser:
         re.IGNORECASE,
     )
     _NUMERIC_DATE_RE = re.compile(
-        r"(?<!\d)(\d{1,2})[/-](\d{1,2})[/-](\d{4})(?!\d)"
+        r"(?<!\d)(\d{1,2})[./-](\d{1,2})[./-](\d{4})(?!\d)"
     )
     _ISO_DATE_RE = re.compile(
         r"(?<!\d)(\d{4})-(\d{1,2})-(\d{1,2})(?!\d)"
@@ -45,10 +45,10 @@ class TraditionalLotteryHtmlParser:
         re.IGNORECASE,
     )
     _FLEXIBLE_TEXTUAL_DATE_RE = re.compile(
-        r"(?<!\d)(\d{1,2})\s*(?:[,/-]\s*)?"
+        r"(?<!\d)(\d{1,2})\s*(?:[,./-]\s*)?"
         r"(?:(?:del?\s+mes\s+de)|(?:de\s+))?(enero|febrero|marzo|abril|mayo|junio|julio|"
         r"agosto|septiembre|setiembre|sept|octubre|noviembre|diciembre|ene|feb|mar|abr|may|jun|jul|ago|"
-        r"sep|set|oct|nov|dic)\s*(?:[,/-]\s*)?"
+        r"sep|set|oct|nov|dic|january|february|march|april|june|july|august|september|october|november|december)\s*(?:[,./-]\s*)?"
         r"(?:de\s+)?(\d{4})(?!\d)",
         re.IGNORECASE,
     )
