@@ -592,7 +592,10 @@ def test_cundinamarca_final_fetch_allows_apex_official_host():
 
 
 def test_cundinamarca_pdf_date_with_mes_de_phrase():
-    from app.sources.traditional_lottery_components import CundinamarcaActaPdfParser
+    from app.sources.traditional_lottery_components import (
+        CundinamarcaActaPdfParser,
+        TraditionalLotteryHtmlParser,
+    )
 
     parser = CundinamarcaActaPdfParser("LOTERIA_CUNDINAMARCA")
     match = parser._DATE_RE.search(
@@ -600,7 +603,7 @@ def test_cundinamarca_pdf_date_with_mes_de_phrase():
     )
     assert match is not None
     assert match.groups() == ("21", "Septiembre", "2026")
-    assert parser._month(match.group(2)) == "09"
+    assert TraditionalLotteryHtmlParser._month(match.group(2)) == "09"
 
 
 def test_risaralda_official_result_date_with_comma():
