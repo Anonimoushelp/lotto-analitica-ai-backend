@@ -290,7 +290,7 @@ class CundinamarcaActaSourceFetcher(HttpSourceFetcher):
             normalized = re.sub(r"\s+", " ", pdf_text)
             draw_pattern = re.compile(
                 rf"\bsorteo\b.{0,80}?"
-                rf"{''.join(f'[\s._:/-]*{digit}' for digit in str(draw_number))}\b",
+                rf"{''.join(\n                    f'[\\s._:/-]*{digit}' for digit in str(draw_number)\n                )}\b",
                 re.IGNORECASE,
             )
             if draw_pattern.search(normalized) is None:
