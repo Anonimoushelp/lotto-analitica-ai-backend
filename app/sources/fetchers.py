@@ -347,18 +347,20 @@ class CundinamarcaActaSourceFetcher(HttpSourceFetcher):
             estimated_draw = 4790 + max(0, (today - anchor).days // 7)
             year = today.year
             fallback_urls = []
+            hosts = [host]
+            if host.casefold().startswith("www."):
+                hosts.append(host[4:])
             for draw in range(max(4790, estimated_draw - 8), estimated_draw + 9):
                 filename = f"Acta%20Sorteo%20{draw}.pdf"
-                # The official distributor page has historically emitted
-                # relative PDF links from an /index.php/contratacion/ page.
-                # Keep both the canonical public path and that legacy-relative
-                # resolution path so a dynamic/empty index remains recoverable.
-                fallback_urls.extend(
-                    [
-                        f"https://{host}/public/files/actas/{year}/{filename}",
-                        f"https://{host}/index.php/contratacion/public/files/actas/{year}/{filename}",
-                    ]
-                )
+                # The official site has exposed both www and apex-host PDF
+                # paths over time. Probe only those official hosts.
+                for official_host in dict.fromkeys(hosts):
+                    fallback_urls.extend(
+                        [
+                            f"https://{official_host}/public/files/actas/{year}/{filename}",
+                            f"https://{official_host}/index.php/contratacion/public/files/actas/{year}/{filename}",
+                        ]
+                    )
             fallback_fetcher = HttpSourceFetcher(
                 timeout=self.timeout,
                 user_agent=self.user_agent,
@@ -393,7 +395,7 @@ class CundinamarcaActaSourceFetcher(HttpSourceFetcher):
                 # serving the PDF bytes directly. Treat the body as text when
                 # it is not a PDF and discover same-origin .pdf URLs from
                 # either markup or embedded script/configuration.
-                if not candidate.content.startswith(b"%PDF"):
+                if not candidate.content.lstrip().startswith(b"%PDF"):
                     wrapper_html = candidate.content.decode(
                         "utf-8", errors="ignore"
                     )
@@ -419,7 +421,7 @@ class CundinamarcaActaSourceFetcher(HttpSourceFetcher):
                             continue
                         if (
                             "pdf" in pdf_candidate.content_type.casefold()
-                            or pdf_candidate.content.startswith(b"%PDF")
+                            or pdf_candidate.content.lstrip().startswith(b"%PDF")
                         ):
                             draw_match = self._DRAW_RE.search(unquote(pdf_candidate.url))
                             if draw_match is None:
