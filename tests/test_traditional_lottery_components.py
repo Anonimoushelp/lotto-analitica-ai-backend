@@ -560,7 +560,7 @@ def test_cundinamarca_final_fetch_allows_apex_official_host():
     """
 
     def handler(request):
-        if request.url.hostname == "www.loteriadecundinamarca.com.co":
+        if request.url.host == "www.loteriadecundinamarca.com.co":
             if request.url.path == "/":
                 return httpx.Response(
                     200,
@@ -574,7 +574,7 @@ def test_cundinamarca_final_fetch_allows_apex_official_host():
                     + request.url.path
                 },
             )
-        if request.url.hostname == "loteriadecundinamarca.com.co":
+        if request.url.host == "loteriadecundinamarca.com.co":
             return httpx.Response(
                 200,
                 content=b"%PDF-1.7 fake",
