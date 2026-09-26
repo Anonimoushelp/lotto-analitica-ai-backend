@@ -263,11 +263,32 @@ class CundinamarcaActaSourceFetcher(HttpSourceFetcher):
                 result = fetcher.fetch(candidate)
             except SourceFetchError:
                 return None
-            if "pdf" in result.content_type.casefold() or result.content.startswith(
-                b"%PDF"
+            if not (
+                "pdf" in result.content_type.casefold()
+                or result.content.startswith(b"%PDF")
             ):
-                return result.url
-            return None
+                return None
+
+            # The official host may return a valid PDF/placeholder for a
+            # future filename even when that draw has not been published.
+            # A probe is therefore valid only when the PDF itself identifies
+            # the same draw number.
+            try:
+                reader = PdfReader(BytesIO(result.content))
+                pdf_text = " ".join(
+                    (page.extract_text() or "") for page in reader.pages[:3]
+                )
+            except Exception:
+                return None
+            normalized = re.sub(r"\s+", " ", pdf_text)
+            draw_pattern = re.compile(
+                rf"\bsorteo\s*(?:no\.?|numero|nro\.?|#|[:\-])?\s*"
+                rf"{draw_number}\b",
+                re.IGNORECASE,
+            )
+            if draw_pattern.search(normalized) is None:
+                return None
+            return result.url
 
         first = latest_draw + 1
         if probe(first) is None:
