@@ -453,10 +453,13 @@ class CundinamarcaActaSourceFetcher(HttpSourceFetcher):
         )
         acta_url = discovered_url or urljoin(index.url, latest_url)
         host = urlparse(index.url).hostname
+        official_hosts = {host.casefold()} if host else set()
+        if host and host.casefold().startswith("www."):
+            official_hosts.add(host[4:].casefold())
         nested_fetcher = HttpSourceFetcher(
             timeout=self.timeout,
             user_agent=self.user_agent,
-            allowed_hosts={host.casefold()} if host else None,
+            allowed_hosts=official_hosts or None,
             max_response_bytes=self.max_response_bytes,
             transport=self.transport,
         )
