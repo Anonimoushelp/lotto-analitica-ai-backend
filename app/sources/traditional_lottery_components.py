@@ -100,6 +100,7 @@ class TraditionalLotteryHtmlParser:
         text = re.sub(r"\s+", " ", text).strip()
         search_text = self._strip_accents(text)
         draw_match = self._DRAW_RE.search(search_text)
+        code = (lottery_code or self.lottery_code).upper()
         date_matches = list(self._DATE_RE.finditer(search_text))
         month_first_date_matches = list(self._MONTH_FIRST_DATE_RE.finditer(search_text))
         flexible_textual_date_matches = list(
@@ -124,7 +125,13 @@ class TraditionalLotteryHtmlParser:
         series_match = self._SERIES_RE.search(search_text)
         spaced_series_matches = self._SPACED_SERIES_RE.finditer(search_text)
 
-        if not date_match and not month_first_date_match and not numeric_date_match and not iso_date_match:
+        if (
+            not date_match
+            and not month_first_date_match
+            and not numeric_date_match
+            and not iso_date_match
+            and not (code == "LOTERIA_RISARALDA" and draw_match is not None)
+        ):
             raise SourceParseError(
                 "Traditional lottery source does not expose a recognizable date/result"
             )
@@ -139,7 +146,6 @@ class TraditionalLotteryHtmlParser:
             )
 
         draw_number = draw_match.group(1) if draw_match else None
-        code = (lottery_code or self.lottery_code).upper()
         profile = get_traditional_source(code)
         raw_number = (
             "".join(
