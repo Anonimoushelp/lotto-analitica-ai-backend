@@ -547,3 +547,45 @@ def test_cundinamarca_acta_fetcher_falls_back_when_index_is_dynamic():
 
     assert "Sorteo%204821.pdf" in result.url
     assert "application/pdf" in result.content_type
+
+
+def test_cundinamarca_final_fetch_allows_apex_official_host():
+    page_url = "https://www.loteriadecundinamarca.com.co/?p=actas-de-resultados"
+    page = """
+    <html><body>
+      <a href="https://www.loteriadecundinamarca.com.co/public/files/actas/2026/Acta%20Sorteo%204821.pdf">
+        Acta Sorteo 4821
+      </a>
+    </body></html>
+    """
+
+    def handler(request):
+        if request.url.hostname == "www.loteriadecundinamarca.com.co":
+            if request.url.path == "/":
+                return httpx.Response(
+                    200,
+                    text=page,
+                    headers={"content-type": "text/html; charset=utf-8"},
+                )
+            return httpx.Response(
+                302,
+                headers={
+                    "location": "https://loteriadecundinamarca.com.co"
+                    + request.url.path
+                },
+            )
+        if request.url.hostname == "loteriadecundinamarca.com.co":
+            return httpx.Response(
+                200,
+                content=b"%PDF-1.7 fake",
+                headers={"content-type": "application/pdf"},
+            )
+        return httpx.Response(404)
+
+    fetcher = CundinamarcaActaSourceFetcher(
+        transport=httpx.MockTransport(handler)
+    )
+    result = fetcher.fetch(page_url)
+
+    assert result.url.startswith("https://loteriadecundinamarca.com.co/")
+    assert result.content.startswith(b"%PDF")
