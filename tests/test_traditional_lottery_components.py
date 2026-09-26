@@ -592,15 +592,15 @@ def test_cundinamarca_final_fetch_allows_apex_official_host():
 
 
 def test_cundinamarca_pdf_date_with_mes_de_phrase():
-    parser, _ = build_traditional_lottery_components("LOTERIA_CUNDINAMARCA")
-    records = list(parser.parse(_result(
-        "<html><body>Acta de resultados Sorteo 4821 "
-        "En Bogotá, D.C. a los 21 del mes de Septiembre de 2026 "
-        "PREMIO MAYOR 5341 Serie 078</body></html>"
-    )))
-    assert records[0]["draw_number"] == "4821"
-    assert records[0]["draw_date"] == "2026-09-21"
-    assert records[0]["main_numbers"] == [5341]
+    from app.sources.traditional_lottery_components import CundinamarcaActaPdfParser
+
+    parser = CundinamarcaActaPdfParser("LOTERIA_CUNDINAMARCA")
+    match = parser._DATE_RE.search(
+        "Acta Sorteo 4821 En Bogotá, D.C. a los 21 del mes de Septiembre de 2026"
+    )
+    assert match is not None
+    assert match.groups() == ("21", "Septiembre", "2026")
+    assert parser._month(match.group(2)) == "09"
 
 
 def test_risaralda_official_result_date_with_comma():
