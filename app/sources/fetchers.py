@@ -364,7 +364,7 @@ class CundinamarcaActaSourceFetcher(HttpSourceFetcher):
             fallback_fetcher = HttpSourceFetcher(
                 timeout=self.timeout,
                 user_agent=self.user_agent,
-                allowed_hosts={host.casefold()},
+                allowed_hosts={item.casefold() for item in hosts},
                 max_response_bytes=self.max_response_bytes,
                 transport=self.transport,
             )
