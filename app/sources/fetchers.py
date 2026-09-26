@@ -3,11 +3,14 @@ from __future__ import annotations
 import html as html_lib
 import re
 from dataclasses import dataclass
+from io import BytesIO
 from datetime import UTC, datetime
 from typing import Protocol
 from urllib.parse import unquote, urljoin, urlparse
 
 import httpx
+from pypdf import PdfReader
+from pypdf.errors import PdfReadError
 
 
 @dataclass(frozen=True)
@@ -278,7 +281,7 @@ class CundinamarcaActaSourceFetcher(HttpSourceFetcher):
                 pdf_text = " ".join(
                     (page.extract_text() or "") for page in reader.pages[:3]
                 )
-            except Exception:
+            except (PdfReadError, ValueError):
                 return None
             normalized = re.sub(r"\s+", " ", pdf_text)
             draw_pattern = re.compile(
