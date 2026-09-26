@@ -20,7 +20,9 @@ class TraditionalLotteryHtmlParser:
     """Extract a four-digit major result plus series from a lottery result page."""
 
     _DRAW_RE = re.compile(
-        r"\b(?:sorteo|draw)\s*[:#-]?\s*(?:numero|no\.?)?\s*[:#-]?\s*(\d{1,6})",
+        r"\b(?:sorteo|draw)\s*"
+        r"(?:(?:[:#-]\s*)|(?:n(?:umero|ro)?\s*[°º.]?\s*)|(?:no\.?\s*[°º.]?\s*))?"
+        r"\s*(\d{1,6})",
         re.IGNORECASE,
     )
     _DATE_RE = re.compile(
