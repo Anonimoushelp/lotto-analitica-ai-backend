@@ -3,8 +3,8 @@ from __future__ import annotations
 import html as html_lib
 import re
 from dataclasses import dataclass
-from io import BytesIO
 from datetime import UTC, datetime
+from io import BytesIO
 from typing import Protocol
 from urllib.parse import unquote, urljoin, urlparse
 
