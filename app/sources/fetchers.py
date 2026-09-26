@@ -288,9 +288,10 @@ class CundinamarcaActaSourceFetcher(HttpSourceFetcher):
                 # signature as sufficient evidence.
                 pdf_text = result.content.decode("latin-1", errors="ignore")
             normalized = re.sub(r"\s+", " ", pdf_text)
+            draw_digits = str(draw_number)
             draw_pattern = re.compile(
-                rf"\bsorteo\s*(?:no\.?|numero|nro\.?|#|[:\-])?\s*"
-                rf"{draw_number}\b",
+                rf"\\bsorteo\\b.{{0,80}}?"
+                rf"{''.join(f'[\\s._:/-]*{digit}' for digit in draw_digits)}\\b",
                 re.IGNORECASE,
             )
             if draw_pattern.search(normalized) is None:
