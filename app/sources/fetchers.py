@@ -289,8 +289,8 @@ class CundinamarcaActaSourceFetcher(HttpSourceFetcher):
                 pdf_text = result.content.decode("latin-1", errors="ignore")
             normalized = re.sub(r"\s+", " ", pdf_text)
             draw_pattern = re.compile(
-                rf"\bsorteo\b.{0,80}?"
-                rf"{''.join(\n                    f'[\\s._:/-]*{digit}' for digit in str(draw_number)\n                )}\b",
+                rf"\bsorteo\s*(?:no\.?|numero|nro\.?|#|[:\-])?\s*"
+                rf"{draw_number}\b",
                 re.IGNORECASE,
             )
             if draw_pattern.search(normalized) is None:
