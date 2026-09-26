@@ -25,12 +25,21 @@ def test_draw_schema_accepts_valid_numbers() -> None:
     assert payload.bonus_numbers == [9]
 
 
+def test_draw_schema_accepts_four_digit_number() -> None:
+    payload = valid_payload()
+    payload["main_numbers"] = [9999]
+
+    draw = LotteryDrawCreate(**payload)
+
+    assert draw.main_numbers == [9999]
+
+
 @pytest.mark.parametrize(
     "numbers",
     [
         [1, 1, 7],
         [0, 7, 14],
-        [1, 7, 1001],
+        [1, 7, 10000],
     ],
 )
 def test_draw_schema_rejects_invalid_main_numbers(numbers: list[int]) -> None:
@@ -54,7 +63,7 @@ def test_draw_update_schema_applies_same_number_validation() -> None:
         LotteryDrawUpdate(main_numbers=[4, 4])
 
     with pytest.raises(ValidationError):
-        LotteryDrawUpdate(bonus_numbers=[1001])
+        LotteryDrawUpdate(bonus_numbers=[10000])
 
 
 def test_draw_schema_rejects_excessive_number_lists() -> None:

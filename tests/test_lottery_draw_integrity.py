@@ -9,6 +9,7 @@ from sqlalchemy.pool import StaticPool
 from app.models.lottery import Lottery
 from app.models.lottery_draw import LotteryDraw
 from app.services.lottery_draw_service import LotteryDrawService
+from app.sources.contracts import RawDrawRecord
 
 engine = create_engine(
     "sqlite://",
@@ -70,9 +71,29 @@ def test_create_draw_persists_valid_record(db):
 
     assert draw.id is not None
     assert draw.lottery_id == lottery.id
+    assert draw.draw_type == "DEFAULT"
     assert draw.draw_number == "D-001"
     assert draw.main_numbers == [1, 2, 3, 4, 5]
     assert draw.bonus_numbers == [6]
+    assert draw.validation_json is None
+
+
+def test_create_draw_allows_missing_draw_number(db):
+    lottery = seed_lottery(db, "Antioqueñita")
+
+    draw = LotteryDrawService.create_draw(
+        db=db,
+        lottery_id=lottery.id,
+        draw_number=None,
+        draw_date=date(2026, 9, 20),
+        main_numbers=[153],
+        draw_type="ANTIOQUENITA_1",
+        source="official-html",
+    )
+
+    assert draw.id is not None
+    assert draw.draw_number is None
+    assert draw.draw_type == "ANTIOQUENITA_1"
 
 
 def test_create_draw_rejects_missing_lottery(db):
@@ -221,3 +242,189 @@ def test_list_draws_filters_by_lottery_and_orders_by_date(db):
 
     assert [item.draw_number for item in draws] == ["D-002", "D-001"]
     assert all(item.lottery_id == first.id for item in draws)
+
+
+def test_same_date_is_allowed_for_different_draw_types(db):
+    lottery = seed_lottery(db, "Super Astro")
+    payload = draw_payload(lottery.id)
+
+    first = LotteryDrawService.create_draw(
+        db=db,
+        **payload,
+        draw_type="ASTRO_SOL",
+        draw_time=None,
+        source_url="https://example.com/sol",
+        validation_json={"source_verified": True, "format_valid": True},
+    )
+    second = LotteryDrawService.create_draw(
+        db=db,
+        **payload,
+        draw_type="ASTRO_LUNA",
+        draw_time=None,
+        source_url="https://example.com/luna",
+        validation_json={"source_verified": True, "format_valid": True},
+    )
+
+    assert first.id != second.id
+    assert first.draw_type == "ASTRO_SOL"
+    assert second.draw_type == "ASTRO_LUNA"
+    assert first.source_url == "https://example.com/sol"
+    assert second.source_url == "https://example.com/luna"
+
+
+def test_same_number_is_rejected_within_same_draw_type(db):
+    lottery = seed_lottery(db, "Super Astro")
+    LotteryDrawService.create_draw(
+        db=db,
+        **draw_payload(lottery.id),
+        draw_type="ASTRO_SOL",
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        LotteryDrawService.create_draw(
+            db=db,
+            **draw_payload(lottery.id, draw_date=date(2026, 9, 3)),
+            draw_type="ASTRO_SOL",
+        )
+
+    assert exc.value.status_code == 409
+    assert "draw number" in exc.value.detail.lower()
+
+
+def test_persist_raw_record_ignores_provenance_only_metadata_changes(db):
+    lottery = seed_lottery(db, "MiLoto")
+    first = LotteryDrawService.create_draw(
+        db=db,
+        lottery_id=lottery.id,
+        draw_number="609",
+        draw_date=date(2026, 9, 18),
+        main_numbers=[1234],
+        draw_type="MILOTO_ORDINARY",
+        source="official",
+        source_url="https://example.test/results",
+        metadata_json={
+            "raw_result": "1234",
+            "series": "055",
+            "source_verified": False,
+        },
+    )
+
+    record = RawDrawRecord(
+        lottery_code="miloto",
+        draw_type="MILOTO_ORDINARY",
+        draw_number="609",
+        draw_date=date(2026, 9, 18),
+        draw_time=None,
+        main_numbers=[1234],
+        metadata={
+            "raw_result": "1234",
+            "series": "055",
+            "source_verified": True,
+        },
+        source_name="official",
+        source_url="https://example.test/results",
+    )
+
+    same = LotteryDrawService.persist_raw_record(db=db, record=record)
+
+    assert same.id == first.id
+
+
+def test_persist_raw_record_enriches_missing_metadata_without_conflict(db):
+    lottery = seed_lottery(db, "MiLoto")
+    first = LotteryDrawService.create_draw(
+        db=db,
+        lottery_id=lottery.id,
+        draw_number="609",
+        draw_date=date(2026, 9, 18),
+        main_numbers=[1234],
+        draw_type="MILOTO_ORDINARY",
+        source="legacy",
+        metadata_json={"raw_result": "1234", "source_verified": False},
+    )
+
+    record = RawDrawRecord(
+        lottery_code="miloto",
+        draw_type="MILOTO_ORDINARY",
+        draw_number="609",
+        draw_date=date(2026, 9, 18),
+        draw_time=None,
+        main_numbers=[1234],
+        metadata={
+            "raw_result": "1234",
+            "series": "055",
+            "source_verified": True,
+        },
+        source_name="official",
+        source_url="https://example.test/results",
+    )
+
+    same = LotteryDrawService.persist_raw_record(db=db, record=record)
+
+    assert same.id == first.id
+    assert same.metadata_json == {
+        "raw_result": "1234",
+        "source_verified": True,
+        "series": "055",
+    }
+
+
+def test_persist_raw_record_accepts_canonical_numeric_raw_result(db):
+    lottery = seed_lottery(db, "Tolima")
+    first = LotteryDrawService.create_draw(
+        db=db,
+        lottery_id=lottery.id,
+        draw_number="4188",
+        draw_date=date(2026, 9, 21),
+        main_numbers=[4008],
+        draw_type="TOLIMA_ORDINARY",
+        source="legacy",
+        metadata_json={"raw_result": 4008, "digit_count": 4, "series": "055"},
+    )
+
+    record = RawDrawRecord(
+        lottery_code="tolima",
+        draw_type="TOLIMA_ORDINARY",
+        draw_number="4188",
+        draw_date=date(2026, 9, 21),
+        draw_time=None,
+        main_numbers=[4008],
+        metadata={"raw_result": "4008", "digit_count": 4, "series": "055"},
+        source_name="official",
+        source_url="https://example.test/tolima",
+    )
+
+    same = LotteryDrawService.persist_raw_record(db=db, record=record)
+
+    assert same.id == first.id
+    assert same.metadata_json["raw_result"] == "4008"
+
+
+def test_persist_raw_record_rejects_semantic_metadata_change(db):
+    lottery = seed_lottery(db, "MiLoto")
+    LotteryDrawService.create_draw(
+        db=db,
+        lottery_id=lottery.id,
+        draw_number="609",
+        draw_date=date(2026, 9, 18),
+        main_numbers=[1234],
+        draw_type="MILOTO_ORDINARY",
+        source="official",
+        metadata_json={"raw_result": "1234", "series": "055"},
+    )
+
+    record = RawDrawRecord(
+        lottery_code="miloto",
+        draw_type="MILOTO_ORDINARY",
+        draw_number="609",
+        draw_date=date(2026, 9, 18),
+        draw_time=None,
+        main_numbers=[1234],
+        metadata={"raw_result": "1234", "series": "056"},
+        source_name="official",
+    )
+
+    with pytest.raises(HTTPException) as exc:
+        LotteryDrawService.persist_raw_record(db=db, record=record)
+
+    assert exc.value.status_code == 409
