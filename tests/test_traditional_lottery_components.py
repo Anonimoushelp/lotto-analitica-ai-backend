@@ -344,6 +344,41 @@ def test_boyaca_real_layout_prefers_labeled_winner_over_secondary_numbers():
     assert records[0]["metadata"]["series"] == "240"
 
 
+def test_risaralda_parser_accepts_official_sorteo_n_label():
+    parser, _ = build_traditional_lottery_components("LOTERIA_RISARALDA")
+    records = list(
+        parser.parse(
+            _result(
+                "<html><body>"
+                "Sorteo N° 2968 "
+                "viernes 25 de septiembre de 2026 "
+                "Premio mayor 6 7 1 2 Serie 285"
+                "</body></html>"
+            )
+        )
+    )
+    assert records[0]["draw_number"] == "2968"
+    assert records[0]["draw_date"] == "2026-09-25"
+    assert records[0]["main_numbers"] == [6712]
+
+
+def test_risaralda_parser_accepts_sorteo_no_label():
+    parser, _ = build_traditional_lottery_components("LOTERIA_RISARALDA")
+    records = list(
+        parser.parse(
+            _result(
+                "<html><body>"
+                "Sorteo No. 2968 "
+                "Premio mayor 6 7 1 2 Serie 285"
+                "</body></html>"
+            )
+        )
+    )
+    assert records[0]["draw_number"] == "2968"
+    assert records[0]["draw_date"] == "2026-09-25"
+    assert records[0]["main_numbers"] == [6712]
+
+
 def test_risaralda_date_allows_comma_after_day_and_month():
     parser, _ = build_traditional_lottery_components("LOTERIA_RISARALDA")
     records = list(
