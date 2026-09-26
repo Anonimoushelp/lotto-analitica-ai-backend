@@ -589,3 +589,26 @@ def test_cundinamarca_final_fetch_allows_apex_official_host():
 
     assert result.url.startswith("https://loteriadecundinamarca.com.co/")
     assert result.content.startswith(b"%PDF")
+
+
+def test_cundinamarca_pdf_date_with_mes_de_phrase():
+    parser, _ = build_traditional_lottery_components("LOTERIA_CUNDINAMARCA")
+    records = list(parser.parse(_result(
+        "<html><body>Acta de resultados Sorteo 4821 "
+        "En Bogotá, D.C. a los 21 del mes de Septiembre de 2026 "
+        "PREMIO MAYOR 5341 Serie 078</body></html>"
+    )))
+    assert records[0]["draw_number"] == "4821"
+    assert records[0]["draw_date"] == "2026-09-21"
+    assert records[0]["main_numbers"] == [5341]
+
+
+def test_risaralda_official_result_date_with_comma():
+    parser, _ = build_traditional_lottery_components("LOTERIA_RISARALDA")
+    records = list(parser.parse(_result(
+        "<html><body>Sorteo No. 2967 viernes, 18 de septiembre de 2026 "
+        "Premio mayor 6 7 1 1 Serie 284</body></html>"
+    )))
+    assert records[0]["draw_number"] == "2967"
+    assert records[0]["draw_date"] == "2026-09-18"
+    assert records[0]["main_numbers"] == [6711]
