@@ -29,6 +29,8 @@ INSERT INTO backup_restore_probe (id, marker, payload)
 VALUES (1, 'bcp-restore-ok', '{"schema":"v1","numbers":[5,12,23,31,42]}'::jsonb);
 SQL
 
+expected_migration="$(psql --host="$PGHOST" --port="$PGPORT" --username="$PGUSER" --dbname="$PGDATABASE" --tuples-only --no-align --set=ON_ERROR_STOP=1 -c "SELECT version_num FROM alembic_version LIMIT 1;")"
+
 pg_dump --host="$PGHOST" --port="$PGPORT" --username="$PGUSER" --dbname="$PGDATABASE" --format=custom --file="$backup_file"
 
 "${psql_cmd[@]}" -c "DROP DATABASE IF EXISTS \"$restore_db\" WITH (FORCE);"
@@ -43,7 +45,7 @@ restored_tables="$(psql --host="$PGHOST" --port="$PGPORT" --username="$PGUSER" -
 
 [[ "$restored_marker" == "bcp-restore-ok" ]]
 [[ "$restored_payload" == "v1" ]]
-[[ "$restored_migration" == "f1a2b3c4d5e6" ]]
+[[ "$restored_migration" == "$expected_migration" ]]
 [[ "$restored_tables" == "4" ]]
 
 echo "PostgreSQL backup/restore verification passed."
