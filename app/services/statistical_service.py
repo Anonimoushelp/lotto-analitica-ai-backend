@@ -75,6 +75,41 @@ class StatisticalService:
         return {"number_frequency":dict(sorted(frequency.items())),"number_recency":dict(sorted(recency.items())),"even_odd_distribution":dict(sorted(parity.items())),"sum_distribution":{"count":len(sums),"minimum":min(sums) if sums else None,"maximum":max(sums) if sums else None,"average":round(sum(sums)/len(sums),2) if sums else None},"pair_frequency":{f"{a}-{b}":c for (a,b),c in sorted(pairs.items())},"consecutive_numbers":{"draws_with_consecutive":sum(c>0 for c in consecutive),"total_consecutive_pairs":sum(consecutive),"maximum_consecutive_pairs":max(consecutive) if consecutive else 0}}
 
     @staticmethod
+    def analysis_response(db, lottery_id, source=None):
+        StatisticalService._validate_lottery_id(lottery_id)
+        draws = StatisticalService._load_draws(db, lottery_id, source)
+        if len(draws) > _MAX_ANALYZABLE_DRAWS:
+            raise StatisticalInputLimitError("Statistical analysis input is too large")
+        analyzable = [d for d in draws if d.main_numbers]
+        if not analyzable:
+            return {
+                "module_status": "STANDBY",
+                "lottery_id": lottery_id,
+                "draws_analyzed": 0,
+                "algorithms_count": 0,
+                "number_frequency": {},
+                "number_recency": {},
+                "even_odd_distribution": {},
+                "sum_distribution": {"count": 0, "minimum": None, "maximum": None, "average": None},
+                "pair_frequency": {},
+                "consecutive_numbers": {
+                    "draws_with_consecutive": 0,
+                    "total_consecutive_pairs": 0,
+                    "maximum_consecutive_pairs": 0,
+                },
+            }
+        result = StatisticalService.analyze(
+            analyzable, lottery_id=lottery_id, source=source
+        )
+        return {
+            "module_status": "READY",
+            "lottery_id": lottery_id,
+            "draws_analyzed": len(analyzable),
+            "algorithms_count": len(STATISTICAL_ALGORITHMS),
+            **result,
+        }
+
+    @staticmethod
     def overview(db,lottery_id=None,source=None):
         StatisticalService._validate_lottery_id(lottery_id)
         draws=StatisticalService._load_draws(db,lottery_id,source) if lottery_id else list(db.scalars(select(LotteryDraw).limit(_MAX_ANALYZABLE_DRAWS+1)).all())
