@@ -660,3 +660,23 @@ def test_risaralda_official_result_date_with_comma():
     assert records[0]["draw_number"] == "2967"
     assert records[0]["draw_date"] == "2026-09-18"
     assert records[0]["main_numbers"] == [6711]
+
+
+def test_boyaca_parser_prefers_visible_resultado_sorteo_heading_over_year_token():
+    parser, _ = build_traditional_lottery_components("LOTERIA_BOYACA")
+    records = list(
+        parser.parse(
+            _result(
+                "<html><head><title>Sorteo 2026</title></head><body>"
+                "Resultado sorteo #4643 "
+                "Sábado 26 de septiembre de 2026 "
+                "Número Ganador 9 8 8 2 "
+                "Serie 2 7 0"
+                "</body></html>"
+            )
+        )
+    )
+    assert records[0]["draw_number"] == "4643"
+    assert records[0]["draw_date"] == "2026-09-26"
+    assert records[0]["main_numbers"] == [9882]
+    assert records[0]["metadata"]["series"] == "270"
