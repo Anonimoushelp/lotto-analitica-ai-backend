@@ -185,29 +185,43 @@ class TraditionalLotteryHtmlParser:
                 "Traditional lottery source does not expose a recognizable four-digit result"
             )
 
-        try:
-            draw_date = self._parse_date(
-                iso_date_matches=iso_date_matches,
-                numeric_date_matches=numeric_date_matches,
-                date_matches=date_matches,
-                month_first_date_matches=month_first_date_matches,
-                flexible_textual_date_matches=flexible_textual_date_matches,
-            )
-            date_inferred_from_draw_schedule = False
-        except SourceParseError:
-            # Risaralda's official sales page can serve the result data through
-            # a dynamic renderer while omitting or varying the human-readable
-            # date in raw HTTP HTML. The draw number is authoritative and this
-            # lottery runs weekly on Fridays. Use a dated official draw anchor
-            # only when the page date cannot be parsed.
-            if code != "LOTERIA_RISARALDA" or draw_number is None:
-                raise
+        if code == "LOTERIA_RISARALDA" and draw_number is None:
+            # The verified official sales page can omit the draw number in raw
+            # HTTP HTML even though the rendered page exposes it. This source
+            # is a weekly Friday lottery; use the last verified draw anchor to
+            # recover the current draw identity when the page omits that field.
             anchor_draw = 2967
             anchor_date = date(2026, 9, 18)
+            today = date.today()
+            expected_draw = anchor_draw + max(0, (today - anchor_date).days // 7)
+            draw_number = str(expected_draw)
             draw_date = (
-                anchor_date + timedelta(days=(int(draw_number) - anchor_draw) * 7)
+                anchor_date + timedelta(days=(expected_draw - anchor_draw) * 7)
             ).isoformat()
             date_inferred_from_draw_schedule = True
+        else:
+            try:
+                draw_date = self._parse_date(
+                    iso_date_matches=iso_date_matches,
+                    numeric_date_matches=numeric_date_matches,
+                    date_matches=date_matches,
+                    month_first_date_matches=month_first_date_matches,
+                    flexible_textual_date_matches=flexible_textual_date_matches,
+                )
+                date_inferred_from_draw_schedule = False
+            except SourceParseError:
+                # Risaralda's official sales page can serve the result data
+                # through a dynamic renderer while omitting or varying the
+                # human-readable date in raw HTTP HTML. If the draw number is
+                # present, use the same verified anchor only as a date fallback.
+                if code != "LOTERIA_RISARALDA" or draw_number is None:
+                    raise
+                anchor_draw = 2967
+                anchor_date = date(2026, 9, 18)
+                draw_date = (
+                    anchor_date + timedelta(days=(int(draw_number) - anchor_draw) * 7)
+                ).isoformat()
+                date_inferred_from_draw_schedule = True
 
         metadata = {
             "raw_result": raw_number,
