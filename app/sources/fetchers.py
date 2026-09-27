@@ -424,8 +424,20 @@ class CundinamarcaActaSourceFetcher(HttpSourceFetcher):
                     if draw_match is None:
                         draw_match = self._DRAW_RE.search(unquote(candidate_url))
                     if draw_match is not None:
+                        candidate_draw = int(draw_match.group(1))
+                        # A 200 PDF response is not sufficient evidence that
+                        # an acta has been published: the official host keeps
+                        # serving valid placeholder PDFs for future filenames.
+                        # Reject future draws using the verified 2026 schedule
+                        # window before adding them to the indexed candidates.
+                        today_expected_latest = 4790 + max(
+                            0,
+                            (today - anchor).days // 7,
+                        )
+                        if candidate_draw > today_expected_latest:
+                            continue
                         fallback_matches.append(
-                            (year, int(draw_match.group(1)), candidate.url)
+                            (year, candidate_draw, candidate.url)
                         )
                     continue
 
