@@ -185,7 +185,19 @@ class TraditionalLotteryHtmlParser:
                 "Traditional lottery source does not expose a recognizable four-digit result"
             )
 
-        try:
+        if code == "LOTERIA_RISARALDA" and draw_number is not None:
+            # The official sales endpoint exposes the draw number reliably,
+            # while its raw HTTP response may omit or vary the rendered date.
+            # For this verified weekly source, derive the date from a dated
+            # official draw anchor instead of letting incidental page markup
+            # determine the canonical draw date.
+            anchor_draw = 2967
+            anchor_date = date(2026, 9, 18)
+            draw_date = (
+                anchor_date + timedelta(days=(int(draw_number) - anchor_draw) * 7)
+            ).isoformat()
+            date_inferred_from_draw_schedule = True
+        else:
             draw_date = self._parse_date(
                 iso_date_matches=iso_date_matches,
                 numeric_date_matches=numeric_date_matches,
@@ -194,20 +206,6 @@ class TraditionalLotteryHtmlParser:
                 flexible_textual_date_matches=flexible_textual_date_matches,
             )
             date_inferred_from_draw_schedule = False
-        except SourceParseError:
-            # Risaralda's official sales page can serve the result data through
-            # a dynamic renderer while omitting the human-readable date from
-            # the raw HTTP HTML. The draw number is authoritative and this
-            # lottery runs weekly on Fridays. Use a dated official draw anchor
-            # only for this verified source as a deterministic fallback.
-            if code != "LOTERIA_RISARALDA" or draw_number is None:
-                raise
-            anchor_draw = 2967
-            anchor_date = date(2026, 9, 18)
-            draw_date = (
-                anchor_date + timedelta(days=(int(draw_number) - anchor_draw) * 7)
-            ).isoformat()
-            date_inferred_from_draw_schedule = True
 
         metadata = {
             "raw_result": raw_number,
