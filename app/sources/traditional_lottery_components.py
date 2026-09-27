@@ -361,9 +361,16 @@ class CundinamarcaActaPdfParser:
 
         try:
             reader = PdfReader(BytesIO(result.content))
-            text = " ".join(
-                (page.extract_text() or "") for page in reader.pages
-            )
+            extracted_pages = []
+            for page in reader.pages:
+                page_text = page.extract_text() or ""
+                if not page_text.strip():
+                    try:
+                        page_text = page.extract_text(extraction_mode="layout") or ""
+                    except TypeError:
+                        pass
+                extracted_pages.append(page_text)
+            text = " ".join(extracted_pages)
         except Exception as exc:
             raise SourceParseError(
                 "Cundinamarca official acta PDF could not be parsed"
