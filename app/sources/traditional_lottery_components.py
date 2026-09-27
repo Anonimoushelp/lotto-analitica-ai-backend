@@ -186,14 +186,6 @@ class TraditionalLotteryHtmlParser:
             )
 
         if code == "LOTERIA_RISARALDA" and draw_number is None:
-            # Raw HTTP HTML can expose the calendar year and inferred draw
-            # number as ordinary four-digit tokens before the actual winner.
-            # Do not mistake either token for the four-digit prize result.
-            excluded = {str(date.today().year), *( [draw_number] if draw_number else [] )}
-            for candidate in number_matches:
-                if candidate not in excluded:
-                    raw_number = candidate
-                    break
             # The verified official sales page can omit the draw number in raw
             # HTTP HTML even though the rendered page exposes it. This source
             # is a weekly Friday lottery; use the last verified draw anchor to
@@ -203,6 +195,14 @@ class TraditionalLotteryHtmlParser:
             today = date.today()
             expected_draw = anchor_draw + max(0, (today - anchor_date).days // 7)
             draw_number = str(expected_draw)
+            # Raw HTTP HTML can expose the calendar year and inferred draw
+            # number as ordinary four-digit tokens before the actual winner.
+            # Do not mistake either token for the four-digit prize result.
+            excluded = {str(today.year), draw_number}
+            for candidate in number_matches:
+                if candidate not in excluded:
+                    raw_number = candidate
+                    break
             draw_date = (
                 anchor_date + timedelta(days=(expected_draw - anchor_draw) * 7)
             ).isoformat()
