@@ -199,10 +199,11 @@ class TraditionalLotteryHtmlParser:
             # number as ordinary four-digit tokens before the actual winner.
             # Do not mistake either token for the four-digit prize result.
             excluded = {str(today.year), draw_number}
-            for candidate in number_matches:
-                if candidate not in excluded:
-                    raw_number = candidate
-                    break
+            if raw_number in excluded:
+                for candidate in [*labeled_number_matches, *number_matches]:
+                    if candidate not in excluded:
+                        raw_number = candidate
+                        break
             draw_date = (
                 anchor_date + timedelta(days=(expected_draw - anchor_draw) * 7)
             ).isoformat()
