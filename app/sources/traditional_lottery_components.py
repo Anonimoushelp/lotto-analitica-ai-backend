@@ -360,9 +360,9 @@ class CundinamarcaActaPdfParser:
             text = " ".join(html_lib.unescape(re.sub(r"<[^>]+>", " ", html)).split())
             search_text = TraditionalLotteryHtmlParser._strip_accents(text)
             row_match = re.search(
-                r"\\b(?:lunes|martes|miercoles|jueves|viernes|sabado|domingo)\\s+"
-                r"(\\d{1,2})\\s+de\\s+([A-Za-z]+)\\s*[|·—-]?\\s*"
-                r"(\\d{3,6})\\s*[|·—-]?\\s*(\\d{4})\\s*[|·—-]?\\s*(\\d{1,4})\\b",
+                r"\b(?:lunes|martes|miercoles|jueves|viernes|sabado|domingo)\s+"
+                r"(\d{1,2})\s+de\s+([A-Za-z]+)\s*[|·—-]?\s*"
+                r"(\d{3,6})\s*[|·—-]?\s*(\d{4})\s*[|·—-]?\s*(\d{1,4})\b",
                 search_text,
                 re.IGNORECASE,
             )
@@ -371,7 +371,7 @@ class CundinamarcaActaPdfParser:
                     "Cundinamarca secondary history does not expose the latest draw row"
                 )
             day, month_name, draw_number, major, series = row_match.groups()
-            year_match = re.search(r"\\b(20\\d{2})\\b", search_text)
+            year_match = re.search(r"\b(20\d{2})\b", search_text)
             if year_match is None:
                 raise SourceParseError(
                     "Cundinamarca secondary history does not expose a four-digit year"
