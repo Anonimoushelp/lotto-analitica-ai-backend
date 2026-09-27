@@ -25,14 +25,4 @@ def get_statistical_analysis(
     db: Session = Depends(get_db),
     current_user=Depends(require_admin_or_analyst),
 ):
-    return {
-        **StatisticalService.analyze(
-            draws=StatisticalService._load_draws(db, lottery_id, source),
-            lottery_id=lottery_id,
-            source=source,
-        ),
-        "module_status": "READY",
-        "lottery_id": lottery_id,
-        "draws_analyzed": len(StatisticalService._load_draws(db, lottery_id, source)),
-        "algorithms_count": len(StatisticalService.STATISTICAL_ALGORITHMS) if hasattr(StatisticalService, "STATISTICAL_ALGORITHMS") else 6,
-    }
+    return StatisticalService.analysis_response(db=db, lottery_id=lottery_id, source=source)
