@@ -371,6 +371,12 @@ class CundinamarcaActaPdfParser:
                     "Cundinamarca secondary history does not expose the latest draw row"
                 )
             day, month_name, draw_number, major, series = row_match.groups()
+            year_match = re.search(r"\\b(20\\d{2})\\b", search_text)
+            if year_match is None:
+                raise SourceParseError(
+                    "Cundinamarca secondary history does not expose a four-digit year"
+                )
+            year = year_match.group(1)
             month = TraditionalLotteryHtmlParser._month(month_name)
             if month is None:
                 raise SourceParseError(
@@ -382,7 +388,7 @@ class CundinamarcaActaPdfParser:
                     "lottery_code": code,
                     "draw_type": f"{code}_ORDINARY",
                     "draw_number": draw_number,
-                    "draw_date": f"2026-{month}-{int(day):02d}",
+                    "draw_date": f"{year}-{month}-{int(day):02d}",
                     "main_numbers": [int(major)],
                     "metadata": {
                         "raw_result": major,
