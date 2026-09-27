@@ -6,6 +6,10 @@ from app.models.lottery import Lottery
 from app.repositories.lottery_repository import LotteryRepository
 
 
+def _canonical_code(code: str) -> str:
+    return code.strip().lower()
+
+
 class LotteryService:
     @staticmethod
     def list_lotteries(db: Session) -> list[Lottery]:
@@ -26,6 +30,7 @@ class LotteryService:
         db: Session,
         payload: dict,
     ) -> Lottery:
+        payload = {**payload, "code": _canonical_code(payload["code"])}
         if LotteryRepository.get_by_code(db=db, code=payload["code"]) is not None:
             raise HTTPException(
                 status_code=status.HTTP_409_CONFLICT,
@@ -50,6 +55,10 @@ class LotteryService:
         lottery = LotteryService.get_lottery(db=db, lottery_id=lottery_id)
 
         if "code" in update_data:
+            update_data = {
+                **update_data,
+                "code": _canonical_code(update_data["code"]),
+            }
             existing = LotteryRepository.get_by_code(
                 db=db,
                 code=update_data["code"],
