@@ -24,13 +24,6 @@ def production_settings(**overrides):
     return Settings(**values)
 
 
-def test_production_database_pool_bounds_are_validated():
-    settings = production_settings(DATABASE_POOL_SIZE=50, DATABASE_MAX_OVERFLOW=100)
-
-    assert settings.database_pool_size == 50
-    assert settings.database_max_overflow == 100
-
-
 @pytest.mark.parametrize(
     "field,value",
     [
@@ -49,6 +42,13 @@ def test_production_database_pool_bounds_are_validated():
 def test_database_pool_and_connection_limits_reject_unsafe_values(field, value):
     with pytest.raises(ValidationError):
         production_settings(**{field: value})
+
+
+def test_production_database_pool_bounds_are_validated():
+    settings = production_settings(DATABASE_POOL_SIZE=50, DATABASE_MAX_OVERFLOW=100)
+
+    assert settings.database_pool_size == 50
+    assert settings.database_max_overflow == 100
 
 
 def test_production_requires_secure_redis_transport():
@@ -232,7 +232,7 @@ def test_draw_creation_is_idempotency_safe_for_repeated_draw_number(monkeypatch)
         )
 
     assert exc_info.value.status_code == 409
-    assert exc_info.value.detail == "Draw number already exists for this lottery"
+    assert exc_info.value.detail == "Draw number already exists for this lottery and draw type"
 
 
 def test_draw_creation_is_idempotency_safe_for_repeated_draw_date(monkeypatch):
@@ -275,7 +275,7 @@ def test_draw_creation_is_idempotency_safe_for_repeated_draw_date(monkeypatch):
         )
 
     assert exc_info.value.status_code == 409
-    assert exc_info.value.detail == "Draw date already exists for this lottery"
+    assert exc_info.value.detail == "Draw date already exists for this lottery and draw type"
 
 
 def test_draw_creation_translates_integrity_error_from_race_condition(monkeypatch):

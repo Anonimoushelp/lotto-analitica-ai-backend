@@ -56,12 +56,17 @@ def create_draw(
     draw = LotteryDrawService.create_draw(
         db=db,
         lottery_id=payload.lottery_id,
+        draw_type=payload.draw_type,
         draw_number=payload.draw_number,
         draw_date=payload.draw_date,
+        draw_time=payload.draw_time,
         main_numbers=payload.main_numbers,
         bonus_numbers=payload.bonus_numbers,
         source=payload.source,
+        source_url=payload.source_url,
+        source_timestamp=payload.source_timestamp,
         metadata_json=payload.metadata_json,
+        validation_json=payload.validation_json,
     )
     log_mutation(
         action="create",

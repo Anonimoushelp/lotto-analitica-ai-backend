@@ -16,7 +16,8 @@ if not settings.database_url.startswith("sqlite"):
         "connect_timeout": settings.database_connect_timeout,
     }
 
-engine = create_engine(settings.database_url, **engine_kwargs)
+postgresql_url = settings.database_url.replace("postgresql://", "postgresql+psycopg://", 1)
+engine = create_engine(postgresql_url, **engine_kwargs)
 
 SessionLocal = sessionmaker(
     bind=engine,

@@ -12,13 +12,22 @@ config = context.config
 if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
-config.set_main_option("sqlalchemy.url", settings.database_url)
+def get_migration_database_url() -> str:
+    """Use the psycopg3 SQLAlchemy dialect for Alembic migrations."""
+    url = settings.database_url
+    if url.startswith("postgresql://"):
+        return url.replace("postgresql://", "postgresql+psycopg://", 1)
+    return url
+
+
+migration_database_url = get_migration_database_url()
+config.set_main_option("sqlalchemy.url", migration_database_url)
 
 target_metadata = Base.metadata
 
 
 def run_migrations_offline() -> None:
-    url = settings.database_url
+    url = migration_database_url
 
     context.configure(
         url=url,
@@ -34,7 +43,7 @@ def run_migrations_offline() -> None:
 
 def run_migrations_online() -> None:
     configuration = config.get_section(config.config_ini_section)
-    configuration["sqlalchemy.url"] = settings.database_url
+    configuration["sqlalchemy.url"] = migration_database_url
 
     connectable = engine_from_config(
         configuration,
