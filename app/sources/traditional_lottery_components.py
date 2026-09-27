@@ -352,6 +352,51 @@ class CundinamarcaActaPdfParser:
         result: SourceFetchResult,
         lottery_code: str | None = None,
     ) -> Iterable[Mapping[str, object]]:
+        if "loteriaya.com.co" in result.url.casefold():
+            # Explicit secondary fallback used only when the official acta
+            # endpoint cannot expose a parseable published PDF. Keep this
+            # provenance distinct from the verified official source.
+            html = result.content.decode("utf-8", errors="ignore")
+            text = " ".join(html_lib.unescape(re.sub(r"<[^>]+>", " ", html)).split())
+            search_text = TraditionalLotteryHtmlParser._strip_accents(text)
+            row_match = re.search(
+                r"\\b(?:lunes|martes|miercoles|jueves|viernes|sabado|domingo)\\s+"
+                r"(\\d{1,2})\\s+de\\s+([A-Za-z]+)\\s*[|·—-]?\\s*"
+                r"(\\d{3,6})\\s*[|·—-]?\\s*(\\d{4})\\s*[|·—-]?\\s*(\\d{1,4})\\b",
+                search_text,
+                re.IGNORECASE,
+            )
+            if not row_match:
+                raise SourceParseError(
+                    "Cundinamarca secondary history does not expose the latest draw row"
+                )
+            day, month_name, draw_number, major, series = row_match.groups()
+            month = TraditionalLotteryHtmlParser._month(month_name)
+            if month is None:
+                raise SourceParseError(
+                    "Cundinamarca secondary history has an unsupported month"
+                )
+            code = (lottery_code or self.lottery_code).upper()
+            return [
+                {
+                    "lottery_code": code,
+                    "draw_type": f"{code}_ORDINARY",
+                    "draw_number": draw_number,
+                    "draw_date": f"2026-{month}-{int(day):02d}",
+                    "main_numbers": [int(major)],
+                    "metadata": {
+                        "raw_result": major,
+                        "digit_count": 4,
+                        "series": series,
+                        "source_verified": False,
+                        "source_format": "secondary_html_history",
+                        "primary_source": "official_cundinamarca_acta_pdf",
+                    },
+                    "source_url": result.url,
+                    "source_timestamp": result.fetched_at,
+                }
+            ]
+
         if "pdf" not in result.content_type.casefold() and not result.content.startswith(
             b"%PDF"
         ):
