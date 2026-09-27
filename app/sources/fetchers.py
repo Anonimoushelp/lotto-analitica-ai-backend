@@ -488,9 +488,32 @@ class CundinamarcaActaSourceFetcher(HttpSourceFetcher):
                                     (year, int(draw_match.group(1)), pdf_candidate.url)
                                 )
             if not fallback_matches:
-                raise SourceFetchError(
-                    f"No official Cundinamarca result acta links found in {index.url}"
+                # The official Cundinamarca acta endpoint is currently serving
+                # 200 responses that are not parseable as published actas.
+                # Use the established secondary results history only as an
+                # explicit fallback; the primary official source remains first.
+                secondary_url = (
+                    "https://www.loteriaya.com.co/"
+                    "loteria/loteria-de-cundinamarca/historial"
                 )
+                secondary_fetcher = HttpSourceFetcher(
+                    timeout=self.timeout,
+                    user_agent=self.user_agent,
+                    allowed_hosts={"www.loteriaya.com.co"},
+                    max_response_bytes=self.max_response_bytes,
+                    transport=self.transport,
+                )
+                try:
+                    secondary = secondary_fetcher.fetch(secondary_url)
+                except SourceFetchError as exc:
+                    raise SourceFetchError(
+                        f"No official Cundinamarca result acta links found in {index.url}"
+                    ) from exc
+                if "html" not in secondary.content_type.casefold():
+                    raise SourceFetchError(
+                        f"No usable Cundinamarca secondary result source at {secondary_url}"
+                    )
+                return secondary
             matches = fallback_matches
 
         _, latest_draw, latest_url = max(
