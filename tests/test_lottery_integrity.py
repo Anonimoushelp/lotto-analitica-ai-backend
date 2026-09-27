@@ -61,7 +61,7 @@ def test_lottery_repository_rolls_back_failed_unique_insert():
 def test_lottery_service_rejects_duplicate_code():
     db = TestingSessionLocal()
     try:
-        db.add(new_lottery("DUP-1"))
+        db.add(new_lottery("dup-1"))
         db.commit()
 
         with pytest.raises(HTTPException) as exc_info:
@@ -83,8 +83,8 @@ def test_lottery_service_rejects_duplicate_code():
 def test_lottery_service_rejects_update_to_existing_code():
     db = TestingSessionLocal()
     try:
-        first = new_lottery("UPD-1")
-        second = new_lottery("UPD-2")
+        first = new_lottery("upd-1")
+        second = new_lottery("upd-2")
         db.add_all([first, second])
         db.commit()
         db.refresh(second)
