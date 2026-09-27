@@ -203,22 +203,36 @@ class LotteryDrawService:
 
         incoming_metadata = dict(record.metadata or {})
 
-        existing = None
+        existing_by_number = None
         if record.draw_number is not None:
-            existing = LotteryDrawRepository.get_by_number(
+            existing_by_number = LotteryDrawRepository.get_by_number(
                 db=db,
                 lottery_id=lottery.id,
                 draw_type=record.draw_type,
                 draw_number=record.draw_number,
             )
 
-        if existing is None:
-            existing = LotteryDrawRepository.get_by_date(
-                db=db,
-                lottery_id=lottery.id,
-                draw_type=record.draw_type,
-                draw_date=record.draw_date,
+        existing_by_date = LotteryDrawRepository.get_by_date(
+            db=db,
+            lottery_id=lottery.id,
+            draw_type=record.draw_type,
+            draw_date=record.draw_date,
+        )
+
+        # If number and date resolve to different rows, the payload carries
+        # incompatible identities. Reject explicitly instead of moving one
+        # row onto the other's unique identity and triggering UniqueViolation.
+        if (
+            existing_by_number is not None
+            and existing_by_date is not None
+            and existing_by_number.id != existing_by_date.id
+        ):
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="Conflicting draw identities: draw number and draw date belong to different records",
             )
+
+        existing = existing_by_number or existing_by_date
 
         if existing is not None:
             same_core_payload = LotteryDrawService._core_payload_compatible(
