@@ -4,6 +4,7 @@ from datetime import date, datetime
 from numbers import Integral
 
 from sqlalchemy import select
+
 from app.models.lottery_draw import LotteryDraw
 
 STATISTICAL_ALGORITHMS = (
