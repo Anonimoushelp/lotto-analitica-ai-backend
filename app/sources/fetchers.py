@@ -293,12 +293,27 @@ class CundinamarcaActaSourceFetcher(HttpSourceFetcher):
                 rf"{draw_number}\b",
                 re.IGNORECASE,
             )
-            if draw_pattern.search(normalized) is None:
-                return None
-            return result.url
+            if draw_pattern.search(normalized) is not None:
+                return result.url
+
+            # Some official Cundinamarca actas are image-based PDFs, so
+            # pypdf cannot extract the draw marker even though the PDF is the
+            # real acta. Do not accept arbitrary future placeholders: cap
+            # discovery at the draw that can have occurred by today's date
+            # using the verified 2026 schedule anchor.
+            expected_latest = 4790 + max(
+                0, (datetime.now(UTC).date() - datetime(2026, 2, 16, tzinfo=UTC).date()).days // 7
+            )
+            if draw_number <= expected_latest:
+                return result.url
+            return None
 
         first = latest_draw + 1
-        if probe(first) is None:
+        today_expected_latest = 4790 + max(
+            0,
+            (datetime.now(UTC).date() - datetime(2026, 2, 16, tzinfo=UTC).date()).days // 7,
+        )
+        if first > today_expected_latest or probe(first) is None:
             return None
 
         low = first
