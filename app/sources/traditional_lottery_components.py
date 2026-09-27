@@ -4,7 +4,7 @@ import html as html_lib
 import re
 import unicodedata
 from collections.abc import Iterable, Mapping
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 from io import BytesIO
 
 from pypdf import PdfReader
@@ -192,7 +192,7 @@ class TraditionalLotteryHtmlParser:
             # recover the current draw identity when the page omits that field.
             anchor_draw = 2967
             anchor_date = date(2026, 9, 18)
-            today = date.today()
+            today = datetime.now(UTC).date()
             expected_draw = anchor_draw + max(0, (today - anchor_date).days // 7)
             draw_number = str(expected_draw)
             # Raw HTTP HTML can expose the calendar year and inferred draw
