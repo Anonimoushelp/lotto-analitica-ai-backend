@@ -261,6 +261,51 @@ def test_cundinamarca_acta_parser_extracts_official_pdf_fields(monkeypatch):
 
 
 
+def test_cundinamarca_acta_parser_uses_layout_extraction_when_default_is_empty(
+    monkeypatch,
+):
+    parser, adapter = build_traditional_lottery_components("LOTERIA_CUNDINAMARCA")
+
+    class Page:
+        def extract_text(self, **kwargs):
+            if kwargs.get("extraction_mode") == "layout":
+                return (
+                    "ACTA DE RESULTADOS SORTEO 4821 "
+                    "En Bogotá, D.C. a los 21 del mes de Septiembre de 2026 "
+                    "PREMIO MAYOR 5341 078 BOGOTA"
+                )
+            return ""
+
+    class Reader:
+        def __init__(self):
+            self.pages = [Page()]
+
+    monkeypatch.setattr(
+        "app.sources.traditional_lottery_components.PdfReader",
+        lambda _stream: Reader(),
+    )
+    result = SourceFetchResult(
+        url=(
+            "https://www.loteriadecundinamarca.com.co/"
+            "public/files/actas/2026/Acta%20Sorteo%204821.pdf"
+        ),
+        content=b"%PDF-1.7",
+        fetched_at=datetime(2026, 9, 25, tzinfo=UTC),
+        status_code=200,
+        content_type="application/pdf",
+    )
+
+    records = list(parser.parse(result, "LOTERIA_CUNDINAMARCA"))
+    normalized = adapter.normalize(records[0])
+
+    assert normalized.draw_number == "4821"
+    assert normalized.draw_date.isoformat() == "2026-09-21"
+    assert normalized.main_numbers == [5341]
+    assert normalized.metadata["series"] == "078"
+
+
+
+
 def test_cundinamarca_acta_fetcher_accepts_result_pdf_links_without_fixed_path():
     page_url = "https://www.loteriadecundinamarca.com.co/?p=actas-de-resultados"
     page = """
