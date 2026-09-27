@@ -100,6 +100,18 @@ class TraditionalLotteryHtmlParser:
         search_text = self._strip_accents(text)
         draw_match = self._DRAW_RE.search(search_text)
         code = (lottery_code or self.lottery_code).upper()
+        if code == "LOTERIA_BOYACA":
+            # Boyacá pages can contain unrelated year tokens near the word
+            # "sorteo" in the raw HTML. Prefer the official visible heading
+            # "Resultado sorteo #NNNN" so the calendar year is never treated
+            # as the draw identity.
+            labeled_draw_match = re.search(
+                r"\bresultado\s+sorteo\s*#\s*(\d{3,6})\b",
+                search_text,
+                re.IGNORECASE,
+            )
+            if labeled_draw_match:
+                draw_match = labeled_draw_match
         if code == "LOTERIA_RISARALDA" and draw_match is None:
             # The official sales page has used several equivalent labels
             # (e.g. "Sorteo No.", "Sorteo Nro.", "Sorteo #").
