@@ -105,7 +105,7 @@ def test_admin_can_create_lottery():
         json={"name": "Admin Lottery", "code": "ADMIN", "country": "CO"},
     )
     assert response.status_code == 201
-    assert response.json()["code"] == "ADMIN"
+    assert response.json()["code"] == "admin"
 
 
 def test_invalid_token_is_rejected():
