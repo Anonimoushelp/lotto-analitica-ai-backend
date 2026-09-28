@@ -151,7 +151,7 @@ class AntioquenitaHtmlParser:
         records: list[Mapping[str, Any]] = []
         seen: set[tuple[str, str, str, str]] = set()
 
-        for index, (position, marker_length, draw_type) in enumerate(markers):
+        for index, (position, _, draw_type) in enumerate(markers):
             next_position = (
                 markers[index + 1][0]
                 if index + 1 < len(markers)
