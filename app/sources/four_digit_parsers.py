@@ -71,8 +71,8 @@ class AntioquenitaHtmlParser:
         re.IGNORECASE,
     )
     _RESULT_RE = re.compile(
-        r"(?:resultado|n(?:ú|u)mero\s+(?:ganador|premiado|favorecido)|ganador)"
-        r"\s*[:\-]?\s*(?P<number>\d{4})",
+        r"(?:resultado|n(?:ú|u)mero(?:\s+(?:ganador|premiado|favorecido))?|ganador)"
+        r"\s*[:\-]?\s*(?P<number>\d\s*\d\s*\d\s*\d)(?!\d)",
         re.IGNORECASE,
     )
     _FIFTH_RE = re.compile(
@@ -151,7 +151,7 @@ class AntioquenitaHtmlParser:
                 ]
                 raw_result = candidates[0] if candidates else None
             else:
-                raw_result = result_match.group("number")
+                raw_result = re.sub(r"\s+", "", result_match.group("number"))
 
             if draw_match is None or date_match is None or raw_result is None:
                 continue
