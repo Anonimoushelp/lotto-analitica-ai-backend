@@ -108,7 +108,7 @@ _PROFILES = {
     ),
     "LOTERIA_CAUCA": TraditionalLotterySource(
         "Lotería del Cauca — resultados",
-        "https://www.loteriadelcauca.gov.co/la-loteria/ultimos-resultados",
+        "https://www.loteriadelcauca.gov.co/",
         "traditional_result_page",
         "traditional_four_digit_series",
         True,
