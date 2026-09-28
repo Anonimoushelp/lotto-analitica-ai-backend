@@ -56,6 +56,16 @@ class TraditionalLotteryHtmlParser:
         r"\b(?:resultado|result)\s*[:#-]?\s*(\d{4})\b",
         re.IGNORECASE,
     )
+    _MAJOR_RESULT_RE = re.compile(
+        r"\b(?:premio\s+mayor|numero\s+ganador)\s*[:#-]?\s*"
+        r"(\d{4})(?!\d)(?!\s*millon(?:es)?\b)",
+        re.IGNORECASE,
+    )
+    _MAJOR_SPACED_RESULT_RE = re.compile(
+        r"\bpremio\s+mayor\b\s*[:#-]?\s*"
+        r"(\d)(?:\s+(\d))(?:\s+(\d))(?:\s+(\d))\b",
+        re.IGNORECASE,
+    )
     _LABELED_RESULT_SERIES_RE = re.compile(
         r"\b(?:premio\s+mayor|resultado)\s*[:#-]?\s*(\d{4})\s*-\s*(\d{1,4})\b",
         re.IGNORECASE,
@@ -166,17 +176,35 @@ class TraditionalLotteryHtmlParser:
 
         draw_number = draw_match.group(1) if draw_match else None
         profile = get_traditional_source(code)
-        raw_number = (
-            "".join(
+        major_result_match = self._MAJOR_RESULT_RE.search(search_text)
+        major_spaced_result_match = self._MAJOR_SPACED_RESULT_RE.search(search_text)
+        raw_number: str | None = None
+        raw_number_anchor: int | None = None
+
+        if winner_spaced_number_match:
+            raw_number = "".join(
                 group
                 for group in winner_spaced_number_match.groups()
                 if group is not None
             )
-            if winner_spaced_number_match
-            else labeled_result_series_match.group(1)
-            if labeled_result_series_match
-            else result_match.group(1) if result_match else None
-        )
+            raw_number_anchor = winner_spaced_number_match.start()
+        elif major_spaced_result_match:
+            raw_number = "".join(
+                group
+                for group in major_spaced_result_match.groups()
+                if group is not None
+            )
+            raw_number_anchor = major_spaced_result_match.start()
+        elif major_result_match:
+            raw_number = major_result_match.group(1)
+            raw_number_anchor = major_result_match.start()
+        elif labeled_result_series_match:
+            raw_number = labeled_result_series_match.group(1)
+            raw_number_anchor = labeled_result_series_match.start()
+        elif result_match:
+            raw_number = result_match.group(1)
+            raw_number_anchor = result_match.start()
+
         if raw_number is None:
             for candidate in labeled_number_matches:
                 if draw_number is None or candidate != draw_number:
@@ -228,6 +256,8 @@ class TraditionalLotteryHtmlParser:
                     date_matches=date_matches,
                     month_first_date_matches=month_first_date_matches,
                     flexible_textual_date_matches=flexible_textual_date_matches,
+                    reference_date=result.fetched_at.date(),
+                    anchor_position=raw_number_anchor,
                 )
                 date_inferred_from_draw_schedule = False
             except SourceParseError:
@@ -283,29 +313,78 @@ class TraditionalLotteryHtmlParser:
         date_matches: list[re.Match[str]],
         month_first_date_matches: list[re.Match[str]],
         flexible_textual_date_matches: list[re.Match[str]],
+        reference_date: date | None = None,
+        anchor_position: int | None = None,
     ) -> str:
-        # Prefer unambiguous numeric/ISO dates, then inspect every textual
-        # candidate instead of trusting the first match on a long HTML page.
+        candidates: list[tuple[date, int]] = []
+
+        def add_candidate(year: str, month: str, day: str, position: int) -> None:
+            month_number = self._month(month)
+            if month_number is None:
+                month_number = (
+                    month
+                    if month.isdigit() and 1 <= int(month) <= 12
+                    else None
+                )
+            if month_number is None:
+                return
+            try:
+                parsed = date(int(year), int(month_number), int(day))
+            except (TypeError, ValueError):
+                return
+            if reference_date is not None and parsed > reference_date:
+                return
+            candidates.append((parsed, position))
+
         for match in iso_date_matches:
             year, month, day = match.groups()
-            return f"{year}-{int(month):02d}-{int(day):02d}"
+            add_candidate(year, month, day, match.start())
         for match in numeric_date_matches:
             day, month, year = match.groups()
-            return f"{year}-{int(month):02d}-{int(day):02d}"
-
-        candidates = []
+            add_candidate(year, month, day, match.start())
         for match in month_first_date_matches:
-            candidates.append((match.group(1), match.group(2), match.group(3)))
+            add_candidate(
+                match.group(3),
+                match.group(1),
+                match.group(2),
+                match.start(),
+            )
         for match in date_matches:
-            candidates.append((match.group(2), match.group(1), match.group(3)))
+            add_candidate(
+                match.group(3),
+                match.group(2),
+                match.group(1),
+                match.start(),
+            )
         for match in flexible_textual_date_matches:
-            candidates.append((match.group(2), match.group(1), match.group(3)))
+            add_candidate(
+                match.group(3),
+                match.group(2),
+                match.group(1),
+                match.start(),
+            )
 
-        for month_name, day, year in candidates:
-            month = self._month(month_name)
-            if month is not None:
-                return f"{year}-{month}-{int(day):02d}"
-        raise SourceParseError("Traditional lottery source has an unsupported month")
+        if not candidates:
+            raise SourceParseError("Traditional lottery source has an unsupported month")
+
+        if anchor_position is not None:
+            nearby = [
+                candidate
+                for candidate in candidates
+                if abs(candidate[1] - anchor_position) <= 600
+            ]
+            if nearby:
+                selected = min(
+                    nearby,
+                    key=lambda item: (
+                        abs(item[1] - anchor_position),
+                        -item[0].toordinal(),
+                    ),
+                )
+                return selected[0].isoformat()
+
+        selected = max(candidates, key=lambda item: (item[0], -abs(item[1])))
+        return selected[0].isoformat()
 
 
     @staticmethod
