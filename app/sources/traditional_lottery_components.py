@@ -407,6 +407,15 @@ class TraditionalLotteryHtmlParser:
         series_options: list[tuple[str, int, int]] = []
         for match in self._LABELED_RESULT_SERIES_RE.finditer(search_text):
             series_options.append((match.group(2), match.start(), 100))
+        if not series_options:
+            series_label = re.compile(
+                r"\bserie\s*[:#-]?\s*(\d{1,3}(?:\s+\d{1,3}){0,2}|\d{1,3})\b",
+                re.IGNORECASE,
+            )
+            for match in series_label.finditer(search_text):
+                series_options.append(
+                    ("".join(match.group(1).split()), match.start(), 95)
+                )
         for match in self._NUMBER_BEFORE_SERIES_RE.finditer(search_text):
             series_options.append((match.group(1), match.start(), 95))
         for match in self._SPACED_SERIES_RE.finditer(search_text):
