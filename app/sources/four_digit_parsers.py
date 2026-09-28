@@ -57,23 +57,17 @@ def parse_four_digit_record(
 class AntioquenitaHtmlParser:
     """Extract Antioqueñita results from the official Rediapuestas iframe HTML."""
 
-    _TYPE_RE = re.compile(
-        r"antioque(?:ñ|n)ita\s*[-:]*\s*"
-        r"(?:1|2|día|dia|mañana|manana|tarde)",
-        re.IGNORECASE,
-    )
     _DRAW_RE = re.compile(
-        r"(?:sorteo|n(?:ú|u)mero\s+de\s+sorteo)\s*(?:[#nºo.]\s*)?(?P<number>\d{3,6})",
+        r"(?:sorteo|numero\s+de\s+sorteo)\s*(?:[#nºo.]\s*)?(?P<number>\d{3,6})",
         re.IGNORECASE,
     )
     _DATE_RE = re.compile(
         r"(?P<day>\d{1,2})\s+(?:de\s+)?"
-        r"(?P<month>[A-Za-zÁÉÍÓÚáéíóúñÑ]+)"
-        r"(?:\s+(?:de|del))?\s+(?P<year>\d{4})",
+        r"(?P<month>[a-z]+)(?:\s+(?:de|del))?\s+(?P<year>\d{4})",
         re.IGNORECASE,
     )
     _RESULT_RE = re.compile(
-        r"(?:resultado|n(?:ú|u)mero(?:\s+(?:ganador|premiado|favorecido))?|ganador)"
+        r"(?:resultado|numero(?:\s+(?:ganador|premiado|favorecido))?|ganador)"
         r"\s*[:\-]?\s*(?P<number>\d\s*\d\s*\d\s*\d)(?!\d)",
         re.IGNORECASE,
     )
@@ -96,34 +90,43 @@ class AntioquenitaHtmlParser:
         "noviembre": "11",
         "diciembre": "12",
     }
+    _TYPE_MARKERS: ClassVar[tuple[tuple[str, str], ...]] = (
+        ("antioquenita 1", "ANTIOQUENITA_1"),
+        ("antioquenita1", "ANTIOQUENITA_1"),
+        ("antioquenita dia", "ANTIOQUENITA_1"),
+        ("antioquenita manana", "ANTIOQUENITA_1"),
+        ("antioquenita 2", "ANTIOQUENITA_2"),
+        ("antioquenita2", "ANTIOQUENITA_2"),
+        ("antioquenita tarde", "ANTIOQUENITA_2"),
+    )
 
-    @classmethod
-    def _draw_type(cls, value: str) -> str:
-        normalized = " ".join(value.casefold().split())
-        if re.search(r"(?:\b1\b|día|dia|mañana|manana)", normalized):
-            return "ANTIOQUENITA_1"
-        if re.search(r"(?:\b2\b|tarde)", normalized):
-            return "ANTIOQUENITA_2"
-        raise SourceParseError("Antioqueñita result contains an unsupported draw type")
+    @staticmethod
+    def _ascii_text(value: str) -> str:
+        return (
+            unicodedata.normalize("NFKD", value)
+            .encode("ascii", "ignore")
+            .decode("ascii")
+            .casefold()
+        )
 
     @classmethod
     def _parse_date(cls, value: str) -> str | None:
         match = cls._DATE_RE.search(value)
         if match is None:
             return None
-        month_name = "".join(
-            char
-            for char in match.group("month").casefold()
-            if char.isalpha()
-        )
-        month = cls._MONTHS.get(month_name)
+        month = cls._MONTHS.get(match.group("month").casefold())
         if month is None:
             return None
         return f"{match.group('year')}-{month}-{int(match.group('day')):02d}"
 
     @staticmethod
     def _flatten_html(html: str) -> str:
-        text = re.sub(r"<script[^>]*>.*?</script>|<style[^>]*>.*?</style>", " ", html, flags=re.IGNORECASE | re.DOTALL)
+        text = re.sub(
+            r"<script[^>]*>.*?</script>|<style[^>]*>.*?</style>",
+            " ",
+            html,
+            flags=re.IGNORECASE | re.DOTALL,
+        )
         text = re.sub(r"<[^>]+>", " ", text)
         return " ".join(html_lib.unescape(text).split())
 
@@ -133,36 +136,36 @@ class AntioquenitaHtmlParser:
         except UnicodeDecodeError as exc:
             raise SourceParseError("Antioqueñita iframe is not valid UTF-8") from exc
 
-        text = self._flatten_html(html)
-        text = unicodedata.normalize("NFKC", text)
+        text = self._ascii_text(self._flatten_html(html))
+        markers: list[tuple[int, int, str]] = []
+        for marker, draw_type in self._TYPE_MARKERS:
+            offset = 0
+            while True:
+                position = text.find(marker, offset)
+                if position < 0:
+                    break
+                markers.append((position, len(marker), draw_type))
+                offset = position + len(marker)
+
+        markers.sort()
         records: list[Mapping[str, Any]] = []
         seen: set[tuple[str, str, str, str]] = set()
 
-        type_matches = list(self._TYPE_RE.finditer(text))
-        for index, match in enumerate(type_matches):
-            draw_type = self._draw_type(match.group(0))
-            window_end = (
-                type_matches[index + 1].start()
-                if index + 1 < len(type_matches)
-                else match.start() + 900
+        for index, (position, marker_length, draw_type) in enumerate(markers):
+            next_position = (
+                markers[index + 1][0]
+                if index + 1 < len(markers)
+                else position + 900
             )
-            window = text[match.start() : min(window_end, match.start() + 900)]
+            window = text[position : min(next_position, position + 900)]
             draw_match = self._DRAW_RE.search(window)
             date_match = self._DATE_RE.search(window)
             result_match = self._RESULT_RE.search(window)
+            if draw_match is None or date_match is None or result_match is None:
+                continue
 
-            if result_match is None:
-                candidates = [
-                    candidate
-                    for candidate in re.findall(r"(?<!\d)(\d{4})(?!\d)", window)
-                    if candidate != "2026"
-                    and (draw_match is None or candidate != draw_match.group("number"))
-                ]
-                raw_result = candidates[0] if candidates else None
-            else:
-                raw_result = re.sub(r"\s+", "", result_match.group("number"))
-
-            if draw_match is None or date_match is None or raw_result is None:
+            raw_result = re.sub(r"\s+", "", result_match.group("number"))
+            if len(raw_result) != 4 or not raw_result.isdigit():
                 continue
 
             draw_date = self._parse_date(date_match.group(0))
