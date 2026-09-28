@@ -1018,7 +1018,8 @@ class SantanderOpenDataParser:
 
         normalized_number = raw_number.zfill(4)
         normalized_series = series.zfill(3)
-        parsed_date = datetime.strptime(date_raw, "%d/%m/%Y").date()
+        day, month, year = (int(part) for part in date_raw.split("/"))
+        parsed_date = date(year, month, day)
 
         return [
             {
