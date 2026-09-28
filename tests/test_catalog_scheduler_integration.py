@@ -66,6 +66,15 @@ def test_unverified_sources_are_not_marked_ready():
                 assert binding.integration_status is IntegrationStatus.PENDING_SOURCE
 
 
+def test_antioquenita_remains_pending_until_live_primary_extraction_is_validated():
+    binding = next(
+        item
+        for item in build_catalog_scheduler_bindings()
+        if item.lottery_code == "ANTIOQUENITA"
+    )
+    assert binding.integration_status is IntegrationStatus.PENDING_SOURCE
+
+
 def test_verified_sources_are_ready_for_controlled_test():
     ready = {
         item.lottery_code
