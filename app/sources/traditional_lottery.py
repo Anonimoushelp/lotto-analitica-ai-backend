@@ -86,11 +86,11 @@ _PROFILES = {
         True,
     ),
     "LOTERIA_SANTANDER": TraditionalLotterySource(
-        "Lotería Santander — resultados",
-        "https://www.loteriasantander.gov.co/resultados/",
-        "traditional_result_page",
+        "Lotería Santander — datos abiertos oficiales",
+        "https://www.datos.gov.co/resource/i3kx-3zps.json?loter_a=Loteria%20Santander%26tipo_de_premio=Mayor%26%24order=n_mero_del_sorteo%20DESC%26%24limit=1",
+        "traditional_santander_open_data",
         "traditional_four_digit_series",
-        False,  # Official result data is dynamically loaded; parser endpoint remains unverified.
+        True,
     ),
     "LOTERIA_RISARALDA": TraditionalLotterySource(
         "Lotería de Risaralda — resultados oficiales",
