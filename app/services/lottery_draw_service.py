@@ -55,7 +55,9 @@ class LotteryDrawService:
     def _verified_source_continuity(existing: LotteryDraw, record: RawDrawRecord) -> bool:
         """Recognize verified source continuity when a provider renames a URL/label."""
         incoming_verified = bool(record.metadata.get("source_verified", False))
-        existing_verified = bool(\n            (existing.metadata_json or {}).get("source_verified", False)\n        )
+        existing_verified = bool(
+            (existing.metadata_json or {}).get("source_verified", False)
+        )
         if not incoming_verified or not existing_verified:
             return False
 
