@@ -81,6 +81,10 @@ def _traditional_fetcher(code: str):
         return HttpSourceFetcher()
     if profile.fetcher_key == "same_origin_iframe":
         return EmbeddedIframeSourceFetcher()
+    if profile.fetcher_key == "rediapuestas_iframe":
+        return EmbeddedIframeSourceFetcher(
+            allowed_iframe_hosts={"boletin.gana.com.co"},
+        )
     if profile.fetcher_key == "cundinamarca_acta_pdf":
         return CundinamarcaActaSourceFetcher()
     if profile.fetcher_key == "risaralda_official":
