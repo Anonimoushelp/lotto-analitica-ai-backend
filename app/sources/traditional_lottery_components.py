@@ -469,12 +469,12 @@ class TraditionalLotteryHtmlParser:
 
 
     _CAUCA_HOME_RESULT_RE = re.compile(
-        r"\bsorteo\\s*[:#-]?\\s*(?P<draw>\\d{3,6})\\b"
-        r"(?P<header>.*?)(?:\\bfecha\\s*[:#-]?\\s*)"
+        r"\\bsorteo\\s*[:#-]?\\s*(?P<draw>\\d{3,6})\\b"
+        r".*?\\bfecha\\s*[:#-]?\\s*"
         r"(?P<date>\\d{4}-\\d{1,2}-\\d{1,2})\\b"
-        r"(?P<body>.*?\\bpremio\\s+mayor\\b(?P<major>.{0,120}?)"
+        r".*?\\bpremio\\s+mayor\\b.*?"
         r"(?P<number>\\d{4}|\\d(?:\\s+\\d){3})\\b"
-        r"(?P<series_body>.{0,80}?)\\bserie\\s*[:#-]?\\s*(?P<series>\\d{1,4})\\b",
+        r".*?\\bserie\\s*[:#-]?\\s*(?P<series>\\d{1,4})\\b",
         re.IGNORECASE | re.DOTALL,
     )
 
