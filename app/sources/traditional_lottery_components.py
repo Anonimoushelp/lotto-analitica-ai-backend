@@ -535,7 +535,7 @@ class TraditionalLotteryHtmlParser:
 
         draw_date = date(
             int(date_match.group(3)),
-            month,
+            int(month),
             int(date_match.group(1)),
         )
         if draw_date > result.fetched_at.date():
