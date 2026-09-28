@@ -194,15 +194,30 @@ class TraditionalLotteryHtmlParser:
             )
 
         # Risaralda's results page may contain unrelated four-digit values
-        # from embedded chance/result widgets. Never accept an unlabeled
-        # number for this verified source: require a contextual major-result
-        # label before normalizing the record.
+        # from embedded chance/result widgets. Prefer an explicit major-result
+        # label. When the source exposes only a labelled "Número", accept it
+        # only when its local context does not belong to another game.
         if code == "LOTERIA_RISARALDA" and not any(
             weight >= 80 for _, _, weight in all_number_candidates
         ):
-            raise SourceParseError(
-                "Risaralda result page does not expose a recognizable major result"
+            unrelated_context = re.compile(
+                r"\\b(?:chontico|dorado|astro|miloto|baloto|revancha|"
+                r"paisita|sinuano|caribeñ[ae]|cafeterito|fantastica|"
+                r"antioqueñita|play\\s+four|cash|motil[oó]n|pijao|"
+                r"s[aá]man|culona)\\b",
+                re.IGNORECASE,
             )
+            contextual_candidates: list[tuple[str, int]] = []
+            for match in self._LABELED_NUMBER_RE.finditer(search_text):
+                context = search_text[max(0, match.start() - 180):match.end() + 180]
+                if unrelated_context.search(context):
+                    continue
+                contextual_candidates.append((match.group(1), match.start()))
+            if len(contextual_candidates) != 1:
+                raise SourceParseError(
+                    "Risaralda result page does not expose a recognizable major result"
+                )
+            raw_number, raw_number_anchor = contextual_candidates[0]
 
         profile = get_traditional_source(code)
         reference_date = result.fetched_at.date()
