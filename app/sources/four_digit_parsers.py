@@ -57,7 +57,7 @@ class AntioquenitaHtmlParser:
     """Extract Antioqueñita results from the official Rediapuestas iframe HTML."""
 
     _TYPE_RE = re.compile(
-        r"antioqueñita\\s*(?:1|día|dia|mañana|manana|2|tarde)",
+        r"antioque[ñn]ita\\s*(?:1|día|dia|mañana|manana|2|tarde)",
         re.IGNORECASE,
     )
     _DRAW_RE = re.compile(
@@ -65,18 +65,18 @@ class AntioquenitaHtmlParser:
         re.IGNORECASE,
     )
     _DATE_RE = re.compile(
-        r"(?P<day>\\d{1,2})\\s+(?:de\\s+)?"
+        r"(?P<day>\d{1,2})\s+(?:de\s+)?"
         r"(?P<month>[A-Za-zÁÉÍÓÚáéíóúñÑ]+)"
-        r"(?:\\s+(?:de|del))?\\s+(?P<year>\\d{4})",
+        r"(?:\s+(?:de|del))?\s+(?P<year>\d{4})",
         re.IGNORECASE,
     )
     _RESULT_RE = re.compile(
-        r"(?:resultado|n(?:ú|u)mero\\s+(?:ganador|premiado|favorecido)|ganador)"
-        r"\\s*[:\\-]?\\s*(?P<number>\\d{4})",
+        r"(?:resultado|n(?:ú|u)mero\s+(?:ganador|premiado|favorecido)|ganador)"
+        r"\s*[:\-]?\s*(?P<number>\d{4})",
         re.IGNORECASE,
     )
     _FIFTH_RE = re.compile(
-        r"(?:la\\s+quinta|quinta|5ta|5a\\s+balota)\\s*[:\\-]?\\s*(?P<number>\\d)",
+        r"(?:la\s+quinta|quinta|5ta|5a\s+balota)\s*[:\-]?\s*(?P<number>\d)",
         re.IGNORECASE,
     )
     _MONTHS = {
@@ -98,9 +98,9 @@ class AntioquenitaHtmlParser:
     @classmethod
     def _draw_type(cls, value: str) -> str:
         normalized = " ".join(value.casefold().split())
-        if re.search(r"(?:\\b1\\b|día|dia|mañana|manana)", normalized):
+        if re.search(r"(?:\b1\b|día|dia|mañana|manana)", normalized):
             return "ANTIOQUENITA_1"
-        if re.search(r"(?:\\b2\\b|tarde)", normalized):
+        if re.search(r"(?:\b2\b|tarde)", normalized):
             return "ANTIOQUENITA_2"
         raise SourceParseError("Antioqueñita result contains an unsupported draw type")
 
@@ -145,7 +145,7 @@ class AntioquenitaHtmlParser:
             if result_match is None:
                 candidates = [
                     candidate
-                    for candidate in re.findall(r"(?<!\\d)(\\d{4})(?!\\d)", window)
+                    for candidate in re.findall(r"(?<!\d)(\d{4})(?!\d)", window)
                     if candidate != "2026"
                     and (draw_match is None or candidate != draw_match.group("number"))
                 ]
