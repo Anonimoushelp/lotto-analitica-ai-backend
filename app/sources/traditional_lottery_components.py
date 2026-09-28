@@ -513,7 +513,7 @@ class TraditionalLotteryHtmlParser:
             # There is no per-row "Número"/"Serie" label, so parse only the
             # row scoped by PREMIO MAYOR and stop before the next prize row.
             major_row = re.search(
-                r"\\bpremio\\s+mayor\\b(?P<body>.*?)(?=\\bseco\\b|$)",
+                r"\bpremio\s+mayor\b(?P<body>.*?)(?=\bseco\b|$)",
                 search_text,
                 re.IGNORECASE,
             )
@@ -533,7 +533,7 @@ class TraditionalLotteryHtmlParser:
                     # 1-3 digit token is the series in this table layout.
                     series_tail = body[selected_result.end():]
                     series_match = re.search(
-                        r"(?<!\\d)(\\d{1,3})(?!\\d)",
+                        r"(?<!\d)(\d{1,3})(?!\d)",
                         series_tail,
                     )
                     if series_match is not None:
