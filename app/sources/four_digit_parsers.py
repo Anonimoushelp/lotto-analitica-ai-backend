@@ -150,6 +150,9 @@ class AntioquenitaHtmlParser:
         markers.sort()
         records: list[Mapping[str, Any]] = []
         seen: set[tuple[str, str, str, str]] = set()
+        draw_matches = 0
+        date_matches = 0
+        result_matches = 0
 
         for index, (position, _, draw_type) in enumerate(markers):
             next_position = (
@@ -161,8 +164,15 @@ class AntioquenitaHtmlParser:
             draw_match = self._DRAW_RE.search(window)
             date_match = self._DATE_RE.search(window)
             result_match = self._RESULT_RE.search(window)
-            if draw_match is None or date_match is None or result_match is None:
+            if draw_match is None:
                 continue
+            draw_matches += 1
+            if date_match is None:
+                continue
+            date_matches += 1
+            if result_match is None:
+                continue
+            result_matches += 1
 
             raw_result = re.sub(r"\s+", "", result_match.group("number"))
             if len(raw_result) != 4 or not raw_result.isdigit():
@@ -197,7 +207,9 @@ class AntioquenitaHtmlParser:
 
         if not records:
             raise SourceParseError(
-                "Antioqueñita iframe does not contain a supported result"
+                "Antioqueñita iframe does not contain a valid result "
+                f"(markers={len(markers)}, draw={draw_matches}, "
+                f"date={date_matches}, result={result_matches})"
             )
         return records
 
