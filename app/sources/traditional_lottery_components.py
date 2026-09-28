@@ -122,6 +122,14 @@ class TraditionalLotteryHtmlParser:
             if cauca_record is not None:
                 return [cauca_record]
 
+        if code == "LOTERIA_MANIZALES":
+            manizales_record = self._parse_manizales_homepage_current_result(
+                search_text=search_text,
+                result=result,
+            )
+            if manizales_record is not None:
+                return [manizales_record]
+
         all_draw_matches = list(self._DRAW_RE.finditer(search_text))
         if code == "LOTERIA_BOYACA":
             labeled_draw_matches = list(
@@ -466,6 +474,92 @@ class TraditionalLotteryHtmlParser:
             }
         ]
 
+
+
+    _MANIZALES_HOME_RESULT_RE = re.compile(
+        r"(?P<draw>\d{4,6})\s+resultados\s+"
+        r"(?P<date>\d{1,2}\s+de\s+[a-záéíóúñ]+\s+de\s+\d{4})"
+        r".*?\bpremio\s+mayor\b.*?\bmillones\b"
+        r"(?P<body>.*?)(?=\bproximo\s+sorteo\b|$)",
+        re.IGNORECASE | re.DOTALL,
+    )
+
+    def _parse_manizales_homepage_current_result(
+        self,
+        *,
+        search_text: str,
+        result: SourceFetchResult,
+    ) -> Mapping[str, object] | None:
+        match = self._MANIZALES_HOME_RESULT_RE.search(search_text)
+        if match is None:
+            return None
+
+        raw_date = match.group("date")
+        date_match = self._DATE_RE.search(raw_date)
+        if date_match is None:
+            raise SourceParseError(
+                "Lotería de Manizales homepage does not expose a recognizable current date"
+            )
+        month = self._month(date_match.group(2))
+        if month is None:
+            raise SourceParseError(
+                "Lotería de Manizales homepage has an unsupported month"
+            )
+
+        tokens = re.findall(r"(?<!\d)(\d)(?!\d)", match.group("body"))
+        if len(tokens) >= 14:
+            collapsed: list[str] = []
+            index = 0
+            while index + 1 < len(tokens):
+                if tokens[index] == tokens[index + 1]:
+                    collapsed.append(tokens[index])
+                    index += 2
+                else:
+                    collapsed.append(tokens[index])
+                    index += 1
+            if index < len(tokens):
+                collapsed.extend(tokens[index:])
+            tokens = collapsed
+
+        if len(tokens) < 7:
+            raise SourceParseError(
+                "Lotería de Manizales homepage does not expose the current major result and series"
+            )
+
+        raw_number = "".join(tokens[:4])
+        series = "".join(tokens[4:7])
+        if len(raw_number) != 4 or not raw_number.isdigit():
+            raise SourceParseError(
+                "Lotería de Manizales homepage does not expose a valid four-digit major result"
+            )
+
+        draw_date = date(
+            int(date_match.group(3)),
+            int(month),
+            int(date_match.group(1)),
+        )
+        if draw_date > result.fetched_at.date():
+            raise SourceParseError(
+                "Lotería de Manizales homepage current result has a future date"
+            )
+
+        profile = get_traditional_source("LOTERIA_MANIZALES")
+        return {
+            "lottery_code": "LOTERIA_MANIZALES",
+            "draw_type": "LOTERIA_MANIZALES_ORDINARY",
+            "draw_number": match.group("draw"),
+            "draw_date": draw_date.isoformat(),
+            "main_numbers": [int(raw_number)],
+            "metadata": {
+                "raw_result": raw_number,
+                "digit_count": 4,
+                "series": series,
+                "source_verified": profile.verified,
+                "source_format": "official_homepage_major_result_block",
+            },
+            "source_url": result.url,
+            "source_timestamp": result.fetched_at,
+        }
 
 
     _CAUCA_HOME_RESULT_RE = re.compile(

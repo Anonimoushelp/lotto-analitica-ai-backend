@@ -77,6 +77,7 @@ def test_verified_sources_are_ready_for_controlled_test():
         "LOTERIA_TOLIMA",
         "LOTERIA_CRUZ_ROJA",
         "LOTERIA_HUILA",
+        "LOTERIA_MANIZALES",
         "LOTERIA_VALLE",
         "LOTERIA_BOGOTA",
         "LOTERIA_MEDELLIN",
