@@ -57,11 +57,11 @@ class AntioquenitaHtmlParser:
     """Extract Antioqueñita results from the official Rediapuestas iframe HTML."""
 
     _TYPE_RE = re.compile(
-        r"antioque[ñn]ita\\s*(?:1|día|dia|mañana|manana|2|tarde)",
+        r"antioque[ñn]ita\s*(?:1|día|dia|mañana|manana|2|tarde)",
         re.IGNORECASE,
     )
     _DRAW_RE = re.compile(
-        r"(?:sorteo|n(?:ú|u)mero\\s+de\\s+sorteo)\\s*(?:[#nºo.]\\s*)?(?P<number>\\d{3,6})",
+        r"(?:sorteo|n(?:ú|u)mero\s+de\s+sorteo)\s*(?:[#nºo.]\s*)?(?P<number>\d{3,6})",
         re.IGNORECASE,
     )
     _DATE_RE = re.compile(
