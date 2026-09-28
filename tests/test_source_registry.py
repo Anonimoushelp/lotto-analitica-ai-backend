@@ -29,6 +29,13 @@ def test_registry_preserves_unverified_primary_sources():
     assert "semantic" in spec.notes
 
 
+def test_antioquenita_uses_official_rediapuestas_result_page_while_pending_validation():
+    spec = get_source_spec("ANTIOQUENITA")
+    assert spec.primary_url == "https://rediapuestas.com/resultados/"
+    assert spec.primary_verified is False
+    assert "boletin.gana.com.co" in spec.notes
+
+
 def test_mapping_adapter_normalizes_canonical_record():
     spec = SourceSpec(
         lottery_code="TEST",
