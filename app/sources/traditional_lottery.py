@@ -48,7 +48,7 @@ _PROFILES = {
         "https://loteriademanizales.com/",
         "traditional_result_page",
         "traditional_four_digit_series",
-        False,  # Official results are dynamically rendered; parser endpoint not yet verified.
+        True,
     ),
     "LOTERIA_VALLE": TraditionalLotterySource(
         "Lotería del Valle — resultados",
@@ -87,10 +87,10 @@ _PROFILES = {
     ),
     "LOTERIA_SANTANDER": TraditionalLotterySource(
         "Lotería Santander — resultados",
-        "https://loteriasantander.gov.co/resultados/",
+        "https://www.loteriasantander.gov.co/",
         "traditional_result_page",
         "traditional_four_digit_series",
-        False,  # Official result payload/endpoint not yet verified for this adapter.
+        True,
     ),
     "LOTERIA_RISARALDA": TraditionalLotterySource(
         "Lotería de Risaralda — resultados oficiales",
