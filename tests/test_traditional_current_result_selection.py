@@ -242,8 +242,8 @@ def test_risaralda_official_institutional_composite_layout_extracts_current_resu
                 <html><body>
                 <h1>Consulta de Lotería</h1>
                 <div>PREMIO MAYOR</div>
-                <div>6731</div>
-                <div>197</div>
+                <div>Número 6731</div>
+                <div>Serie 197</div>
                 <div>SECO EL GORDO DE LA RISARALDA 4842 192</div>
                 </body></html>"""
             ),
