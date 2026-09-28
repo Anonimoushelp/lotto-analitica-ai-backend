@@ -3,7 +3,7 @@ from __future__ import annotations
 import html as html_lib
 import re
 from collections.abc import Mapping
-from typing import Any
+from typing import Any, ClassVar
 
 from app.sources.parsers import SourceParseError
 
@@ -79,7 +79,7 @@ class AntioquenitaHtmlParser:
         r"(?:la\s+quinta|quinta|5ta|5a\s+balota)\s*[:\-]?\s*(?P<number>\d)",
         re.IGNORECASE,
     )
-    _MONTHS = {
+    _MONTHS: ClassVar[dict[str, str]] = {
         "enero": "01",
         "febrero": "02",
         "marzo": "03",
