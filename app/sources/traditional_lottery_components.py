@@ -114,6 +114,14 @@ class TraditionalLotteryHtmlParser:
         search_text = self._strip_accents(text)
         code = (lottery_code or self.lottery_code).upper()
 
+        if code == "LOTERIA_CAUCA":
+            cauca_record = self._parse_cauca_homepage_current_result(
+                search_text=search_text,
+                result=result,
+            )
+            if cauca_record is not None:
+                return [cauca_record]
+
         all_draw_matches = list(self._DRAW_RE.finditer(search_text))
         if code == "LOTERIA_BOYACA":
             labeled_draw_matches = list(
@@ -458,6 +466,75 @@ class TraditionalLotteryHtmlParser:
             }
         ]
 
+
+
+    _CAUCA_HOME_RESULT_RE = re.compile(
+        r"\bsorteo\s*[:#-]?\s*(?P<draw>\d{3,6})\b"
+        r".*?\bfecha\s*[:#-]?\s*"
+        r"(?P<date>\d{4}-\d{1,2}-\d{1,2})\b"
+        r".*?\bpremio\s+mayor\b.*?"
+        r"(?P<number>\d{4}|\d(?:\s+\d){3})\b"
+        r".*?\bserie\s*[:#-]?\s*(?P<series>\d{1,4})\b",
+        re.IGNORECASE | re.DOTALL,
+    )
+
+    def _parse_cauca_homepage_current_result(
+        self,
+        *,
+        search_text: str,
+        result: SourceFetchResult,
+    ) -> Mapping[str, object] | None:
+        matches = list(self._CAUCA_HOME_RESULT_RE.finditer(search_text))
+        if not matches:
+            return None
+
+        reference_date = result.fetched_at.date()
+        valid_matches = []
+        for match in matches:
+            try:
+                draw_date = date.fromisoformat(match.group("date"))
+            except ValueError:
+                continue
+            if draw_date > reference_date:
+                continue
+            raw_number = "".join(match.group("number").split())
+            if len(raw_number) != 4 or not raw_number.isdigit():
+                continue
+            if int(raw_number) in range(1900, 2101):
+                continue
+            series = match.group("series")
+            valid_matches.append(
+                (draw_date, int(match.group("draw")), raw_number, series, match)
+            )
+
+        if not valid_matches:
+            raise SourceParseError(
+                "Lotería del Cauca homepage does not expose a valid "
+                "current major result",
+            )
+
+        draw_date, draw_number, raw_number, series, _ = max(
+            valid_matches,
+            key=lambda item: (item[0], item[1]),
+        )
+        profile = get_traditional_source("LOTERIA_CAUCA")
+        metadata = {
+            "raw_result": raw_number,
+            "digit_count": 4,
+            "source_verified": profile.verified,
+            "series": series,
+            "source_format": "official_homepage_major_result_block",
+        }
+        return {
+            "lottery_code": "LOTERIA_CAUCA",
+            "draw_type": "LOTERIA_CAUCA_ORDINARY",
+            "draw_number": str(draw_number),
+            "draw_date": draw_date.isoformat(),
+            "main_numbers": [int(raw_number)],
+            "metadata": metadata,
+            "source_url": result.url,
+            "source_timestamp": result.fetched_at,
+        }
 
 
     def _parse_risaralda_official(

@@ -160,13 +160,13 @@ def test_cauca_official_homepage_layout_extracts_current_result():
         parser.parse(
             _result(
                 """<html><body>
-                Sorteo: 2629
-                Fecha: 2026-09-19
+                Sorteo: 2630
+                Fecha: 2026-09-26
                 <h2>$8.000</h2>
                 <div>Millones</div>
                 Premio Mayor
-                3 4 0 9
-                Serie 260
+                7 5 6 7
+                Serie 058
                 </body></html>"""
             ),
             "LOTERIA_CAUCA",
@@ -174,11 +174,51 @@ def test_cauca_official_homepage_layout_extracts_current_result():
     )
     normalized = adapter.normalize(records[0])
 
-    assert normalized.draw_number == "2629"
-    assert normalized.draw_date.isoformat() == "2026-09-19"
-    assert normalized.main_numbers == [3409]
-    assert normalized.metadata["raw_result"] == "3409"
-    assert normalized.metadata["series"] == "260"
+    assert normalized.draw_number == "2630"
+    assert normalized.draw_date.isoformat() == "2026-09-26"
+    assert normalized.main_numbers == [7567]
+    assert normalized.metadata["raw_result"] == "7567"
+    assert normalized.metadata["series"] == "058"
+    assert (
+        normalized.metadata["source_format"]
+        == "official_homepage_major_result_block"
+    )
+
+
+def test_cauca_homepage_does_not_mix_ordinary_and_extraordinary_draw_blocks():
+    parser, adapter = build_traditional_lottery_components("LOTERIA_CAUCA")
+
+    records = list(
+        parser.parse(
+            _result(
+                """<html><body>
+                <section>
+                  Sorteo: 2630
+                  Fecha: 2026-09-26
+                  $8.000 Millones
+                  Premio Mayor
+                  7 5 6 7
+                  Serie 058
+                </section>
+                <section>
+                  Sorteo: 0009
+                  Fecha: 2026-06-02
+                  $12.000 Millones
+                  Extraordinario
+                  1 9 3 3
+                  Serie 2010
+                </section>
+                </body></html>"""
+            ),
+            "LOTERIA_CAUCA",
+        )
+    )
+    normalized = adapter.normalize(records[0])
+
+    assert normalized.draw_number == "2630"
+    assert normalized.draw_date.isoformat() == "2026-09-26"
+    assert normalized.main_numbers == [7567]
+    assert normalized.metadata["series"] == "058"
 
 
 def test_risaralda_requires_major_result_context_instead_of_unrelated_four_digit_values():
