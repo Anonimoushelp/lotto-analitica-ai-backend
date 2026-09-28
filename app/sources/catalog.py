@@ -81,6 +81,10 @@ def _traditional_fetcher(code: str):
         return HttpSourceFetcher()
     if profile.fetcher_key == "same_origin_iframe":
         return EmbeddedIframeSourceFetcher()
+    if profile.fetcher_key == "rediapuestas_iframe":
+        return EmbeddedIframeSourceFetcher(
+            allowed_iframe_hosts={"boletin.gana.com.co"},
+        )
     if profile.fetcher_key == "cundinamarca_acta_pdf":
         return CundinamarcaActaSourceFetcher()
     if profile.fetcher_key == "risaralda_official":
@@ -209,7 +213,13 @@ def build_ingestion_catalog() -> tuple[IngestionJob, ...]:
                 url=spec.primary_url or "",
                 pipeline_factory=(
                     lambda p=parser_type, a=adapter_type, c=code: SourceIngestionPipeline(
-                        fetcher=HttpSourceFetcher(),
+                        fetcher=(
+                            EmbeddedIframeSourceFetcher(
+                                allowed_iframe_hosts={"boletin.gana.com.co"}
+                            )
+                            if c == "ANTIOQUENITA"
+                            else HttpSourceFetcher()
+                        ),
                         parser=(
                             p(draw_types=get_source_spec(c).draw_types)
                             if c == "DORADO"

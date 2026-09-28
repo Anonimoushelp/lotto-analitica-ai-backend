@@ -90,3 +90,33 @@ def test_embedded_iframe_fetcher_follows_same_origin_result_frame():
     assert result.status_code == 200
     assert result.url == "https://example.test/resultado-actual"
     assert b"Sorteo 4821" in result.content
+
+
+
+def test_embedded_iframe_fetcher_allows_explicit_cross_origin_official_host():
+    def handler(request):
+        if request.url.host == "rediapuestas.com" and request.url.path == "/resultados/":
+            return Response(
+                200,
+                content=b'<html><body><iframe src="https://boletin.gana.com.co/"></iframe></body></html>',
+                headers={"content-type": "text/html; charset=utf-8"},
+            )
+        if request.url.host == "boletin.gana.com.co":
+            return Response(
+                200,
+                content=b"<html><body>Sorteo 3174 Resultado 0166</body></html>",
+                headers={"content-type": "text/html; charset=utf-8"},
+            )
+        return Response(404, content=b"not found")
+
+    fetcher = EmbeddedIframeSourceFetcher(
+        allowed_hosts={"rediapuestas.com"},
+        allowed_iframe_hosts={"boletin.gana.com.co"},
+        transport=MockTransport(handler),
+    )
+
+    result = fetcher.fetch("https://rediapuestas.com/resultados/")
+
+    assert result.status_code == 200
+    assert result.url == "https://boletin.gana.com.co/"
+    assert b"Resultado 0166" in result.content

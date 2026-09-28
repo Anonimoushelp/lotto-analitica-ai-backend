@@ -210,6 +210,17 @@ class EmbeddedIframeSourceFetcher(HttpSourceFetcher):
         r"\b\d{4}\b|(?<!\d)(?:\d\s*){4}(?!\d)"
     )
 
+    def __init__(
+        self,
+        *,
+        allowed_iframe_hosts: set[str] | None = None,
+        **kwargs,
+    ) -> None:
+        super().__init__(**kwargs)
+        self.allowed_iframe_hosts = {
+            host.casefold() for host in (allowed_iframe_hosts or set())
+        }
+
     def fetch(self, url: str) -> SourceFetchResult:
         initial = super().fetch(url)
         if "html" not in initial.content_type.casefold():
@@ -229,7 +240,11 @@ class EmbeddedIframeSourceFetcher(HttpSourceFetcher):
             parsed = urlparse(iframe_url)
             if parsed.scheme.lower() != "https" or not parsed.hostname:
                 continue
-            if parsed.hostname.casefold() != host.casefold():
+            iframe_host = parsed.hostname.casefold()
+            if (
+                iframe_host != host.casefold()
+                and iframe_host not in self.allowed_iframe_hosts
+            ):
                 continue
             haystack = f"{raw_url} {match.group(0)}".casefold()
             score = sum(haystack.count(hint) for hint in self._HINTS)
@@ -242,7 +257,7 @@ class EmbeddedIframeSourceFetcher(HttpSourceFetcher):
         nested_fetcher = HttpSourceFetcher(
             timeout=self.timeout,
             user_agent=self.user_agent,
-            allowed_hosts={host.casefold()},
+            allowed_hosts={host.casefold(), *self.allowed_iframe_hosts},
             max_response_bytes=self.max_response_bytes,
             transport=self.transport,
         )
