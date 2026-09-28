@@ -178,6 +178,15 @@ class TraditionalLotteryHtmlParser:
         number_matches = list(self._NUMBER_RE.finditer(text))
         spaced_number_matches = list(self._SPACED_NUMBER_RE.finditer(text))
 
+        if code == "LOTERIA_RISARALDA":
+            official_record = self._parse_risaralda_official(
+                search_text=search_text,
+                result=result,
+                all_number_candidates=all_number_candidates,
+            )
+            if official_record is not None:
+                return [official_record]
+
         if (
             not date_matches
             and not month_first_date_matches
@@ -398,6 +407,15 @@ class TraditionalLotteryHtmlParser:
         series_options: list[tuple[str, int, int]] = []
         for match in self._LABELED_RESULT_SERIES_RE.finditer(search_text):
             series_options.append((match.group(2), match.start(), 100))
+        if not series_options:
+            series_label = re.compile(
+                r"\bserie\s*[:#-]?\s*(\d{1,3}(?:\s+\d{1,3}){0,2}|\d{1,3})\b",
+                re.IGNORECASE,
+            )
+            for match in series_label.finditer(search_text):
+                series_options.append(
+                    ("".join(match.group(1).split()), match.start(), 95)
+                )
         for match in self._NUMBER_BEFORE_SERIES_RE.finditer(search_text):
             series_options.append((match.group(1), match.start(), 95))
         for match in self._SPACED_SERIES_RE.finditer(search_text):
@@ -439,6 +457,122 @@ class TraditionalLotteryHtmlParser:
                 "source_timestamp": result.fetched_at,
             }
         ]
+
+
+
+    def _parse_risaralda_official(
+        self,
+        *,
+        search_text: str,
+        result: SourceFetchResult,
+        all_number_candidates: list[tuple[str, int, int]],
+    ) -> Mapping[str, object] | None:
+        draw_match = re.search(
+            r"\b(\d{3,6})\s*\+\s*sorteos\s+jugados\b",
+            search_text,
+            re.IGNORECASE,
+        )
+        if draw_match is None:
+            return None
+
+        unrelated_context = re.compile(
+            r"\b(?:chontico|dorado|astro|miloto|baloto|revancha|"
+            r"paisita|sinuano|caribeñ[ae]|cafeterito|fantastica|"
+            r"antioqueñita|play\s+four|cash|motil[oó]n|pijao|"
+            r"s[aá]man|culona)\b",
+            re.IGNORECASE,
+        )
+        safe_candidates = []
+        for raw, position, weight in all_number_candidates:
+            if weight < 80:
+                continue
+            context = search_text[max(0, position - 180):position + 180]
+            if unrelated_context.search(context):
+                continue
+            safe_candidates.append((raw, position, weight))
+
+        # The institutional consultation layout labels the major result as
+        # "Número 6731" under a separate "Premio Mayor" heading. Promote only
+        # that explicitly scoped number; generic four-digit values remain
+        # excluded from the official-result candidate set.
+        major_heading = re.compile(r"premio\s+mayor", re.IGNORECASE)
+        for match in self._LABELED_NUMBER_RE.finditer(search_text):
+            context = search_text[max(0, match.start() - 140):match.start()]
+            if not major_heading.search(context):
+                continue
+            local_context = search_text[max(0, match.start() - 180):match.end() + 180]
+            if unrelated_context.search(local_context):
+                continue
+            safe_candidates.append((match.group(1), match.start(), 85))
+
+        if not safe_candidates:
+            raise SourceParseError(
+                "Risaralda official source does not expose a recognizable major result"
+            )
+
+        raw_number, raw_number_anchor, _ = max(
+            safe_candidates,
+            key=lambda item: (item[2], -item[1]),
+        )
+        draw_number = int(draw_match.group(1))
+        anchor_draw = 2967
+        anchor_date = date(2026, 9, 18)
+        if draw_number < anchor_draw:
+            raise SourceParseError(
+                "Risaralda official draw counter is older than the verified anchor"
+            )
+        draw_date = (
+            anchor_date + timedelta(days=(draw_number - anchor_draw) * 7)
+        ).isoformat()
+
+        series_options: list[tuple[str, int, int]] = []
+        for match in self._LABELED_RESULT_SERIES_RE.finditer(search_text):
+            series_options.append((match.group(2), match.start(), 100))
+        for match in self._NUMBER_BEFORE_SERIES_RE.finditer(search_text):
+            series_options.append((match.group(1), match.start(), 95))
+        for match in self._SPACED_SERIES_RE.finditer(search_text):
+            digits = "".join(group for group in match.groups() if group is not None)
+            series_options.append((digits, match.start(), 90))
+        for match in self._SERIES_RE.finditer(search_text):
+            series_options.append((match.group(1), match.start(), 50))
+
+        nearby = [
+            item
+            for item in series_options
+            if abs(item[1] - raw_number_anchor) <= 600
+        ]
+        if not nearby:
+            raise SourceParseError(
+                "Risaralda official source does not expose the major-result series"
+            )
+        series_value = min(
+            nearby,
+            key=lambda item: (
+                abs(item[1] - raw_number_anchor),
+                -item[2],
+                -len(item[0]),
+            ),
+        )[0]
+
+        profile = get_traditional_source("LOTERIA_RISARALDA")
+        metadata = {
+            "raw_result": raw_number,
+            "digit_count": 4,
+            "source_verified": profile.verified,
+            "series": series_value,
+            "date_inferred_from_draw_schedule": True,
+            "source_format": "official_institutional_composite",
+        }
+        return {
+            "lottery_code": "LOTERIA_RISARALDA",
+            "draw_type": "LOTERIA_RISARALDA_ORDINARY",
+            "draw_number": str(draw_number),
+            "draw_date": draw_date,
+            "main_numbers": [int(raw_number)],
+            "metadata": metadata,
+            "source_url": result.url,
+            "source_timestamp": result.fetched_at,
+        }
 
 
     def _parse_date(
