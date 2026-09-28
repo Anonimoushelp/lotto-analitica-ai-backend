@@ -63,7 +63,9 @@ class AntioquenitaHtmlParser:
     )
     _DATE_RE = re.compile(
         r"(?P<day>\d{1,2})\s+(?:de\s+)?"
-        r"(?P<month>[a-z]+)(?:\s+(?:de|del))?\s+(?P<year>\d{4})",
+        r"(?P<month>enero|febrero|marzo|abril|mayo|junio|julio|"
+        r"agosto|septiembre|setiembre|octubre|noviembre|diciembre)"
+        r"(?:\s+(?:de|del))?\s+(?P<year>\d{4})",
         re.IGNORECASE,
     )
     _RESULT_RE = re.compile(
