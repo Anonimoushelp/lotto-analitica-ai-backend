@@ -183,11 +183,12 @@ class RisaraldaOfficialSourceFetcher(HttpSourceFetcher):
 
 
 class EmbeddedIframeSourceFetcher(HttpSourceFetcher):
-    """Fetch a same-origin iframe embedded by an official result page.
+    """Fetch an explicitly allowed iframe embedded by an official result page.
 
     Some lottery operator sites publish the current result inside an iframe on
-    the official home page. This keeps that navigation in the source-fetching
-    layer so parsing remains focused on the final result document.
+    the official result page. The iframe may be same-origin or may use a
+    distinct operator-controlled host; cross-origin hosts must be explicitly
+    allowlisted by the caller.
     """
 
     _IFRAME_RE = re.compile(
