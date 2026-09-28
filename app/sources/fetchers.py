@@ -125,7 +125,6 @@ class HttpSourceFetcher:
         )
 
 
-
 class RisaraldaOfficialSourceFetcher(HttpSourceFetcher):
     """Combine two official institutional pages into one parseable source.
 
