@@ -87,7 +87,7 @@ _PROFILES = {
     ),
     "LOTERIA_SANTANDER": TraditionalLotterySource(
         "Lotería Santander — datos abiertos oficiales",
-        "https://www.datos.gov.co/resource/i3kx-3zps.json?loter_a=Loteria%20Santander%26tipo_de_premio=Mayor%26%24order=n_mero_del_sorteo%20DESC%26%24limit=1",
+        "https://www.datos.gov.co/resource/i3kx-3zps.json?loter_a=Loteria%20Santander&tipo_de_premio=Mayor&$order=n_mero_del_sorteo%20DESC&$limit=1",
         "traditional_santander_open_data",
         "traditional_four_digit_series",
         True,
