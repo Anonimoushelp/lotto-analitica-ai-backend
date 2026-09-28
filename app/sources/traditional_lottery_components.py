@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import html as html_lib
+import json
 import re
 import unicodedata
 from collections.abc import Iterable, Mapping
@@ -934,6 +935,110 @@ class TraditionalLotteryHtmlParser:
             "dec": "12",
         }
         return prefixes.get(normalized[:3])
+
+
+class SantanderOpenDataParser:
+    """Parse the official Lotería Santander open-data Socrata feed."""
+
+    DATASET_ID = "i3kx-3zps"
+    LOTTERY_VALUE = "Loteria Santander"
+
+    def __init__(self, lottery_code: str) -> None:
+        self.lottery_code = lottery_code.upper()
+
+    def parse(
+        self,
+        result: SourceFetchResult,
+        lottery_code: str | None = None,
+    ) -> Iterable[Mapping[str, object]]:
+        try:
+            payload = json.loads(result.content.decode("utf-8"))
+        except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+            raise SourceParseError(
+                "Santander official open-data source is not valid JSON"
+            ) from exc
+
+        if not isinstance(payload, list):
+            raise SourceParseError(
+                "Santander official open-data source must return a JSON array"
+            )
+
+        candidates = []
+        code = (lottery_code or self.lottery_code).upper()
+        for item in payload:
+            if not isinstance(item, Mapping):
+                continue
+            if (
+                str(item.get("loter_a", "")).strip().casefold()
+                != self.LOTTERY_VALUE.casefold()
+            ):
+                continue
+            if (
+                str(item.get("tipo_de_premio", "")).strip().casefold()
+                != "mayor"
+            ):
+                continue
+            candidates.append(item)
+
+        if not candidates:
+            raise SourceParseError(
+                "Santander official open-data source does not expose a Mayor record"
+            )
+
+        def draw_key(item: Mapping[str, object]) -> tuple[int, str]:
+            raw = str(item.get("n_mero_del_sorteo", "")).strip()
+            try:
+                return (int(raw), raw)
+            except ValueError:
+                return (-1, raw)
+
+        item = max(candidates, key=draw_key)
+
+        draw_number = str(item.get("n_mero_del_sorteo", "")).strip()
+        raw_number = str(item.get("numero_billete_ganador", "")).strip()
+        series = str(item.get("numero_serie_ganadora", "")).strip()
+        date_raw = str(item.get("fecha_del_sorteo", "")).strip()
+
+        if not re.fullmatch(r"\d+", draw_number):
+            raise SourceParseError(
+                "Santander open-data record has no valid draw number"
+            )
+        if not re.fullmatch(r"\d{1,4}", raw_number):
+            raise SourceParseError(
+                "Santander open-data record has no valid four-digit result"
+            )
+        if not re.fullmatch(r"\d{1,4}", series):
+            raise SourceParseError(
+                "Santander open-data record has no valid series"
+            )
+        if not re.fullmatch(r"\d{1,2}/\d{1,2}/\d{4}", date_raw):
+            raise SourceParseError(
+                "Santander open-data record has no valid draw date"
+            )
+
+        normalized_number = raw_number.zfill(4)
+        normalized_series = series.zfill(3)
+        parsed_date = datetime.strptime(date_raw, "%d/%m/%Y").date()
+
+        return [
+            {
+                "lottery_code": code,
+                "draw_type": f"{code}_ORDINARY",
+                "draw_number": draw_number,
+                "draw_date": parsed_date.isoformat(),
+                "main_numbers": [int(normalized_number)],
+                "metadata": {
+                    "raw_result": normalized_number,
+                    "digit_count": 4,
+                    "series": normalized_series,
+                    "source_verified": True,
+                    "source_format": "official_open_data_socrata",
+                    "source_dataset": self.DATASET_ID,
+                },
+                "source_url": result.url,
+                "source_timestamp": result.fetched_at,
+            }
+        ]
 
 
 class CundinamarcaActaPdfParser:
