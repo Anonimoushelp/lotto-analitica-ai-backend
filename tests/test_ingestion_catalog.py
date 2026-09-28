@@ -102,7 +102,7 @@ def test_traditional_catalog_uses_source_specific_endpoints_and_fetchers():
         "LOTERIA_CUNDINAMARCA": "https://www.loteriadecundinamarca.com.co/?p=actas-de-resultados&view=distribuidores",
         "LOTERIA_CRUZ_ROJA": "https://lotecruz.org.co/",
         "LOTERIA_VALLE": "https://loteriadelvalle.com/",
-        "LOTERIA_RISARALDA": "https://ventas.loteriadelrisaralda.com/resultados",
+        "LOTERIA_RISARALDA": "https://loteriadelrisaralda.com/",
         "LOTERIA_BOYACA": "https://loteriadeboyaca.gov.co/resultados/",
     }
     for code, expected_url in expected_urls.items():
