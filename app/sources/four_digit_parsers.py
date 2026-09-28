@@ -155,6 +155,7 @@ class AntioquenitaHtmlParser:
         result_matches = 0
         valid_numbers = 0
         valid_dates = 0
+        date_months: set[str] = set()
 
         for index, (position, _, draw_type) in enumerate(markers):
             next_position = (
@@ -181,6 +182,7 @@ class AntioquenitaHtmlParser:
                 continue
             valid_numbers += 1
 
+            date_months.add(date_match.group("month"))
             draw_date = self._parse_date(date_match.group(0))
             if draw_date is None:
                 continue
@@ -214,7 +216,8 @@ class AntioquenitaHtmlParser:
                 "Antioqueñita iframe does not contain a valid result "
                 f"(markers={len(markers)}, draw={draw_matches}, "
                 f"date={date_matches}, result={result_matches}, "
-                f"number={valid_numbers}, valid_date={valid_dates})"
+                f"number={valid_numbers}, valid_date={valid_dates}, "
+                f"months={','.join(sorted(date_months)) or 'none'})"
             )
         return records
 
