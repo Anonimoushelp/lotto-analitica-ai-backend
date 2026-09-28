@@ -15,6 +15,7 @@ from app.sources.fetchers import (
     CundinamarcaActaSourceFetcher,
     EmbeddedIframeSourceFetcher,
     HttpSourceFetcher,
+    RisaraldaOfficialSourceFetcher,
 )
 from app.sources.four_digit_adapters import (
     AntioquenitaAdapter,
@@ -82,6 +83,8 @@ def _traditional_fetcher(code: str):
         return EmbeddedIframeSourceFetcher()
     if profile.fetcher_key == "cundinamarca_acta_pdf":
         return CundinamarcaActaSourceFetcher()
+    if profile.fetcher_key == "risaralda_official":
+        return RisaraldaOfficialSourceFetcher()
     raise ValueError(
         f"Unsupported traditional fetcher for {code}: {profile.fetcher_key}"
     )
