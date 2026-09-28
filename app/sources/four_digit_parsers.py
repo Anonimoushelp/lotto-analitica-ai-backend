@@ -4,7 +4,7 @@ import html as html_lib
 import re
 import unicodedata
 from collections.abc import Mapping
-from typing import Any, ClassVar
+from typing import Any, ClassVar, ClassVar
 
 from app.sources.parsers import SourceParseError
 
