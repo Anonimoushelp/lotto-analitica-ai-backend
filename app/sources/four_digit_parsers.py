@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import html as html_lib
 import re
+import unicodedata
 from collections.abc import Mapping
 from typing import Any, ClassVar
 
@@ -133,7 +134,7 @@ class AntioquenitaHtmlParser:
             raise SourceParseError("Antioqueñita iframe is not valid UTF-8") from exc
 
         text = self._flatten_html(html)
-        text = __import__("unicodedata").normalize("NFKC", text)
+        text = unicodedata.normalize("NFKC", text)
         records: list[Mapping[str, Any]] = []
         seen: set[tuple[str, str, str, str]] = set()
 
