@@ -57,7 +57,8 @@ class AntioquenitaHtmlParser:
     """Extract Antioqueñita results from the official Rediapuestas iframe HTML."""
 
     _TYPE_RE = re.compile(
-        r"antioque[ñn]ita\s*(?:1|día|dia|mañana|manana|2|tarde)",
+        r"antioque(?:ñ|n)ita\s*[-:]*\s*"
+        r"(?:1|2|día|dia|mañana|manana|tarde)",
         re.IGNORECASE,
     )
     _DRAW_RE = re.compile(
@@ -132,12 +133,19 @@ class AntioquenitaHtmlParser:
             raise SourceParseError("Antioqueñita iframe is not valid UTF-8") from exc
 
         text = self._flatten_html(html)
+        text = __import__("unicodedata").normalize("NFKC", text)
         records: list[Mapping[str, Any]] = []
         seen: set[tuple[str, str, str, str]] = set()
 
-        for match in self._TYPE_RE.finditer(text):
+        type_matches = list(self._TYPE_RE.finditer(text))
+        for index, match in enumerate(type_matches):
             draw_type = self._draw_type(match.group(0))
-            window = text[match.start() : match.start() + 900]
+            window_end = (
+                type_matches[index + 1].start()
+                if index + 1 < len(type_matches)
+                else match.start() + 900
+            )
+            window = text[match.start() : min(window_end, match.start() + 900)]
             draw_match = self._DRAW_RE.search(window)
             date_match = self._DATE_RE.search(window)
             result_match = self._RESULT_RE.search(window)
