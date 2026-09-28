@@ -1,4 +1,5 @@
 from datetime import date, time
+from urllib.parse import urlparse
 
 from fastapi import HTTPException, status
 from sqlalchemy import func, select
@@ -49,6 +50,29 @@ class LotteryDrawService:
             merged[key] = value
 
         return True, merged
+
+    @staticmethod
+    def _verified_source_continuity(existing: LotteryDraw, record: RawDrawRecord) -> bool:
+        """Recognize verified source continuity when a provider renames a URL/label."""
+        incoming_verified = bool(record.metadata.get("source_verified", False))
+        existing_verified = bool((existing.metadata_json or {}).get("source_verified", False))
+        if not incoming_verified or not existing_verified:
+            return False
+
+        existing_url = existing.source_url or ""
+        incoming_url = record.source_url or ""
+        existing_host = urlparse(str(existing_url)).hostname
+        incoming_host = urlparse(str(incoming_url)).hostname
+        if not existing_host or not incoming_host:
+            return False
+
+        existing_host = existing_host.casefold().removeprefix("www.")
+        incoming_host = incoming_host.casefold().removeprefix("www.")
+        return (
+            existing_host == incoming_host
+            or existing_host.endswith("." + incoming_host)
+            or incoming_host.endswith("." + existing_host)
+        )
 
     @staticmethod
     def _core_payload_compatible(existing: LotteryDraw, record: RawDrawRecord) -> bool:
@@ -271,15 +295,18 @@ class LotteryDrawService:
 
             incoming_is_verified = bool(record.metadata.get("source_verified", False))
             same_source = existing.source == record.source_name
+            same_verified_source = LotteryDrawService._verified_source_continuity(
+                existing,
+                record,
+            )
 
             # A verified first-party source is authoritative for its own
             # lottery. If a row was previously persisted from that same
-            # source with a stale/correctable payload, reconcile it in place
-            # instead of blocking the scheduler with a false 409. The lookup
-            # above already guarantees that the lottery/draw identity matched
-            # by draw_number or draw_date. We deliberately do NOT apply this
-            # repair across different sources.
-            if incoming_is_verified and same_source:
+            # source, or from the same verified host family under a legacy
+            # source label/URL, reconcile it in place instead of blocking the
+            # scheduler with a false 409. This does not relax conflicts for
+            # unverified or unrelated sources.
+            if incoming_is_verified and (same_source or same_verified_source):
                 existing.draw_number = record.draw_number
                 existing.draw_date = record.draw_date
                 existing.draw_time = record.draw_time
