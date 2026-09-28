@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import html as html_lib
+import re
 from collections.abc import Mapping
 from typing import Any
 
@@ -49,6 +51,143 @@ def parse_four_digit_record(
         "number": raw_result,
         "metadata": metadata,
     }
+
+
+class AntioquenitaHtmlParser:
+    """Extract Antioqueñita results from the official Rediapuestas iframe HTML."""
+
+    _TYPE_RE = re.compile(
+        r"antioqueñita\\s*(?:1|día|dia|mañana|manana|2|tarde)",
+        re.IGNORECASE,
+    )
+    _DRAW_RE = re.compile(
+        r"(?:sorteo|n(?:ú|u)mero\\s+de\\s+sorteo)\\s*(?:[#nºo.]\\s*)?(?P<number>\\d{3,6})",
+        re.IGNORECASE,
+    )
+    _DATE_RE = re.compile(
+        r"(?P<day>\\d{1,2})\\s+(?:de\\s+)?"
+        r"(?P<month>[A-Za-zÁÉÍÓÚáéíóúñÑ]+)"
+        r"(?:\\s+(?:de|del))?\\s+(?P<year>\\d{4})",
+        re.IGNORECASE,
+    )
+    _RESULT_RE = re.compile(
+        r"(?:resultado|n(?:ú|u)mero\\s+(?:ganador|premiado|favorecido)|ganador)"
+        r"\\s*[:\\-]?\\s*(?P<number>\\d{4})",
+        re.IGNORECASE,
+    )
+    _FIFTH_RE = re.compile(
+        r"(?:la\\s+quinta|quinta|5ta|5a\\s+balota)\\s*[:\\-]?\\s*(?P<number>\\d)",
+        re.IGNORECASE,
+    )
+    _MONTHS = {
+        "enero": "01",
+        "febrero": "02",
+        "marzo": "03",
+        "abril": "04",
+        "mayo": "05",
+        "junio": "06",
+        "julio": "07",
+        "agosto": "08",
+        "septiembre": "09",
+        "setiembre": "09",
+        "octubre": "10",
+        "noviembre": "11",
+        "diciembre": "12",
+    }
+
+    @classmethod
+    def _draw_type(cls, value: str) -> str:
+        normalized = " ".join(value.casefold().split())
+        if re.search(r"(?:\\b1\\b|día|dia|mañana|manana)", normalized):
+            return "ANTIOQUENITA_1"
+        if re.search(r"(?:\\b2\\b|tarde)", normalized):
+            return "ANTIOQUENITA_2"
+        raise SourceParseError("Antioqueñita result contains an unsupported draw type")
+
+    @classmethod
+    def _parse_date(cls, value: str) -> str | None:
+        match = cls._DATE_RE.search(value)
+        if match is None:
+            return None
+        month_name = "".join(
+            char
+            for char in match.group("month").casefold()
+            if char.isalpha()
+        )
+        month = cls._MONTHS.get(month_name)
+        if month is None:
+            return None
+        return f"{match.group('year')}-{month}-{int(match.group('day')):02d}"
+
+    @staticmethod
+    def _flatten_html(html: str) -> str:
+        text = re.sub(r"<script[^>]*>.*?</script>|<style[^>]*>.*?</style>", " ", html, flags=re.IGNORECASE | re.DOTALL)
+        text = re.sub(r"<[^>]+>", " ", text)
+        return " ".join(html_lib.unescape(text).split())
+
+    def parse(self, result: Any) -> list[Mapping[str, Any]]:
+        try:
+            html = result.content.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise SourceParseError("Antioqueñita iframe is not valid UTF-8") from exc
+
+        text = self._flatten_html(html)
+        records: list[Mapping[str, Any]] = []
+        seen: set[tuple[str, str, str, str]] = set()
+
+        for match in self._TYPE_RE.finditer(text):
+            draw_type = self._draw_type(match.group(0))
+            window = text[match.start() : match.start() + 900]
+            draw_match = self._DRAW_RE.search(window)
+            date_match = self._DATE_RE.search(window)
+            result_match = self._RESULT_RE.search(window)
+
+            if result_match is None:
+                candidates = [
+                    candidate
+                    for candidate in re.findall(r"(?<!\\d)(\\d{4})(?!\\d)", window)
+                    if candidate != "2026"
+                    and (draw_match is None or candidate != draw_match.group("number"))
+                ]
+                raw_result = candidates[0] if candidates else None
+            else:
+                raw_result = result_match.group("number")
+
+            if draw_match is None or date_match is None or raw_result is None:
+                continue
+
+            draw_date = self._parse_date(date_match.group(0))
+            if draw_date is None:
+                continue
+
+            fifth_match = self._FIFTH_RE.search(window)
+            metadata: dict[str, Any] = {
+                "raw_result": raw_result,
+                "digit_count": 4,
+                "source_format": "official_rediapuestas_iframe_html",
+            }
+            if fifth_match:
+                metadata["quinta"] = int(fifth_match.group("number"))
+
+            key = (draw_type, draw_match.group("number"), draw_date, raw_result)
+            if key in seen:
+                continue
+            seen.add(key)
+            records.append(
+                {
+                    "draw_type": draw_type,
+                    "draw_number": draw_match.group("number"),
+                    "draw_date": draw_date,
+                    "number": raw_result,
+                    "metadata": metadata,
+                }
+            )
+
+        if not records:
+            raise SourceParseError(
+                "Antioqueñita iframe does not contain a supported result"
+            )
+        return records
 
 
 class AntioquenitaJsonParser:
