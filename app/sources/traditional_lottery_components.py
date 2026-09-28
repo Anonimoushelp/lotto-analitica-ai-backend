@@ -491,6 +491,20 @@ class TraditionalLotteryHtmlParser:
                 continue
             safe_candidates.append((raw, position, weight))
 
+        # The institutional consultation layout labels the major result as
+        # "Número 6731" under a separate "Premio Mayor" heading. Promote only
+        # that explicitly scoped number; generic four-digit values remain
+        # excluded from the official-result candidate set.
+        major_heading = re.compile(r"premio\s+mayor", re.IGNORECASE)
+        for match in self._LABELED_NUMBER_RE.finditer(search_text):
+            context = search_text[max(0, match.start() - 140):match.start()]
+            if not major_heading.search(context):
+                continue
+            local_context = search_text[max(0, match.start() - 180):match.end() + 180]
+            if unrelated_context.search(local_context):
+                continue
+            safe_candidates.append((match.group(1), match.start(), 85))
+
         if not safe_candidates:
             raise SourceParseError(
                 "Risaralda official source does not expose a recognizable major result"
