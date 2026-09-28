@@ -196,14 +196,16 @@ class TraditionalLotteryHtmlParser:
             evaluated: list[tuple[int, int, int, int, int, str, int, date]] = []
             for raw, position, weight in all_number_candidates:
                 try:
-                    candidate_date = self._parse_date(
-                        iso_date_matches=iso_date_matches,
-                        numeric_date_matches=numeric_date_matches,
-                        date_matches=date_matches,
-                        month_first_date_matches=month_first_date_matches,
-                        flexible_textual_date_matches=flexible_textual_date_matches,
-                        reference_date=reference_date,
-                        anchor_position=position,
+                    candidate_date = date.fromisoformat(
+                        self._parse_date(
+                            iso_date_matches=iso_date_matches,
+                            numeric_date_matches=numeric_date_matches,
+                            date_matches=date_matches,
+                            month_first_date_matches=month_first_date_matches,
+                            flexible_textual_date_matches=flexible_textual_date_matches,
+                            reference_date=reference_date,
+                            anchor_position=position,
+                        )
                     )
                 except SourceParseError:
                     continue
