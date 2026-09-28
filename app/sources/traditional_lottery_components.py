@@ -938,9 +938,14 @@ class TraditionalLotteryHtmlParser:
 
 
 class SantanderOpenDataParser:
-    """Parse the official Lotería Santander open-data Socrata feed."""
+    """Parse the official Lotería Santander open-data Socrata feed.
+
+    The dataset is retained as a parser fixture/source contract, but live
+    ingestion must reject records that are materially older than the fetch.
+    """
 
     DATASET_ID = "i3kx-3zps"
+    MAX_STALENESS_DAYS = 21
     LOTTERY_VALUE = "Loteria Santander"
 
     def __init__(self, lottery_code: str) -> None:
@@ -1020,6 +1025,11 @@ class SantanderOpenDataParser:
         normalized_series = series.zfill(3)
         day, month, year = (int(part) for part in date_raw.split("/"))
         parsed_date = date(year, month, day)
+        staleness_days = (result.fetched_at.date() - parsed_date).days
+        if staleness_days > self.MAX_STALENESS_DAYS:
+            raise SourceParseError(
+                f"Santander official open-data record is stale ({staleness_days} days old)"
+            )
 
         return [
             {

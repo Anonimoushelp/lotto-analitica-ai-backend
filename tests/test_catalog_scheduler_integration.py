@@ -84,5 +84,4 @@ def test_verified_sources_are_ready_for_controlled_test():
         "LOTERIA_RISARALDA",
         "LOTERIA_BOYACA",
         "LOTERIA_CAUCA",
-        "LOTERIA_SANTANDER",
     }
