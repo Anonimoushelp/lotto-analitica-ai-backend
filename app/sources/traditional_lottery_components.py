@@ -404,7 +404,8 @@ class TraditionalLotteryHtmlParser:
             "raw_result": raw_number,
             "digit_count": 4,
             "source_verified": profile.verified,
-        }        if date_inferred_from_draw_schedule:
+        }
+        if date_inferred_from_draw_schedule:
             metadata["date_inferred_from_draw_schedule"] = True
 
         series_value: str | None = None
