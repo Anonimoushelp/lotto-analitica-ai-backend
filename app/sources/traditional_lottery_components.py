@@ -168,6 +168,11 @@ class TraditionalLotteryHtmlParser:
         for match in self._RESULT_RE.finditer(search_text):
             all_number_candidates.append((match.group(1), match.start(), 70))
         for match in self._LABELED_NUMBER_RE.finditer(search_text):
+            # "Sorteo número 4187" is a draw identity, not the winning number.
+            # Ignore a labelled number when it is part of the local draw header.
+            prefix = search_text[max(0, match.start() - 24):match.start()]
+            if re.search(r"\bsorteo\s*$", prefix, re.IGNORECASE):
+                continue
             all_number_candidates.append((match.group(1), match.start(), 60))
 
         number_matches = list(self._NUMBER_RE.finditer(text))
