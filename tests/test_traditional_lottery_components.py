@@ -680,3 +680,54 @@ def test_boyaca_parser_prefers_visible_resultado_sorteo_heading_over_year_token(
     assert records[0]["draw_date"] == "2026-09-26"
     assert records[0]["main_numbers"] == [9882]
     assert records[0]["metadata"]["series"] == "270"
+
+def test_verified_source_continuity_allows_risaralda_host_and_label_transition():
+    from app.models.lottery_draw import LotteryDraw
+    from app.services.lottery_draw_service import LotteryDrawService
+    from app.sources.contracts import RawDrawRecord
+
+    existing = LotteryDraw(
+        source="Lotería de Risaralda — resultados",
+        source_url="https://ventas.loteriadelrisaralda.com/resultados",
+        metadata_json={"source_verified": True},
+    )
+    record = RawDrawRecord(
+        lottery_code="LOTERIA_RISARALDA",
+        draw_type="LOTERIA_RISARALDA_ORDINARY",
+        draw_number="2968",
+        draw_date=datetime(2026, 9, 25, tzinfo=UTC).date(),
+        draw_time=None,
+        main_numbers=[6731],
+        source_name="Lotería de Risaralda — resultados oficiales",
+        source_url="https://loteriadelrisaralda.com/",
+        source_timestamp=datetime(2026, 9, 28, tzinfo=UTC),
+        metadata={"source_verified": True, "series": "197"},
+    )
+
+    assert LotteryDrawService._verified_source_continuity(existing, record)
+
+
+def test_verified_source_continuity_rejects_unrelated_host():
+    from app.models.lottery_draw import LotteryDraw
+    from app.services.lottery_draw_service import LotteryDrawService
+    from app.sources.contracts import RawDrawRecord
+
+    existing = LotteryDraw(
+        source="Lotería de Risaralda — resultados",
+        source_url="https://ventas.loteriadelrisaralda.com/resultados",
+        metadata_json={"source_verified": True},
+    )
+    record = RawDrawRecord(
+        lottery_code="LOTERIA_RISARALDA",
+        draw_type="LOTERIA_RISARALDA_ORDINARY",
+        draw_number="2968",
+        draw_date=datetime(2026, 9, 25, tzinfo=UTC).date(),
+        draw_time=None,
+        main_numbers=[6731],
+        source_name="other",
+        source_url="https://example.com/results",
+        source_timestamp=datetime(2026, 9, 28, tzinfo=UTC),
+        metadata={"source_verified": True},
+    )
+
+    assert not LotteryDrawService._verified_source_continuity(existing, record)
