@@ -195,8 +195,8 @@ class TraditionalLotteryHtmlParser:
 
         # Risaralda's results page may contain unrelated four-digit values
         # from embedded chance/result widgets. Prefer an explicit major-result
-        # label. When the source exposes only a labelled "Número", accept it
-        # only when its local context does not belong to another game.
+        # label. When only a generic labelled result is exposed, require that
+        # the candidate is not locally associated with another game.
         if code == "LOTERIA_RISARALDA" and not any(
             weight >= 80 for _, _, weight in all_number_candidates
         ):
@@ -207,35 +207,39 @@ class TraditionalLotteryHtmlParser:
                 r"s[aá]man|culona)\b",
                 re.IGNORECASE,
             )
-            contextual_candidates: list[tuple[str, int]] = []
-            for match in self._LABELED_NUMBER_RE.finditer(search_text):
-                context = search_text[max(0, match.start() - 180):match.end() + 180]
+            safe_candidates = []
+            for raw, position, weight in all_number_candidates:
+                if weight < 60:
+                    continue
+                context = search_text[max(0, position - 180):position + 180]
                 if unrelated_context.search(context):
                     continue
-                contextual_candidates.append((match.group(1), match.start()))
+                safe_candidates.append((raw, position, weight))
 
-            if not contextual_candidates:
+            if not safe_candidates:
                 raise SourceParseError(
                     "Risaralda result page does not expose a recognizable major result"
                 )
 
-            # Prefer the labelled number nearest a series declaration. This
-            # separates the winning number from draw-identification numbers
-            # such as "Sorteo número 4187" and from unrelated blocks.
             series_positions = [m.start() for m in self._SERIES_RE.finditer(search_text)]
             if not series_positions:
-                series_positions = [m.start() for m in self._SPACED_SERIES_RE.finditer(search_text)]
+                series_positions = [
+                    m.start() for m in self._SPACED_SERIES_RE.finditer(search_text)
+                ]
             if series_positions:
-                raw_number, raw_number_anchor = min(
-                    contextual_candidates,
+                raw_number, raw_number_anchor, _ = min(
+                    safe_candidates,
                     key=lambda item: (
                         min(abs(item[1] - series_pos) for series_pos in series_positions),
+                        -item[2],
                         -item[1],
                     ),
                 )
             else:
-                raw_number, raw_number_anchor = contextual_candidates[-1]
-
+                raw_number, raw_number_anchor, _ = max(
+                    safe_candidates,
+                    key=lambda item: (item[2], item[1]),
+                )
         profile = get_traditional_source(code)
         reference_date = result.fetched_at.date()
 
