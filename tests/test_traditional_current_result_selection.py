@@ -191,7 +191,8 @@ def test_risaralda_requires_major_result_context_instead_of_unrelated_four_digit
                     """<html><body>
                     Sorteo No. 2968
                     viernes 25 de septiembre de 2026
-                    Chontico Día 8437 - 5
+                    Chontico Día
+                    Número 8437 - 5
                     Información comercial 2026
                     </body></html>"""
                 ),
