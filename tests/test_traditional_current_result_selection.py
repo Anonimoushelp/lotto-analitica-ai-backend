@@ -94,6 +94,21 @@ def _result(html: str) -> SourceFetchResult:
         ),
     ],
 )
+def test_santander_official_open_data_rejects_non_array_payload():
+    parser, _ = build_traditional_lottery_components("LOTERIA_SANTANDER")
+
+    invalid = SourceFetchResult(
+        url="https://www.datos.gov.co/resource/i3kx-3zps.json",
+        content=b'{"error":"bad payload"}',
+        fetched_at=datetime(2026, 9, 28, tzinfo=UTC),
+        status_code=200,
+        content_type="application/json",
+    )
+
+    with pytest.raises(ValueError, match="JSON array"):
+        list(parser.parse(invalid, "LOTERIA_SANTANDER"))
+
+
 def test_santander_official_open_data_extracts_latest_major_result():
     parser, adapter = build_traditional_lottery_components("LOTERIA_SANTANDER")
 
