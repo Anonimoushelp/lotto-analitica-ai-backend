@@ -61,6 +61,35 @@ def _result(html: str) -> SourceFetchResult:
             4008,
             "055",
         ),
+        (
+            "LOTERIA_MANIZALES",
+            """<html><body>
+                4974
+                Resultados 23 de septiembre de 2026 - Premio Mayor $ 3.000 Millones
+                1 9 3 3
+                2 1 9
+                Próximo Sorteo 4975 - 30 de septiembre de 2026
+            </body></html>""",
+            "4974",
+            "2026-09-23",
+            1933,
+            "219",
+        ),
+        (
+            "LOTERIA_SANTANDER",
+            """<html><body>
+                Sorteo 5089
+                2026-09-25
+                Resultado del premio mayor
+                Número 0151
+                Serie 055
+                Ver resultados
+            </body></html>""",
+            "5089",
+            "2026-09-25",
+            151,
+            "055",
+        ),
     ],
 )
 def test_traditional_parser_prefers_labeled_major_result_and_current_date(
