@@ -178,7 +178,6 @@ class TraditionalLotteryHtmlParser:
         number_matches = list(self._NUMBER_RE.finditer(text))
         spaced_number_matches = list(self._SPACED_NUMBER_RE.finditer(text))
 
-
         if code == "LOTERIA_RISARALDA":
             official_record = self._parse_risaralda_official(
                 search_text=search_text,
@@ -187,7 +186,6 @@ class TraditionalLotteryHtmlParser:
             )
             if official_record is not None:
                 return [official_record]
-
 
         if (
             not date_matches
@@ -461,7 +459,7 @@ class TraditionalLotteryHtmlParser:
         all_number_candidates: list[tuple[str, int, int]],
     ) -> Mapping[str, object] | None:
         draw_match = re.search(
-            r"\b(\d{3,6})\s*\+\s+sorteos\s+jugados\b",
+            r"\b(\d{3,6})\s*\+\s*sorteos\s+jugados\b",
             search_text,
             re.IGNORECASE,
         )
@@ -552,7 +550,6 @@ class TraditionalLotteryHtmlParser:
             "source_url": result.url,
             "source_timestamp": result.fetched_at,
         }
-
 
 
     def _parse_date(
