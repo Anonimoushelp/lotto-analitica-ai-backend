@@ -125,6 +125,60 @@ class HttpSourceFetcher:
         )
 
 
+
+class RisaraldaOfficialSourceFetcher(HttpSourceFetcher):
+    """Combine two official institutional pages into one parseable source.
+
+    The public sales portal can return a JavaScript shell to non-browser
+    clients. The institutional site exposes the current draw counter and the
+    official prize query separately, so fetch both same-origin documents.
+    """
+
+    CONSULTATION_URL = "https://loteriadelrisaralda.com/loteriaconsulta/"
+
+    def fetch(self, url: str) -> SourceFetchResult:
+        primary = super().fetch(url)
+        host = urlparse(primary.url).hostname
+        if host is None:
+            raise SourceFetchError("Risaralda official source has no hostname")
+
+        consultation_fetcher = HttpSourceFetcher(
+            timeout=self.timeout,
+            user_agent=self.user_agent,
+            allowed_hosts={host.casefold()},
+            max_response_bytes=self.max_response_bytes,
+            transport=self.transport,
+        )
+        try:
+            consultation = consultation_fetcher.fetch(self.CONSULTATION_URL)
+        except SourceFetchError as exc:
+            raise SourceFetchError(
+                "Risaralda official consultation source could not be fetched"
+            ) from exc
+
+        if "html" not in primary.content_type.casefold():
+            raise SourceFetchError(
+                "Risaralda official primary source must be an HTML document"
+            )
+        if "html" not in consultation.content_type.casefold():
+            raise SourceFetchError(
+                "Risaralda official consultation source must be an HTML document"
+            )
+
+        combined = (
+            primary.content
+            + b"\n<!-- RISARALDA_OFFICIAL_CONSULTATION -->\n"
+            + consultation.content
+        )
+        return SourceFetchResult(
+            url=primary.url,
+            status_code=primary.status_code,
+            content=combined,
+            content_type=primary.content_type,
+            fetched_at=max(primary.fetched_at, consultation.fetched_at),
+        )
+
+
 class EmbeddedIframeSourceFetcher(HttpSourceFetcher):
     """Fetch a same-origin iframe embedded by an official result page.
 
