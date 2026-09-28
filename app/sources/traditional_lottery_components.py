@@ -468,7 +468,7 @@ class TraditionalLotteryHtmlParser:
 
 
     _CAUCA_HOME_RESULT_RE = re.compile(
-        r"\\bsorteo\\s*[:#-]?\\s*(?P<draw>\\d{3,6})\\b"
+        r"\bsorteo\\s*[:#-]?\\s*(?P<draw>\\d{3,6})\\b"
         r"(?P<header>.*?)(?:\\bfecha\\s*[:#-]?\\s*)"
         r"(?P<date>\\d{4}-\\d{1,2}-\\d{1,2})\\b"
         r"(?P<body>.*?\\bpremio\\s+mayor\\b(?P<major>.{0,120}?)"
@@ -502,11 +502,14 @@ class TraditionalLotteryHtmlParser:
             if int(raw_number) in range(1900, 2101):
                 continue
             series = match.group("series")
-            valid_matches.append((draw_date, int(match.group("draw")), raw_number, series, match))
+            valid_matches.append(
+                (draw_date, int(match.group("draw")), raw_number, series, match)
+            )
 
         if not valid_matches:
             raise SourceParseError(
-                "Lotería del Cauca homepage does not expose a valid current major result"
+                "Lotería del Cauca homepage does not expose a valid "
+                "current major result",
             )
 
         draw_date, draw_number, raw_number, series, _ = max(

@@ -179,7 +179,10 @@ def test_cauca_official_homepage_layout_extracts_current_result():
     assert normalized.main_numbers == [7567]
     assert normalized.metadata["raw_result"] == "7567"
     assert normalized.metadata["series"] == "058"
-    assert normalized.metadata["source_format"] == "official_homepage_major_result_block"
+    assert (
+        normalized.metadata["source_format"]
+        == "official_homepage_major_result_block"
+    )
 
 
 def test_cauca_homepage_does_not_mix_ordinary_and_extraordinary_draw_blocks():
