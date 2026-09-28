@@ -193,6 +193,17 @@ class TraditionalLotteryHtmlParser:
                 "Traditional lottery source does not expose a recognizable date/result"
             )
 
+        # Risaralda's results page may contain unrelated four-digit values
+        # from embedded chance/result widgets. Never accept an unlabeled
+        # number for this verified source: require a contextual major-result
+        # label before normalizing the record.
+        if code == "LOTERIA_RISARALDA" and not any(
+            weight >= 80 for _, _, weight in all_number_candidates
+        ):
+            raise SourceParseError(
+                "Risaralda result page does not expose a recognizable major result"
+            )
+
         profile = get_traditional_source(code)
         reference_date = result.fetched_at.date()
 
