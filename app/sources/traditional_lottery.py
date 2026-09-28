@@ -93,11 +93,12 @@ _PROFILES = {
         False,  # Official result payload/endpoint not yet verified for this adapter.
     ),
     "LOTERIA_RISARALDA": TraditionalLotterySource(
-        "Lotería de Risaralda — resultados",
-        "https://ventas.loteriadelrisaralda.com/resultados",
+        "Lotería de Risaralda — resultados oficiales",
+        "https://loteriadelrisaralda.com/",
         "traditional_result_page",
         "traditional_four_digit_series",
         True,
+        fetcher_key="risaralda_official",
     ),
     "LOTERIA_BOYACA": TraditionalLotterySource(
         "Lotería de Boyacá — resultados",
