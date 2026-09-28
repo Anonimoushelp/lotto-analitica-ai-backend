@@ -19,6 +19,7 @@ from app.sources.four_digit_parsers import (
 from app.sources.parsers import HtmlTableParser
 from app.sources.traditional_lottery_components import (
     CundinamarcaActaPdfParser,
+    SantanderOpenDataParser,
     TraditionalLotteryAdapter,
     TraditionalLotteryHtmlParser,
 )
@@ -118,6 +119,7 @@ TRADITIONAL_PARSER_FACTORIES = {
     "traditional_result_page": TraditionalLotteryHtmlParser,
     "traditional_result_page_embedded": TraditionalLotteryHtmlParser,
     "traditional_cundinamarca_acta_pdf": CundinamarcaActaPdfParser,
+    "traditional_santander_open_data": SantanderOpenDataParser,
 }
 
 TRADITIONAL_ADAPTER_FACTORIES = {

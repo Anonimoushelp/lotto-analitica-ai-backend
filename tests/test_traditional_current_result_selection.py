@@ -1,9 +1,26 @@
+import json
 from datetime import UTC, datetime
 
 import pytest
 
 from app.sources.fetchers import SourceFetchResult
 from app.sources.provider_registry import build_traditional_lottery_components
+
+
+def _json_result(payload: list[dict]) -> SourceFetchResult:
+    return SourceFetchResult(
+        url=(
+            "https://www.datos.gov.co/resource/i3kx-3zps.json"
+            "?loter_a=Loteria%20Santander"
+            "&tipo_de_premio=Mayor"
+            "&%24order=n_mero_del_sorteo%20DESC"
+            "&%24limit=1"
+        ),
+        content=json.dumps(payload).encode(),
+        fetched_at=datetime(2026, 9, 28, tzinfo=UTC),
+        status_code=200,
+        content_type="application/json",
+    )
 
 
 def _result(html: str) -> SourceFetchResult:
@@ -95,6 +112,86 @@ def test_traditional_parser_prefers_labeled_major_result_and_current_date(
     assert normalized.main_numbers == [expected_number]
     assert normalized.metadata["raw_result"] == f"{expected_number:04d}"
     assert normalized.metadata["series"] == expected_series
+
+
+def test_santander_official_open_data_rejects_non_array_payload():
+    parser, _ = build_traditional_lottery_components("LOTERIA_SANTANDER")
+
+    invalid = SourceFetchResult(
+        url="https://www.datos.gov.co/resource/i3kx-3zps.json",
+        content=b'{"error":"bad payload"}',
+        fetched_at=datetime(2026, 9, 28, tzinfo=UTC),
+        status_code=200,
+        content_type="application/json",
+    )
+
+    with pytest.raises(ValueError, match="JSON array"):
+        list(parser.parse(invalid, "LOTERIA_SANTANDER"))
+
+
+
+def test_santander_official_open_data_extracts_latest_major_result():
+    parser, adapter = build_traditional_lottery_components("LOTERIA_SANTANDER")
+
+    records = list(
+        parser.parse(
+            _json_result(
+                [
+                    {
+                        "a_o_del_sorteo": "2026",
+                        "mes_del_sorteo": "9",
+                        "fecha_del_sorteo": "18/09/2026",
+                        "loter_a": "Loteria Santander",
+                        "n_mero_del_sorteo": "5088",
+                        "numero_billete_ganador": "0937",
+                        "numero_serie_ganadora": "278",
+                        "tipo_de_premio": "Mayor",
+                    },
+                    {
+                        "a_o_del_sorteo": "2026",
+                        "mes_del_sorteo": "9",
+                        "fecha_del_sorteo": "25/09/2026",
+                        "loter_a": "Loteria Santander",
+                        "n_mero_del_sorteo": "5089",
+                        "numero_billete_ganador": "0151",
+                        "numero_serie_ganadora": "055",
+                        "tipo_de_premio": "Mayor",
+                    },
+                    {
+                        "a_o_del_sorteo": "2026",
+                        "mes_del_sorteo": "9",
+                        "fecha_del_sorteo": "25/09/2026",
+                        "loter_a": "Loteria Santander",
+                        "n_mero_del_sorteo": "5089",
+                        "numero_billete_ganador": "2693",
+                        "numero_serie_ganadora": "165",
+                        "tipo_de_premio": "Seco",
+                    },
+                    {
+                        "a_o_del_sorteo": "2026",
+                        "mes_del_sorteo": "9",
+                        "fecha_del_sorteo": "25/09/2026",
+                        "loter_a": "Otra",
+                        "n_mero_del_sorteo": "9999",
+                        "numero_billete_ganador": "9999",
+                        "numero_serie_ganadora": "999",
+                        "tipo_de_premio": "Mayor",
+                    },
+                ]
+            ),
+            "LOTERIA_SANTANDER",
+        )
+    )
+    normalized = adapter.normalize(records[0])
+
+    assert normalized.draw_number == "5089"
+    assert normalized.draw_date.isoformat() == "2026-09-25"
+    assert normalized.main_numbers == [151]
+    assert normalized.metadata["raw_result"] == "0151"
+    assert normalized.metadata["series"] == "055"
+    assert normalized.metadata["source_format"] == "official_open_data_socrata"
+    assert normalized.metadata["source_verified"] is True
+
 
 
 def test_boyaca_parser_does_not_take_year_as_draw_number_or_result():
