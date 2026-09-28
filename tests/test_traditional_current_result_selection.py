@@ -94,6 +94,26 @@ def _result(html: str) -> SourceFetchResult:
         ),
     ],
 )
+def test_traditional_parser_prefers_labeled_major_result_and_current_date(
+    lottery_code,
+    html,
+    expected_draw,
+    expected_date,
+    expected_number,
+    expected_series,
+):
+    parser, adapter = build_traditional_lottery_components(lottery_code)
+
+    records = list(parser.parse(_result(html), lottery_code))
+    normalized = adapter.normalize(records[0])
+
+    assert normalized.draw_number == expected_draw
+    assert normalized.draw_date.isoformat() == expected_date
+    assert normalized.main_numbers == [expected_number]
+    assert normalized.metadata["raw_result"] == f"{expected_number:04d}"
+    assert normalized.metadata["series"] == expected_series
+
+
 def test_santander_official_open_data_rejects_non_array_payload():
     parser, _ = build_traditional_lottery_components("LOTERIA_SANTANDER")
 
@@ -107,6 +127,7 @@ def test_santander_official_open_data_rejects_non_array_payload():
 
     with pytest.raises(ValueError, match="JSON array"):
         list(parser.parse(invalid, "LOTERIA_SANTANDER"))
+
 
 
 def test_santander_official_open_data_extracts_latest_major_result():
@@ -171,25 +192,6 @@ def test_santander_official_open_data_extracts_latest_major_result():
     assert normalized.metadata["source_format"] == "official_open_data_socrata"
     assert normalized.metadata["source_verified"] is True
 
-
-def test_traditional_parser_prefers_labeled_major_result_and_current_date(
-    lottery_code,
-    html,
-    expected_draw,
-    expected_date,
-    expected_number,
-    expected_series,
-):
-    parser, adapter = build_traditional_lottery_components(lottery_code)
-
-    records = list(parser.parse(_result(html), lottery_code))
-    normalized = adapter.normalize(records[0])
-
-    assert normalized.draw_number == expected_draw
-    assert normalized.draw_date.isoformat() == expected_date
-    assert normalized.main_numbers == [expected_number]
-    assert normalized.metadata["raw_result"] == f"{expected_number:04d}"
-    assert normalized.metadata["series"] == expected_series
 
 
 def test_boyaca_parser_does_not_take_year_as_draw_number_or_result():
