@@ -213,11 +213,28 @@ class TraditionalLotteryHtmlParser:
                 if unrelated_context.search(context):
                     continue
                 contextual_candidates.append((match.group(1), match.start()))
-            if len(contextual_candidates) != 1:
+
+            if not contextual_candidates:
                 raise SourceParseError(
                     "Risaralda result page does not expose a recognizable major result"
                 )
-            raw_number, raw_number_anchor = contextual_candidates[0]
+
+            # Prefer the labelled number nearest a series declaration. This
+            # separates the winning number from draw-identification numbers
+            # such as "Sorteo número 4187" and from unrelated blocks.
+            series_positions = [m.start() for m in self._SERIES_RE.finditer(search_text)]
+            if not series_positions:
+                series_positions = [m.start() for m in self._SPACED_SERIES_RE.finditer(search_text)]
+            if series_positions:
+                raw_number, raw_number_anchor = min(
+                    contextual_candidates,
+                    key=lambda item: (
+                        min(abs(item[1] - series_pos) for series_pos in series_positions),
+                        -item[1],
+                    ),
+                )
+            else:
+                raw_number, raw_number_anchor = contextual_candidates[-1]
 
         profile = get_traditional_source(code)
         reference_date = result.fetched_at.date()
