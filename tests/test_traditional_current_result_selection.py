@@ -225,3 +225,37 @@ def test_risaralda_current_major_result_layout_extracts_verified_result():
     assert normalized.main_numbers == [6731]
     assert normalized.metadata["raw_result"] == "6731"
     assert normalized.metadata["series"] == "197"
+
+
+def test_risaralda_official_institutional_composite_layout_extracts_current_result():
+    parser, adapter = build_traditional_lottery_components("LOTERIA_RISARALDA")
+
+    records = list(
+        parser.parse(
+            _result(
+                """<html><body>
+                <span>2968+</span>
+                <span>Sorteos jugados</span>
+                <article>Noticias 18 de septiembre de 2026</article>
+                </body></html>
+                <!-- RISARALDA_OFFICIAL_CONSULTATION -->
+                <html><body>
+                <h1>Consulta de Lotería</h1>
+                <div>PREMIO MAYOR</div>
+                <div>6731</div>
+                <div>197</div>
+                <div>SECO EL GORDO DE LA RISARALDA 4842 192</div>
+                </body></html>"""
+            ),
+            "LOTERIA_RISARALDA",
+        )
+    )
+    normalized = adapter.normalize(records[0])
+
+    assert normalized.draw_number == "2968"
+    assert normalized.draw_date.isoformat() == "2026-09-25"
+    assert normalized.main_numbers == [6731]
+    assert normalized.metadata["raw_result"] == "6731"
+    assert normalized.metadata["series"] == "197"
+    assert normalized.metadata["source_verified"] is True
+    assert normalized.metadata["source_format"] == "official_institutional_composite"
