@@ -119,6 +119,7 @@ TRADITIONAL_PARSER_FACTORIES = {
     "traditional_result_page": TraditionalLotteryHtmlParser,
     "traditional_result_page_embedded": TraditionalLotteryHtmlParser,
     "traditional_cundinamarca_acta_pdf": CundinamarcaActaPdfParser,
+    "traditional_santander_open_data": SantanderOpenDataParser,
 }
 
 TRADITIONAL_ADAPTER_FACTORIES = {
