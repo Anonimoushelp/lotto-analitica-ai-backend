@@ -142,10 +142,14 @@ class RisaraldaOfficialSourceFetcher(HttpSourceFetcher):
         if host is None:
             raise SourceFetchError("Risaralda official source has no hostname")
 
+        official_hosts = {
+            "loteriadelrisaralda.com",
+            "www.loteriadelrisaralda.com",
+        }
         consultation_fetcher = HttpSourceFetcher(
             timeout=self.timeout,
             user_agent=self.user_agent,
-            allowed_hosts={host.casefold()},
+            allowed_hosts=official_hosts,
             max_response_bytes=self.max_response_bytes,
             transport=self.transport,
         )
