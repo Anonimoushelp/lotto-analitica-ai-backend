@@ -201,10 +201,10 @@ class TraditionalLotteryHtmlParser:
             weight >= 80 for _, _, weight in all_number_candidates
         ):
             unrelated_context = re.compile(
-                r"\\b(?:chontico|dorado|astro|miloto|baloto|revancha|"
+                r"\b(?:chontico|dorado|astro|miloto|baloto|revancha|"
                 r"paisita|sinuano|caribeñ[ae]|cafeterito|fantastica|"
-                r"antioqueñita|play\\s+four|cash|motil[oó]n|pijao|"
-                r"s[aá]man|culona)\\b",
+                r"antioqueñita|play\s+four|cash|motil[oó]n|pijao|"
+                r"s[aá]man|culona)\b",
                 re.IGNORECASE,
             )
             contextual_candidates: list[tuple[str, int]] = []
