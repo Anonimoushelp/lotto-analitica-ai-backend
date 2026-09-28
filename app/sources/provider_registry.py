@@ -19,6 +19,7 @@ from app.sources.four_digit_parsers import (
 from app.sources.parsers import HtmlTableParser
 from app.sources.traditional_lottery_components import (
     CundinamarcaActaPdfParser,
+    SantanderOpenDataParser,
     TraditionalLotteryAdapter,
     TraditionalLotteryHtmlParser,
 )
