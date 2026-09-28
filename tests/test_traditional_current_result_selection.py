@@ -194,6 +194,26 @@ def test_santander_official_open_data_extracts_latest_major_result():
 
 
 
+
+def test_santander_official_open_data_rejects_stale_live_record():
+    parser, _ = build_traditional_lottery_components("LOTERIA_SANTANDER")
+
+    stale = _json_result(
+        [
+            {
+                "fecha_del_sorteo": "18/09/2023",
+                "loter_a": "Loteria Santander",
+                "n_mero_del_sorteo": "4931",
+                "numero_billete_ganador": "3599",
+                "numero_serie_ganadora": "322",
+                "tipo_de_premio": "Mayor",
+            }
+        ]
+    )
+
+    with pytest.raises(ValueError, match="record is stale"):
+        list(parser.parse(stale, "LOTERIA_SANTANDER"))
+
 def test_boyaca_parser_does_not_take_year_as_draw_number_or_result():
     parser, adapter = build_traditional_lottery_components("LOTERIA_BOYACA")
 
