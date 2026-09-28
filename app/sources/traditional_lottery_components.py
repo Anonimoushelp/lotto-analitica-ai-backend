@@ -505,6 +505,41 @@ class TraditionalLotteryHtmlParser:
                 continue
             safe_candidates.append((match.group(1), match.start(), 85))
 
+        table_series: str | None = None
+        if not safe_candidates:
+            # The live institutional consultation is rendered as a table. Its
+            # flattened HTML has the major row in the form:
+            # "PREMIO MAYOR | $ ... | 6731 | 197 | PEREIRA".
+            # There is no per-row "Número"/"Serie" label, so parse only the
+            # row scoped by PREMIO MAYOR and stop before the next prize row.
+            major_row = re.search(
+                r"\bpremio\s+mayor\b(?P<body>.*?)(?=\bseco\b|$)",
+                search_text,
+                re.IGNORECASE,
+            )
+            if major_row is not None:
+                body = major_row.group("body")
+                result_matches = [
+                    match
+                    for match in self._NUMBER_RE.finditer(body)
+                    if int(match.group(1)) not in range(1900, 2101)
+                ]
+                if result_matches:
+                    selected_result = result_matches[0]
+                    raw_number = selected_result.group(1)
+                    raw_number_anchor = major_row.start("body") + selected_result.start()
+
+                    # After the four-digit result, the next standalone
+                    # 1-3 digit token is the series in this table layout.
+                    series_tail = body[selected_result.end():]
+                    series_match = re.search(
+                        r"(?<!\d)(\d{1,3})(?!\d)",
+                        series_tail,
+                    )
+                    if series_match is not None:
+                        table_series = series_match.group(1)
+                    safe_candidates.append((raw_number, raw_number_anchor, 90))
+
         if not safe_candidates:
             raise SourceParseError(
                 "Risaralda official source does not expose a recognizable major result"
@@ -536,23 +571,26 @@ class TraditionalLotteryHtmlParser:
         for match in self._SERIES_RE.finditer(search_text):
             series_options.append((match.group(1), match.start(), 50))
 
-        nearby = [
-            item
-            for item in series_options
-            if abs(item[1] - raw_number_anchor) <= 600
-        ]
-        if not nearby:
-            raise SourceParseError(
-                "Risaralda official source does not expose the major-result series"
-            )
-        series_value = min(
-            nearby,
-            key=lambda item: (
-                abs(item[1] - raw_number_anchor),
-                -item[2],
-                -len(item[0]),
-            ),
-        )[0]
+        if table_series is not None:
+            series_value = table_series
+        else:
+            nearby = [
+                item
+                for item in series_options
+                if abs(item[1] - raw_number_anchor) <= 600
+            ]
+            if not nearby:
+                raise SourceParseError(
+                    "Risaralda official source does not expose the major-result series"
+                )
+            series_value = min(
+                nearby,
+                key=lambda item: (
+                    abs(item[1] - raw_number_anchor),
+                    -item[2],
+                    -len(item[0]),
+                ),
+            )[0]
 
         profile = get_traditional_source("LOTERIA_RISARALDA")
         metadata = {
