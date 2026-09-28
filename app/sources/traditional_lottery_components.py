@@ -339,26 +339,41 @@ class TraditionalLotteryHtmlParser:
         if date_inferred_from_draw_schedule:
             metadata["date_inferred_from_draw_schedule"] = True
 
-        series_candidates = list(self._LABELED_RESULT_SERIES_RE.finditer(search_text))
-        series_candidates.extend(self._SERIES_RE.finditer(search_text))
-        series_candidates.extend(self._SPACED_SERIES_RE.finditer(search_text))
         series_value: str | None = None
-        if raw_number_anchor is not None and series_candidates:
-            nearest = min(series_candidates, key=lambda m: abs(m.start() - raw_number_anchor))
-            if abs(nearest.start() - raw_number_anchor) <= 600:
-                groups = nearest.groups()
-                series_value = groups[1] if len(groups) > 1 and groups[1] is not None else groups[0]
-        if series_value is None:
-            number_before_series = list(self._NUMBER_BEFORE_SERIES_RE.finditer(search_text))
-            if number_before_series:
-                nearest = min(
-                    number_before_series,
-                    key=lambda m: abs(m.start() - (raw_number_anchor or m.start())),
+
+        # Prefer a full labeled series (including spaced layouts) over the
+        # generic one-digit prefix captured by _SERIES_RE.
+        series_options: list[tuple[str, int, int]] = []
+        for match in self._LABELED_RESULT_SERIES_RE.finditer(search_text):
+            series_options.append((match.group(2), match.start(), 100))
+        for match in self._NUMBER_BEFORE_SERIES_RE.finditer(search_text):
+            series_options.append((match.group(1), match.start(), 95))
+        for match in self._SPACED_SERIES_RE.finditer(search_text):
+            digits = "".join(group for group in match.groups() if group is not None)
+            series_options.append((digits, match.start(), 90))
+        for match in self._SERIES_RE.finditer(search_text):
+            series_options.append((match.group(1), match.start(), 50))
+
+        if series_options:
+            nearby = [
+                item
+                for item in series_options
+                if raw_number_anchor is None or abs(item[1] - raw_number_anchor) <= 600
+            ]
+            if nearby:
+                selected_series = min(
+                    nearby,
+                    key=lambda item: (
+                        abs(item[1] - (raw_number_anchor or item[1])),
+                        -item[2],
+                        -len(item[0]),
+                    ),
                 )
-                if raw_number_anchor is None or abs(nearest.start() - raw_number_anchor) <= 600:
-                    series_value = nearest.group(1)
+                series_value = selected_series[0]
+
         if series_value is not None:
             metadata["series"] = series_value
+
 
         return [
             {
