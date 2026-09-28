@@ -193,6 +193,53 @@ class TraditionalLotteryHtmlParser:
                 "Traditional lottery source does not expose a recognizable date/result"
             )
 
+        # Risaralda's results page may contain unrelated four-digit values
+        # from embedded chance/result widgets. Prefer an explicit major-result
+        # label. When only a generic labelled result is exposed, require that
+        # the candidate is not locally associated with another game.
+        if code == "LOTERIA_RISARALDA" and not any(
+            weight >= 80 for _, _, weight in all_number_candidates
+        ):
+            unrelated_context = re.compile(
+                r"\b(?:chontico|dorado|astro|miloto|baloto|revancha|"
+                r"paisita|sinuano|caribeñ[ae]|cafeterito|fantastica|"
+                r"antioqueñita|play\s+four|cash|motil[oó]n|pijao|"
+                r"s[aá]man|culona)\b",
+                re.IGNORECASE,
+            )
+            safe_candidates = []
+            for raw, position, weight in all_number_candidates:
+                if weight < 60:
+                    continue
+                context = search_text[max(0, position - 180):position + 180]
+                if unrelated_context.search(context):
+                    continue
+                safe_candidates.append((raw, position, weight))
+
+            if not safe_candidates:
+                raise SourceParseError(
+                    "Risaralda result page does not expose a recognizable major result"
+                )
+
+            series_positions = [m.start() for m in self._SERIES_RE.finditer(search_text)]
+            if not series_positions:
+                series_positions = [
+                    m.start() for m in self._SPACED_SERIES_RE.finditer(search_text)
+                ]
+            if series_positions:
+                raw_number, raw_number_anchor, _ = min(
+                    safe_candidates,
+                    key=lambda item: (
+                        min(abs(item[1] - series_pos) for series_pos in series_positions),
+                        -item[2],
+                        -item[1],
+                    ),
+                )
+            else:
+                raw_number, raw_number_anchor, _ = max(
+                    safe_candidates,
+                    key=lambda item: (item[2], item[1]),
+                )
         profile = get_traditional_source(code)
         reference_date = result.fetched_at.date()
 

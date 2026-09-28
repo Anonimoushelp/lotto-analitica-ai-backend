@@ -179,3 +179,49 @@ def test_cauca_official_homepage_layout_extracts_current_result():
     assert normalized.main_numbers == [3409]
     assert normalized.metadata["raw_result"] == "3409"
     assert normalized.metadata["series"] == "260"
+
+
+def test_risaralda_requires_major_result_context_instead_of_unrelated_four_digit_values():
+    parser, _ = build_traditional_lottery_components("LOTERIA_RISARALDA")
+
+    with pytest.raises(ValueError, match="recognizable major result"):
+        list(
+            parser.parse(
+                _result(
+                    """<html><body>
+                    Sorteo No. 2968
+                    viernes 25 de septiembre de 2026
+                    Chontico Día
+                    Número 8437 - 5
+                    Información comercial 2026
+                    </body></html>"""
+                ),
+                "LOTERIA_RISARALDA",
+            )
+        )
+
+
+def test_risaralda_current_major_result_layout_extracts_verified_result():
+    parser, adapter = build_traditional_lottery_components("LOTERIA_RISARALDA")
+
+    records = list(
+        parser.parse(
+            _result(
+                """<html><body>
+                Sorteo No. 2968
+                viernes 25 de septiembre de 2026
+                Premio mayor
+                6 7 3 1
+                Serie 1 9 7
+                </body></html>"""
+            ),
+            "LOTERIA_RISARALDA",
+        )
+    )
+    normalized = adapter.normalize(records[0])
+
+    assert normalized.draw_number == "2968"
+    assert normalized.draw_date.isoformat() == "2026-09-25"
+    assert normalized.main_numbers == [6731]
+    assert normalized.metadata["raw_result"] == "6731"
+    assert normalized.metadata["series"] == "197"
