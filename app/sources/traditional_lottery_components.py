@@ -92,7 +92,7 @@ class TraditionalLotteryHtmlParser:
         re.IGNORECASE,
     )
     _NUMBER_BEFORE_SERIES_RE = re.compile(
-        r"\bnumero\b\s*[:#-]?\s*(\d{1,4})\s*(?:\||[-·])?\s*serie\b",
+        r"\bnumero\b\s*[:#-]?\s*(\d{1,3})\s*(?:\||[-·])?\s*serie\b",
         re.IGNORECASE,
     )
 
@@ -203,7 +203,7 @@ class TraditionalLotteryHtmlParser:
                             date_matches=date_matches,
                             month_first_date_matches=month_first_date_matches,
                             flexible_textual_date_matches=flexible_textual_date_matches,
-                            reference_date=reference_date,
+                            reference_date=None,
                             anchor_position=position,
                         )
                     )
