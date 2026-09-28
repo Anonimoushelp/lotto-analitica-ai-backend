@@ -151,3 +151,31 @@ def test_traditional_parser_rejects_unlabeled_year_only_result():
                 "LOTERIA_CAUCA",
             )
         )
+
+
+def test_cauca_official_homepage_layout_extracts_current_result():
+    parser, adapter = build_traditional_lottery_components("LOTERIA_CAUCA")
+
+    records = list(
+        parser.parse(
+            _result(
+                """<html><body>
+                Sorteo: 2630
+                Fecha: 2026-09-26
+                <h2>$8.000</h2>
+                <div>Millones</div>
+                Premio Mayor
+                7 5 6 7
+                Serie 058
+                </body></html>"""
+            ),
+            "LOTERIA_CAUCA",
+        )
+    )
+    normalized = adapter.normalize(records[0])
+
+    assert normalized.draw_number == "2630"
+    assert normalized.draw_date.isoformat() == "2026-09-26"
+    assert normalized.main_numbers == [7567]
+    assert normalized.metadata["raw_result"] == "7567"
+    assert normalized.metadata["series"] == "058"
