@@ -147,7 +147,7 @@ def test_controlled_executor_extracts_and_persists_verified_result(monkeypatch):
     assert captured["draw_type"] == "LOTERIA_RISARALDA_ORDINARY"
     assert captured["metadata_json"]["raw_result"] == "0042"
     assert captured["metadata_json"]["series"] == "17"
-    assert captured["source_url"].endswith("/resultados")
+    assert captured["source_url"] == "https://loteriadelrisaralda.com/"
 
 
 
