@@ -91,6 +91,10 @@ class TraditionalLotteryHtmlParser:
         r"(?:serie|series)\s*[:#-]?\s*(\d)(?:\s+(\d))(?:\s+(\d))(?:\s+(\d))?",
         re.IGNORECASE,
     )
+    _NUMBER_BEFORE_SERIES_RE = re.compile(
+        r"\bnumero\b\s*[:#-]?\s*(\d{1,4})\s*(?:\||[-·])?\s*serie\b",
+        re.IGNORECASE,
+    )
 
     def __init__(self, lottery_code: str) -> None:
         self.lottery_code = lottery_code.upper()
@@ -108,28 +112,30 @@ class TraditionalLotteryHtmlParser:
         text = " ".join(html_lib.unescape(re.sub(r"<[^>]+>", " ", html)).split())
         text = re.sub(r"\s+", " ", text).strip()
         search_text = self._strip_accents(text)
-        draw_match = self._DRAW_RE.search(search_text)
         code = (lottery_code or self.lottery_code).upper()
+
+        all_draw_matches = list(self._DRAW_RE.finditer(search_text))
         if code == "LOTERIA_BOYACA":
-            # Boyacá pages can contain unrelated year tokens near the word
-            # "sorteo" in the raw HTML. Prefer the official visible heading
-            # "Resultado sorteo #NNNN" so the calendar year is never treated
-            # as the draw identity.
-            labeled_draw_match = re.search(
-                r"\bresultado\s+sorteo\s*#\s*(\d{3,6})\b",
-                search_text,
-                re.IGNORECASE,
+            labeled_draw_matches = list(
+                re.finditer(
+                    r"\bresultado\s+sorteo\s*#\s*(\d{3,6})\b",
+                    search_text,
+                    re.IGNORECASE,
+                )
             )
-            if labeled_draw_match:
-                draw_match = labeled_draw_match
-        if code == "LOTERIA_RISARALDA" and draw_match is None:
-            # The official sales page has used several equivalent labels
-            # (e.g. "Sorteo No.", "Sorteo Nro.", "Sorteo #").
-            draw_match = re.search(
-                r"\bsorteo\b[\s:#.\-]*(?:n(?:o|ro)?|numero|#)?[\s:#.\-]*(\d{3,6})\b",
-                search_text,
-                re.IGNORECASE,
+            if labeled_draw_matches:
+                all_draw_matches = labeled_draw_matches
+
+        if code == "LOTERIA_RISARALDA" and not all_draw_matches:
+            all_draw_matches = list(
+                re.finditer(
+                    r"\bsorteo\b[\s:#.\-]*(?:n(?:o|ro)?|numero|#)?"
+                    r"[\s:#.\-]*(\d{3,6})\b",
+                    search_text,
+                    re.IGNORECASE,
+                )
             )
+
         date_matches = list(self._DATE_RE.finditer(search_text))
         month_first_date_matches = list(self._MONTH_FIRST_DATE_RE.finditer(search_text))
         flexible_textual_date_matches = list(
@@ -137,117 +143,132 @@ class TraditionalLotteryHtmlParser:
         )
         numeric_date_matches = list(self._NUMERIC_DATE_RE.finditer(search_text))
         iso_date_matches = list(self._ISO_DATE_RE.finditer(search_text))
-        date_match = date_matches[0] if date_matches else None
-        month_first_date_match = month_first_date_matches[0] if month_first_date_matches else None
-        numeric_date_match = numeric_date_matches[0] if numeric_date_matches else None
-        iso_date_match = iso_date_matches[0] if iso_date_matches else None
-        result_match = self._RESULT_RE.search(search_text)
-        labeled_result_series_match = self._LABELED_RESULT_SERIES_RE.search(search_text)
-        labeled_number_matches = self._LABELED_NUMBER_RE.findall(search_text)
-        number_matches = self._NUMBER_RE.findall(text)
-        winner_spaced_number_match = self._WINNER_SPACED_NUMBER_RE.search(
-            search_text
-        )
-        spaced_number_matches = [
-            "".join(match) for match in self._SPACED_NUMBER_RE.findall(text)
-        ]
-        series_match = self._SERIES_RE.search(search_text)
-        spaced_series_matches = self._SPACED_SERIES_RE.finditer(search_text)
+
+        all_number_candidates: list[tuple[str, int, int]] = []
+        for match in self._WINNER_SPACED_NUMBER_RE.finditer(search_text):
+            all_number_candidates.append(
+                (
+                    "".join(group for group in match.groups() if group is not None),
+                    match.start(),
+                    100,
+                )
+            )
+        for match in self._MAJOR_SPACED_RESULT_RE.finditer(search_text):
+            all_number_candidates.append(
+                (
+                    "".join(group for group in match.groups() if group is not None),
+                    match.start(),
+                    95,
+                )
+            )
+        for match in self._MAJOR_RESULT_RE.finditer(search_text):
+            all_number_candidates.append((match.group(1), match.start(), 90))
+        for match in self._LABELED_RESULT_SERIES_RE.finditer(search_text):
+            all_number_candidates.append((match.group(1), match.start(), 80))
+        for match in self._RESULT_RE.finditer(search_text):
+            all_number_candidates.append((match.group(1), match.start(), 70))
+        for match in self._LABELED_NUMBER_RE.finditer(search_text):
+            all_number_candidates.append((match.group(1), match.start(), 60))
+
+        number_matches = list(self._NUMBER_RE.finditer(text))
+        spaced_number_matches = list(self._SPACED_NUMBER_RE.finditer(text))
 
         if (
-            not date_match
-            and not month_first_date_match
-            and not numeric_date_match
-            and not iso_date_match
-            and not (code == "LOTERIA_RISARALDA" and draw_match is not None)
+            not date_matches
+            and not month_first_date_matches
+            and not numeric_date_matches
+            and not iso_date_matches
+            and not (code == "LOTERIA_RISARALDA" and all_draw_matches)
         ):
             raise SourceParseError(
                 "Traditional lottery source does not expose a recognizable date/result"
             )
-        if (
-            not result_match
-            and not labeled_number_matches
-            and not number_matches
-            and not spaced_number_matches
-        ):
+        if not all_number_candidates and not number_matches and not spaced_number_matches:
             raise SourceParseError(
                 "Traditional lottery source does not expose a recognizable date/result"
             )
 
-        draw_number = draw_match.group(1) if draw_match else None
         profile = get_traditional_source(code)
-        major_result_match = self._MAJOR_RESULT_RE.search(search_text)
-        major_spaced_result_match = self._MAJOR_SPACED_RESULT_RE.search(search_text)
-        raw_number: str | None = None
-        raw_number_anchor: int | None = None
+        reference_date = result.fetched_at.date()
 
-        if winner_spaced_number_match:
-            raw_number = "".join(
-                group
-                for group in winner_spaced_number_match.groups()
-                if group is not None
-            )
-            raw_number_anchor = winner_spaced_number_match.start()
-        elif major_spaced_result_match:
-            raw_number = "".join(
-                group
-                for group in major_spaced_result_match.groups()
-                if group is not None
-            )
-            raw_number_anchor = major_spaced_result_match.start()
-        elif major_result_match:
-            raw_number = major_result_match.group(1)
-            raw_number_anchor = major_result_match.start()
-        elif labeled_result_series_match:
-            raw_number = labeled_result_series_match.group(1)
-            raw_number_anchor = labeled_result_series_match.start()
-        elif result_match:
-            raw_number = result_match.group(1)
-            raw_number_anchor = result_match.start()
+        selected: tuple[str, int, int, date] | None = None
+        if all_number_candidates:
+            evaluated: list[tuple[int, int, int, int, int, str, int, date]] = []
+            for raw, position, weight in all_number_candidates:
+                try:
+                    candidate_date = self._parse_date(
+                        iso_date_matches=iso_date_matches,
+                        numeric_date_matches=numeric_date_matches,
+                        date_matches=date_matches,
+                        month_first_date_matches=month_first_date_matches,
+                        flexible_textual_date_matches=flexible_textual_date_matches,
+                        reference_date=reference_date,
+                        anchor_position=position,
+                    )
+                except SourceParseError:
+                    continue
+                is_past_or_today = int(candidate_date <= reference_date)
+                distance = abs(position - next(
+                    (
+                        m.start()
+                        for m in (
+                            [*iso_date_matches, *numeric_date_matches,
+                             *date_matches, *month_first_date_matches,
+                             *flexible_textual_date_matches]
+                        )
+                        if abs(m.start() - position) <= 600
+                    ),
+                    position,
+                ))
+                evaluated.append(
+                    (
+                        is_past_or_today,
+                        candidate_date.toordinal(),
+                        weight,
+                        -distance,
+                        -position,
+                        raw,
+                        position,
+                        candidate_date,
+                    )
+                )
+            if evaluated:
+                best = max(evaluated)
+                selected = (best[5], best[6], best[2], best[7])
+
+        raw_number: str | None = selected[0] if selected else None
+        raw_number_anchor: int | None = selected[1] if selected else None
+        selected_draw_date: date | None = selected[3] if selected else None
 
         if raw_number is None:
-            for candidate in labeled_number_matches:
-                if draw_number is None or candidate != draw_number:
-                    raw_number = candidate
-                    break
-        if raw_number is None:
-            for candidate in spaced_number_matches:
-                if draw_number is None or candidate != draw_number:
-                    raw_number = candidate
-                    break
-        if raw_number is None:
-            for candidate in number_matches:
-                if draw_number is None or candidate != draw_number:
-                    raw_number = candidate
-                    break
-        if raw_number is None:
-            raise SourceParseError(
-                "Traditional lottery source does not expose a recognizable four-digit result"
+            # Fall back to unlabeled four-digit candidates, but never treat a
+            # calendar year as a winning result without an explicit result label.
+            fallback_candidates: list[tuple[str, int]] = [
+                (m.group(1), m.start()) for m in self._LABELED_NUMBER_RE.finditer(search_text)
+            ]
+            fallback_candidates.extend(
+                (
+                    "".join(m.groups()),
+                    m.start(),
+                )
+                for m in spaced_number_matches
             )
+            fallback_candidates.extend(
+                (m.group(1), m.start()) for m in number_matches
+            )
+            for candidate, position in fallback_candidates:
+                if int(candidate) in range(1900, 2101):
+                    continue
+                raw_number = candidate
+                raw_number_anchor = position
+                break
+            if raw_number is None:
+                raise SourceParseError(
+                    "Traditional lottery source does not expose a recognizable four-digit result"
+                )
 
-        if code == "LOTERIA_RISARALDA" and draw_number is None:
-            # The verified official sales page can omit the draw number in raw
-            # HTTP HTML even though the rendered page exposes it. This source
-            # is a weekly Friday lottery; use the last verified draw anchor to
-            # recover the current draw identity when the page omits that field.
-            anchor_draw = 2967
-            anchor_date = date(2026, 9, 18)
-            today = datetime.now(UTC).date()
-            expected_draw = anchor_draw + max(0, (today - anchor_date).days // 7)
-            draw_number = str(expected_draw)
-            # Raw HTTP HTML can expose the calendar year and inferred draw
-            # number as ordinary four-digit tokens before the actual winner.
-            # Do not mistake either token for the four-digit prize result.
-            excluded = {str(today.year), draw_number}
-            if raw_number in excluded:
-                for candidate in [*labeled_number_matches, *number_matches]:
-                    if candidate not in excluded:
-                        raw_number = candidate
-                        break
-            draw_date = (
-                anchor_date + timedelta(days=(expected_draw - anchor_draw) * 7)
-            ).isoformat()
-            date_inferred_from_draw_schedule = True
+        if selected_draw_date is not None:
+            draw_date = selected_draw_date.isoformat()
         else:
             try:
                 draw_date = self._parse_date(
@@ -256,23 +277,57 @@ class TraditionalLotteryHtmlParser:
                     date_matches=date_matches,
                     month_first_date_matches=month_first_date_matches,
                     flexible_textual_date_matches=flexible_textual_date_matches,
-                    reference_date=result.fetched_at.date(),
+                    reference_date=reference_date,
                     anchor_position=raw_number_anchor,
                 )
-                date_inferred_from_draw_schedule = False
             except SourceParseError:
-                # Risaralda's official sales page can serve the result data
-                # through a dynamic renderer while omitting or varying the
-                # human-readable date in raw HTTP HTML. If the draw number is
-                # present, use the same verified anchor only as a date fallback.
-                if code != "LOTERIA_RISARALDA" or draw_number is None:
-                    raise
-                anchor_draw = 2967
-                anchor_date = date(2026, 9, 18)
-                draw_date = (
-                    anchor_date + timedelta(days=(int(draw_number) - anchor_draw) * 7)
-                ).isoformat()
-                date_inferred_from_draw_schedule = True
+                draw_date = None
+
+        draw_number: str | None = None
+        if all_draw_matches:
+            if raw_number_anchor is not None:
+                ranked_draws = sorted(
+                    all_draw_matches,
+                    key=lambda m: (abs(m.start() - raw_number_anchor), m.start()),
+                )
+            else:
+                ranked_draws = all_draw_matches
+            for candidate in ranked_draws:
+                value = candidate.group(1)
+                if int(value) in range(1900, 2101):
+                    continue
+                draw_number = value
+                break
+
+        if code == "LOTERIA_RISARALDA" and draw_number is None:
+            anchor_draw = 2967
+            anchor_date = date(2026, 9, 18)
+            today = datetime.now(UTC).date()
+            expected_draw = anchor_draw + max(0, (today - anchor_date).days // 7)
+            draw_number = str(expected_draw)
+            excluded = {str(today.year), draw_number}
+            if raw_number in excluded:
+                for candidate in [m.group(1) for m in self._LABELED_NUMBER_RE.finditer(search_text)]:
+                    if candidate not in excluded:
+                        raw_number = candidate
+                        break
+            draw_date = (
+                anchor_date + timedelta(days=(expected_draw - anchor_draw) * 7)
+            ).isoformat()
+            date_inferred_from_draw_schedule = True
+        elif draw_date is None:
+            if code != "LOTERIA_RISARALDA" or draw_number is None:
+                raise SourceParseError(
+                    "Traditional lottery source does not expose a recognizable date/result"
+                )
+            anchor_draw = 2967
+            anchor_date = date(2026, 9, 18)
+            draw_date = (
+                anchor_date + timedelta(days=(int(draw_number) - anchor_draw) * 7)
+            ).isoformat()
+            date_inferred_from_draw_schedule = True
+        else:
+            date_inferred_from_draw_schedule = False
 
         metadata = {
             "raw_result": raw_number,
@@ -281,16 +336,27 @@ class TraditionalLotteryHtmlParser:
         }
         if date_inferred_from_draw_schedule:
             metadata["date_inferred_from_draw_schedule"] = True
-        if labeled_result_series_match:
-            metadata["series"] = labeled_result_series_match.group(2)
-        else:
-            for match in spaced_series_matches:
-                digits = [group for group in match.groups() if group is not None]
-                if 1 <= len(digits) <= 4:
-                    metadata["series"] = "".join(digits)
-                    break
-            if "series" not in metadata and series_match:
-                metadata["series"] = series_match.group(1)
+
+        series_candidates = list(self._LABELED_RESULT_SERIES_RE.finditer(search_text))
+        series_candidates.extend(self._SERIES_RE.finditer(search_text))
+        series_candidates.extend(self._SPACED_SERIES_RE.finditer(search_text))
+        series_value: str | None = None
+        if raw_number_anchor is not None and series_candidates:
+            nearest = min(series_candidates, key=lambda m: abs(m.start() - raw_number_anchor))
+            if abs(nearest.start() - raw_number_anchor) <= 600:
+                groups = nearest.groups()
+                series_value = groups[1] if len(groups) > 1 and groups[1] is not None else groups[0]
+        if series_value is None:
+            number_before_series = list(self._NUMBER_BEFORE_SERIES_RE.finditer(search_text))
+            if number_before_series:
+                nearest = min(
+                    number_before_series,
+                    key=lambda m: abs(m.start() - (raw_number_anchor or m.start())),
+                )
+                if raw_number_anchor is None or abs(nearest.start() - raw_number_anchor) <= 600:
+                    series_value = nearest.group(1)
+        if series_value is not None:
+            metadata["series"] = series_value
 
         return [
             {
@@ -305,6 +371,7 @@ class TraditionalLotteryHtmlParser:
             }
         ]
 
+
     def _parse_date(
         self,
         *,
@@ -318,7 +385,12 @@ class TraditionalLotteryHtmlParser:
     ) -> str:
         candidates: list[tuple[date, int]] = []
 
-        def add_candidate(year: str, month: str, day: str, position: int) -> None:
+        def add_candidate(
+            year: str,
+            month: str,
+            day: str,
+            position: int,
+        ) -> None:
             month_number = self._month(month)
             if month_number is None:
                 month_number = (
@@ -331,8 +403,6 @@ class TraditionalLotteryHtmlParser:
             try:
                 parsed = date(int(year), int(month_number), int(day))
             except (TypeError, ValueError):
-                return
-            if reference_date is not None and parsed > reference_date:
                 return
             candidates.append((parsed, position))
 
@@ -367,11 +437,15 @@ class TraditionalLotteryHtmlParser:
         if not candidates:
             raise SourceParseError("Traditional lottery source has an unsupported month")
 
+        past_or_today = (
+            [item for item in candidates if reference_date is None or item[0] <= reference_date]
+        )
+
         if anchor_position is not None:
+            pool = past_or_today or candidates
             nearby = [
-                candidate
-                for candidate in candidates
-                if abs(candidate[1] - anchor_position) <= 600
+                item for item in pool
+                if abs(item[1] - anchor_position) <= 600
             ]
             if nearby:
                 selected = min(
@@ -383,7 +457,11 @@ class TraditionalLotteryHtmlParser:
                 )
                 return selected[0].isoformat()
 
-        selected = max(candidates, key=lambda item: (item[0], -abs(item[1])))
+        pool = past_or_today or candidates
+        if reference_date is not None and not past_or_today:
+            selected = min(pool, key=lambda item: (abs(item[1] - (anchor_position or 0)), item[0]))
+        else:
+            selected = max(pool, key=lambda item: (item[0], -item[1]))
         return selected[0].isoformat()
 
 
