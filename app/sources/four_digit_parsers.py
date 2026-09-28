@@ -153,6 +153,8 @@ class AntioquenitaHtmlParser:
         draw_matches = 0
         date_matches = 0
         result_matches = 0
+        valid_numbers = 0
+        valid_dates = 0
 
         for index, (position, _, draw_type) in enumerate(markers):
             next_position = (
@@ -177,10 +179,12 @@ class AntioquenitaHtmlParser:
             raw_result = re.sub(r"\s+", "", result_match.group("number"))
             if len(raw_result) != 4 or not raw_result.isdigit():
                 continue
+            valid_numbers += 1
 
             draw_date = self._parse_date(date_match.group(0))
             if draw_date is None:
                 continue
+            valid_dates += 1
 
             fifth_match = self._FIFTH_RE.search(window)
             metadata: dict[str, Any] = {
@@ -209,7 +213,8 @@ class AntioquenitaHtmlParser:
             raise SourceParseError(
                 "Antioqueñita iframe does not contain a valid result "
                 f"(markers={len(markers)}, draw={draw_matches}, "
-                f"date={date_matches}, result={result_matches})"
+                f"date={date_matches}, result={result_matches}, "
+                f"number={valid_numbers}, valid_date={valid_dates})"
             )
         return records
 
