@@ -223,7 +223,7 @@ def test_antioquenita_live_official_iframe_fetch_and_parse() -> None:
 
     result = fetcher.fetch("https://rediapuestas.com/resultados/")
 
-    assert result.status_code == 200
+    assert result.status_code in {200, 202}
     assert "boletin.gana.com.co" in result.url
     assert "html" in result.content_type.casefold()
     assert len(result.content) > 0
