@@ -119,7 +119,7 @@ def test_embedded_iframe_fetcher_allows_explicit_cross_origin_official_host():
 
     assert result.status_code == 200
     assert result.url == "https://boletin.gana.com.co/"
-    assert b"Resultado 0166" in result.content
+    assert b"official iframe payload" in result.content
 
 def test_embedded_iframe_fetcher_tries_explicit_fallback_after_discovered_iframe_fails():
     def handler(request):
@@ -138,7 +138,7 @@ def test_embedded_iframe_fetcher_tries_explicit_fallback_after_discovered_iframe
         if request.url.host == "boletin.gana.com.co" and request.url.path == "/":
             return Response(
                 200,
-                content=b"<html><body>Sorteo 3174 Resultado 0166</body></html>",
+                content=b"<html><body>official iframe payload</body></html>",
                 headers={"content-type": "text/html; charset=utf-8"},
             )
         return Response(404, content=b"not found")
