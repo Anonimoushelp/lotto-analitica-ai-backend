@@ -219,6 +219,7 @@ def test_antioquenita_live_official_iframe_fetch_and_parse() -> None:
     fetcher = EmbeddedIframeSourceFetcher(
         timeout=20.0,
         allowed_iframe_hosts={"boletin.gana.com.co"},
+        fallback_iframe_urls=("https://boletin.gana.com.co/",),
     )
 
     result = fetcher.fetch("https://rediapuestas.com/resultados/")
