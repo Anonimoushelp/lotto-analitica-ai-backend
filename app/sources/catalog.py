@@ -216,7 +216,8 @@ def build_ingestion_catalog() -> tuple[IngestionJob, ...]:
                     lambda p=parser_type, a=adapter_type, c=code: SourceIngestionPipeline(
                         fetcher=(
                             EmbeddedIframeSourceFetcher(
-                                allowed_iframe_hosts={"boletin.gana.com.co"}
+                                allowed_iframe_hosts={"boletin.gana.com.co"},
+                                fallback_iframe_urls=("https://boletin.gana.com.co/",),
                             )
                             if c == "ANTIOQUENITA"
                             else HttpSourceFetcher()
