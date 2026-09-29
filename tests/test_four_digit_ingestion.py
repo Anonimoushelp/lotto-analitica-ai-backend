@@ -229,6 +229,12 @@ def test_antioquenita_live_official_iframe_fetch_and_parse() -> None:
     assert "html" in result.content_type.casefold()
     assert len(result.content) > 0
 
+    print(
+        "\n=== ANTIOQUENITA LIVE HTML DIAGNOSTIC ===\n"
+        + result.content.decode("utf-8", errors="replace")[:15000]
+        + "\n=== END ANTIOQUENITA LIVE HTML DIAGNOSTIC ==="
+    )
+
     records = list(AntioquenitaHtmlParser().parse(result))
 
     assert records, "Live official iframe returned no Antioqueñita records"
