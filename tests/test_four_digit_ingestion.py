@@ -1,10 +1,11 @@
 from datetime import UTC, datetime
+import re
 
 import pytest
 
 from app.sources.catalog import build_ingestion_catalog
 from app.sources.contracts import RawDrawRecord
-from app.sources.fetchers import EmbeddedIframeSourceFetcher, SourceFetchResult
+from app.sources.fetchers import EmbeddedIframeSourceFetcher, HttpSourceFetcher, SourceFetchResult
 from app.sources.four_digit_parsers import AntioquenitaHtmlParser
 from app.sources.ingestion import SourceIngestionPipeline
 from app.sources.provider_registry import (
@@ -229,10 +230,27 @@ def test_antioquenita_live_official_iframe_fetch_and_parse() -> None:
     assert "html" in result.content_type.casefold()
     assert len(result.content) > 0
 
+    live_html = result.content.decode("utf-8", errors="replace")
+    script_match = re.search(
+        r'<script[^>]+src="([^"]+index-[^"]+\\.js)"',
+        live_html,
+        re.IGNORECASE,
+    )
+    assert script_match is not None, "Official iframe did not expose its JavaScript bundle"
+
+    asset_url = f"https://boletin.gana.com.co{script_match.group(1)}"
+    asset = HttpSourceFetcher(
+        timeout=20.0,
+        allowed_hosts={"boletin.gana.com.co"},
+    ).fetch(asset_url)
+    asset_text = asset.content.decode("utf-8", errors="replace")
+    backend_urls = sorted(
+        set(re.findall(r'https://backend-[a-z0-9.-]+(?:/[^"\\']*)?', asset_text))
+    )
     print(
-        "\n=== ANTIOQUENITA LIVE HTML DIAGNOSTIC ===\n"
-        + result.content.decode("utf-8", errors="replace")[:15000]
-        + "\n=== END ANTIOQUENITA LIVE HTML DIAGNOSTIC ==="
+        "\n=== ANTIOQUENITA LIVE ASSET DIAGNOSTIC ===\n"
+        + "\n".join(backend_urls[:50])
+        + "\n=== END ANTIOQUENITA LIVE ASSET DIAGNOSTIC ==="
     )
 
     records = list(AntioquenitaHtmlParser().parse(result))
