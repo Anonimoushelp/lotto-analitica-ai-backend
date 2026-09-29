@@ -1,5 +1,8 @@
+from datetime import UTC, datetime
+
 import pytest
 
+from app.sources.fetchers import SourceFetchResult
 from app.sources.four_digit_adapters import (
     AntioquenitaAdapter,
     CafeteritoAdapter,
@@ -9,6 +12,7 @@ from app.sources.four_digit_adapters import (
     PaisitaAdapter,
 )
 from app.sources.four_digit_parsers import (
+    AntioquenitaHtmlParser,
     AntioquenitaJsonParser,
     CafeteritoJsonParser,
     ChonticoJsonParser,
@@ -172,3 +176,68 @@ def test_dorado_does_not_promote_additional_value_to_bonus():
 def test_four_digit_parser_rejects_invalid_result(parser, payload):
     with pytest.raises(Exception, match="Four-digit result"):
         parser.parse_record(payload)
+
+
+def test_antioquenita_html_parser_extracts_day_result_and_quinta() -> None:
+    html = """
+    <section>
+      <h2>Antioqueñita 1</h2>
+      <div>Sorteo 6771</div>
+      <div>Lunes 28 de Septiembre de 2026</div>
+      <div>Resultado: 0166</div>
+      <div>La Quinta: 5</div>
+    </section>
+    """
+    result = SourceFetchResult(
+        url="https://boletin.gana.com.co/",
+        status_code=200,
+        content=html.encode("utf-8"),
+        content_type="text/html; charset=utf-8",
+        fetched_at=datetime(2026, 9, 28, 15, 5, tzinfo=UTC),
+    )
+
+    parsed = list(AntioquenitaHtmlParser().parse(result))
+
+    assert parsed == [
+        {
+            "draw_type": "ANTIOQUENITA_1",
+            "draw_number": "6771",
+            "draw_date": "2026-09-28",
+            "number": "0166",
+            "metadata": {
+                "raw_result": "0166",
+                "digit_count": 4,
+                "source_format": "official_rediapuestas_iframe_html",
+                "quinta": 5,
+            },
+        }
+    ]
+
+
+def test_antioquenita_html_parser_extracts_both_daily_draw_types() -> None:
+    html = """
+    <section>
+      <h2>Antioqueñita 1</h2>
+      <div>Sorteo 6771</div><div>28 de Septiembre de 2026</div>
+      <div>Resultado 0166</div><div>Quinta 5</div>
+    </section>
+    <section>
+      <h2>Antioqueñita 2</h2>
+      <div>Sorteo 6772</div><div>28 de Septiembre de 2026</div>
+      <div>Resultado 9538</div><div>Quinta 5</div>
+    </section>
+    """
+    result = SourceFetchResult(
+        url="https://boletin.gana.com.co/",
+        status_code=200,
+        content=html.encode("utf-8"),
+        content_type="text/html",
+        fetched_at=datetime(2026, 9, 28, 21, 0, tzinfo=UTC),
+    )
+
+    parsed = list(AntioquenitaHtmlParser().parse(result))
+
+    assert [(row["draw_type"], row["draw_number"], row["number"]) for row in parsed] == [
+        ("ANTIOQUENITA_1", "6771", "0166"),
+        ("ANTIOQUENITA_2", "6772", "9538"),
+    ]

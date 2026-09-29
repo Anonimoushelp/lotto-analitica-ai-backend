@@ -2,8 +2,10 @@ from datetime import UTC, datetime
 
 import pytest
 
+from app.sources.catalog import build_ingestion_catalog
 from app.sources.contracts import RawDrawRecord
-from app.sources.fetchers import SourceFetchResult
+from app.sources.fetchers import EmbeddedIframeSourceFetcher, SourceFetchResult
+from app.sources.four_digit_parsers import AntioquenitaHtmlParser
 from app.sources.ingestion import SourceIngestionPipeline
 from app.sources.provider_registry import (
     build_html_provider_parser,
@@ -199,3 +201,13 @@ def test_html_provider_extraction_preserves_source_without_draw_number(
 def test_html_provider_registry_rejects_unknown_lottery() -> None:
     with pytest.raises(KeyError, match="No HTML provider parser configured"):
         build_html_provider_parser("UNKNOWN")
+
+
+def test_antioquenita_catalog_uses_cross_origin_iframe_fetcher_and_html_parser() -> None:
+    job = next(job for job in build_ingestion_catalog() if job.lottery_code == "ANTIOQUENITA")
+    pipeline = job.pipeline_factory()
+
+    assert isinstance(pipeline.fetcher, EmbeddedIframeSourceFetcher)
+    assert isinstance(pipeline.parser, AntioquenitaHtmlParser)
+    assert pipeline.fetcher.allowed_iframe_hosts == {"boletin.gana.com.co"}
+    assert job.enabled is False

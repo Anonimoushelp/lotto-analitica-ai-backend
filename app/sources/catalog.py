@@ -26,6 +26,7 @@ from app.sources.four_digit_adapters import (
     PaisitaAdapter,
 )
 from app.sources.four_digit_parsers import (
+    AntioquenitaHtmlParser,
     AntioquenitaJsonParser,
     CafeteritoJsonParser,
     ChonticoJsonParser,
@@ -221,9 +222,13 @@ def build_ingestion_catalog() -> tuple[IngestionJob, ...]:
                             else HttpSourceFetcher()
                         ),
                         parser=(
-                            p(draw_types=get_source_spec(c).draw_types)
-                            if c == "DORADO"
-                            else ProviderParserAdapter(p())
+                            AntioquenitaHtmlParser()
+                            if c == "ANTIOQUENITA"
+                            else (
+                                p(draw_types=get_source_spec(c).draw_types)
+                                if c == "DORADO"
+                                else ProviderParserAdapter(p())
+                            )
                         ),
                         adapter=a(),
                     )
