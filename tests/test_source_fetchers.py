@@ -121,6 +121,7 @@ def test_embedded_iframe_fetcher_allows_explicit_cross_origin_official_host():
     assert result.url == "https://boletin.gana.com.co/"
     assert b"official iframe payload" in result.content
 
+
 def test_embedded_iframe_fetcher_tries_explicit_fallback_after_discovered_iframe_fails():
     def handler(request):
         if request.url.host == "rediapuestas.com" and request.url.path == "/resultados/":
