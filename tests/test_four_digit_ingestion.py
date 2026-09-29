@@ -236,7 +236,7 @@ def test_antioquenita_live_official_iframe_fetch_and_parse() -> None:
 
     live_html = result.content.decode("utf-8", errors="replace")
     script_match = re.search(
-        r'<script[^>]+src="([^"]+index-[^"]+\\.js)"',
+        r'<script[^>]+src="([^"]+\.js)"',
         live_html,
         re.IGNORECASE,
     )
