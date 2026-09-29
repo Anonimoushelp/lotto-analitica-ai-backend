@@ -330,13 +330,15 @@ class EmbeddedIframeSourceFetcher(HttpSourceFetcher):
             except SourceFetchError:
                 continue
 
-            if iframe_url in explicit_fallbacks:
+            if (
+                iframe_url in explicit_fallbacks
+                and "html" in nested.content_type.casefold()
+            ):
                 # The URL is explicitly allowlisted and is the verified
                 # first-party fallback. Let the specialized parser decide
                 # whether its HTML contains a supported result instead of
                 # rejecting it with a generic fetch-layer heuristic.
-                if "html" in nested.content_type.casefold():
-                    return nested
+                return nested
 
             nested_html = nested.content.decode("utf-8", errors="ignore")
             if (
