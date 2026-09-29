@@ -214,12 +214,14 @@ class EmbeddedIframeSourceFetcher(HttpSourceFetcher):
         self,
         *,
         allowed_iframe_hosts: set[str] | None = None,
+        fallback_iframe_urls: tuple[str, ...] | list[str] | None = None,
         **kwargs,
     ) -> None:
         super().__init__(**kwargs)
         self.allowed_iframe_hosts = {
             host.casefold() for host in (allowed_iframe_hosts or set())
         }
+        self.fallback_iframe_urls = tuple(fallback_iframe_urls or ())
 
     def fetch(self, url: str) -> SourceFetchResult:
         initial = super().fetch(url)
@@ -249,6 +251,16 @@ class EmbeddedIframeSourceFetcher(HttpSourceFetcher):
             haystack = f"{raw_url} {match.group(0)}".casefold()
             score = sum(haystack.count(hint) for hint in self._HINTS)
             candidates.append((score, iframe_url))
+
+        if not candidates:
+            for fallback_url in self.fallback_iframe_urls:
+                parsed = urlparse(fallback_url)
+                if parsed.scheme.lower() != "https" or not parsed.hostname:
+                    continue
+                iframe_host = parsed.hostname.casefold()
+                if iframe_host != host.casefold() and iframe_host not in self.allowed_iframe_hosts:
+                    continue
+                candidates.append((0, fallback_url))
 
         if not candidates:
             return initial
