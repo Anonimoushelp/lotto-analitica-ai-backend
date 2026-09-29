@@ -321,11 +321,22 @@ class EmbeddedIframeSourceFetcher(HttpSourceFetcher):
             transport=self.transport,
         )
 
+        explicit_fallbacks = {
+            fallback_url for fallback_url in self.fallback_iframe_urls
+        }
         for _, iframe_url in candidates:
             try:
                 nested = nested_fetcher.fetch(iframe_url)
             except SourceFetchError:
                 continue
+
+            if iframe_url in explicit_fallbacks:
+                # The URL is explicitly allowlisted and is the verified
+                # first-party fallback. Let the specialized parser decide
+                # whether its HTML contains a supported result instead of
+                # rejecting it with a generic fetch-layer heuristic.
+                if "html" in nested.content_type.casefold():
+                    return nested
 
             nested_html = nested.content.decode("utf-8", errors="ignore")
             if (
