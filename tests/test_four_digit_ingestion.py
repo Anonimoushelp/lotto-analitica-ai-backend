@@ -1,5 +1,5 @@
-from datetime import UTC, datetime
 import re
+from datetime import UTC, datetime
 
 import pytest
 
@@ -245,7 +245,12 @@ def test_antioquenita_live_official_iframe_fetch_and_parse() -> None:
     ).fetch(asset_url)
     asset_text = asset.content.decode("utf-8", errors="replace")
     backend_urls = sorted(
-        set(re.findall(r'https://backend-[a-z0-9.-]+(?:/[^"\\']*)?', asset_text))
+        set(
+            re.findall(
+                r"https://backend-[a-z0-9.-]+(?:/[^\"']*)?",
+                asset_text,
+            )
+        )
     )
     print(
         "\n=== ANTIOQUENITA LIVE ASSET DIAGNOSTIC ===\n"
