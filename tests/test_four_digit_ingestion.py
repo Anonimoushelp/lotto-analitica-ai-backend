@@ -215,7 +215,7 @@ def test_antioquenita_catalog_uses_cross_origin_iframe_fetcher_and_html_parser()
 
 @pytest.mark.integration
 def test_antioquenita_live_official_iframe_fetch_and_parse() -> None:
-    """Validate the production fetcher against the live official source."""
+    """Validate the production fetcher against the live official source and verified fallback."""
     fetcher = EmbeddedIframeSourceFetcher(
         timeout=20.0,
         allowed_iframe_hosts={"boletin.gana.com.co"},
