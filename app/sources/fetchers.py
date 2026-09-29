@@ -292,15 +292,22 @@ class EmbeddedIframeSourceFetcher(HttpSourceFetcher):
             score = sum(haystack.count(hint) for hint in self._HINTS)
             candidates.append((score, iframe_url))
 
-        if not candidates:
-            for fallback_url in self.fallback_iframe_urls:
-                parsed = urlparse(fallback_url)
-                if parsed.scheme.lower() != "https" or not parsed.hostname:
-                    continue
-                iframe_host = parsed.hostname.casefold()
-                if iframe_host != host.casefold() and iframe_host not in self.allowed_iframe_hosts:
-                    continue
-                candidates.append((0, fallback_url))
+        fallback_candidates = set(self.fallback_iframe_urls)
+        for fallback_url in fallback_candidates:
+            parsed = urlparse(fallback_url)
+            if parsed.scheme.lower() != "https" or not parsed.hostname:
+                continue
+            iframe_host = parsed.hostname.casefold()
+            if (
+                iframe_host != host.casefold()
+                and iframe_host not in self.allowed_iframe_hosts
+            ):
+                continue
+            if any(candidate_url == fallback_url for _, candidate_url in candidates):
+                continue
+            # Explicit fallbacks are tried after discovered iframes, but are
+            # always considered when an observed iframe is unreachable.
+            candidates.append((-1, fallback_url))
 
         if not candidates:
             return initial
