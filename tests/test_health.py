@@ -1,14 +1,16 @@
 import asyncio
 import re
 
-from fastapi import Request
+from fastapi import HTTPException, Request
 from fastapi.testclient import TestClient
 from sqlalchemy.exc import SQLAlchemyError
 
+from app.api.dependencies.auth import require_admin, require_admin_or_analyst
 from app.core.config import settings
 from app.core.rate_limit import login_rate_limiter
 from app.db.session import get_db
 from app.main import app, unhandled_exception_handler
+from app.models.user import User
 from app.services.lottery_draw_service import LotteryDrawService
 from app.services.lottery_service import LotteryService
 
@@ -355,6 +357,36 @@ def test_protected_read_endpoints_require_authentication(monkeypatch):
 
     assert lotteries_response.status_code == 401
     assert draws_response.status_code == 401
+
+
+def test_negative_rbac_admin_operations_reject_analyst():
+    analyst = User(role="analyst", is_active=True)
+    admin_dependency = require_admin
+
+    try:
+        admin_dependency(user=analyst)
+    except HTTPException as exc:
+        assert exc.status_code == 403
+        assert exc.detail == "Insufficient permissions"
+    else:
+        raise AssertionError("Analyst must not satisfy admin-only authorization")
+
+
+def test_negative_rbac_admin_operations_reject_viewer():
+    viewer = User(role="viewer", is_active=True)
+
+    try:
+        require_admin(user=viewer)
+    except HTTPException as exc:
+        assert exc.status_code == 403
+        assert exc.detail == "Insufficient permissions"
+    else:
+        raise AssertionError("Viewer must not satisfy admin-only authorization")
+
+
+def test_rbac_allows_analyst_read_role():
+    analyst = User(role="analyst", is_active=True)
+    assert require_admin_or_analyst(user=analyst) is analyst
 
 
 def test_request_id_is_generated_and_returned():
