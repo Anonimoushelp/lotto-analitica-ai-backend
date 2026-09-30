@@ -243,54 +243,28 @@ def test_antioquenita_live_official_iframe_fetch_and_parse() -> None:
     assert script_match is not None, "Official iframe did not expose its JavaScript bundle"
 
     asset_url = f"https://boletin.gana.com.co{script_match.group(1)}"
-    raw_asset = httpx.get(
-        asset_url,
-        timeout=20.0,
-        follow_redirects=True,
-        headers={
-            "Accept": "application/javascript,text/javascript,*/*;q=0.1",
-            "Referer": "https://boletin.gana.com.co/",
-            "User-Agent": "Mozilla/5.0",
-        },
-    )
-    print(
-        "\n=== ANTIOQUENITA JS RESPONSE ===\n"
-        + f"status={raw_asset.status_code} url={raw_asset.url} "
-        + f"content_type={raw_asset.headers.get('content-type')} "
-        + f"length={len(raw_asset.content)}\n"
-        + raw_asset.text[:5000]
-        + "\n=== END ANTIOQUENITA JS RESPONSE ==="
-    )
-    raw_asset.raise_for_status()
-    asset_text = raw_asset.text
-    backend_urls = sorted(
-        set(
-            re.findall(
-                r"https://backend-[a-z0-9.-]+(?:/[^\"']*)?",
-                asset_text,
-            )
+    backend_probe_results = {}
+    for path in ("/", "/openapi.json", "/swagger.json", "/docs", "/api"):
+        response = httpx.get(
+            f"https://backend-boletin.gana-web.com{path}",
+            timeout=15.0,
+            follow_redirects=True,
+            headers={
+                "Accept": "application/json,text/html,*/*;q=0.1",
+                "Origin": "https://boletin.gana.com.co",
+                "Referer": "https://boletin.gana.com.co/",
+                "User-Agent": "Mozilla/5.0",
+            },
         )
-    )
-    backend_context = []
-    for marker in ("backend-boletin.gana-web.com", "backend-keno.gana-web.com"):
-        start = 0
-        while True:
-            position = asset_text.find(marker, start)
-            if position < 0:
-                break
-            backend_context.append(
-                asset_text[max(0, position - 1200) : position + 3500]
-            )
-            start = position + len(marker)
-
-    print(
-        "\n=== ANTIOQUENITA LIVE ASSET DIAGNOSTIC ===\n"
-        + "BACKEND URLS:\n"
-        + "\n".join(backend_urls[:50])
-        + "\nBACKEND CONTEXT:\n"
-        + "\n---\n".join(backend_context[:8])
-        + "\n=== END ANTIOQUENITA LIVE ASSET DIAGNOSTIC ==="
-    )
+        backend_probe_results[path] = {
+            "status": response.status_code,
+            "url": str(response.url),
+            "content_type": response.headers.get("content-type"),
+            "body": response.text[:3000],
+        }
+    print("\n=== ANTIOQUENITA BACKEND PROBES ===")
+    print(backend_probe_results)
+    print("=== END ANTIOQUENITA BACKEND PROBES ===")
 
     records = list(AntioquenitaHtmlParser().parse(result))
 
