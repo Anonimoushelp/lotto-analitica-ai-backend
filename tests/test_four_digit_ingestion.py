@@ -2,7 +2,6 @@ import re
 from datetime import UTC, datetime
 
 import httpx
-
 import pytest
 
 from app.sources.catalog import build_ingestion_catalog
