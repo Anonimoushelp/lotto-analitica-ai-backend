@@ -9,7 +9,6 @@ from app.sources.catalog import build_ingestion_catalog
 from app.sources.contracts import RawDrawRecord
 from app.sources.fetchers import (
     EmbeddedIframeSourceFetcher,
-    HttpSourceFetcher,
     SourceFetchResult,
 )
 from app.sources.four_digit_parsers import AntioquenitaHtmlParser
