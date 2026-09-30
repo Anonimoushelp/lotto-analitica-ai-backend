@@ -120,3 +120,38 @@ def test_embedded_iframe_fetcher_allows_explicit_cross_origin_official_host():
     assert result.status_code == 200
     assert result.url == "https://boletin.gana.com.co/"
     assert b"Resultado 0166" in result.content
+
+
+def test_embedded_iframe_fetcher_tries_explicit_fallback_after_discovered_iframe_fails():
+    def handler(request):
+        if request.url.host == "rediapuestas.com" and request.url.path == "/resultados/":
+            return Response(
+                200,
+                content=(
+                    b'<html><body>'
+                    b'<iframe class="resultados" src="https://boletin.gana.com.co/broken"></iframe>'
+                    b'</body></html>'
+                ),
+                headers={"content-type": "text/html; charset=utf-8"},
+            )
+        if request.url.host == "boletin.gana.com.co" and request.url.path == "/broken":
+            return Response(503, content=b"temporarily unavailable")
+        if request.url.host == "boletin.gana.com.co" and request.url.path == "/":
+            return Response(
+                200,
+                content=b"<html><body>official iframe payload</body></html>",
+                headers={"content-type": "text/html; charset=utf-8"},
+            )
+        return Response(404, content=b"not found")
+
+    fetcher = EmbeddedIframeSourceFetcher(
+        allowed_hosts={"rediapuestas.com"},
+        allowed_iframe_hosts={"boletin.gana.com.co"},
+        fallback_iframe_urls=("https://boletin.gana.com.co/",),
+        transport=MockTransport(handler),
+    )
+
+    result = fetcher.fetch("https://rediapuestas.com/resultados/")
+
+    assert result.url == "https://boletin.gana.com.co/"
+    assert b"official iframe payload" in result.content

@@ -214,15 +214,57 @@ class EmbeddedIframeSourceFetcher(HttpSourceFetcher):
         self,
         *,
         allowed_iframe_hosts: set[str] | None = None,
+        fallback_iframe_urls: tuple[str, ...] | list[str] | None = None,
         **kwargs,
     ) -> None:
         super().__init__(**kwargs)
         self.allowed_iframe_hosts = {
             host.casefold() for host in (allowed_iframe_hosts or set())
         }
+        self.fallback_iframe_urls = tuple(fallback_iframe_urls or ())
 
     def fetch(self, url: str) -> SourceFetchResult:
-        initial = super().fetch(url)
+        try:
+            initial = super().fetch(url)
+        except SourceFetchError:
+            # Some official wrapper pages reject non-browser/CI clients while
+            # the allowlisted official iframe remains directly reachable.
+            # In that case, use only the explicitly configured official
+            # fallback URLs and validate the returned document exactly as the
+            # normal iframe path is validated below.
+            if not self.fallback_iframe_urls:
+                raise
+            fallback_hosts = {
+                host.casefold() for host in self.allowed_iframe_hosts
+            }
+            fallback_fetcher = HttpSourceFetcher(
+                timeout=self.timeout,
+                user_agent=self.user_agent,
+                allowed_hosts=fallback_hosts or None,
+                max_response_bytes=self.max_response_bytes,
+                transport=self.transport,
+            )
+            for fallback_url in self.fallback_iframe_urls:
+                parsed = urlparse(fallback_url)
+                if (
+                    parsed.scheme.lower() != "https"
+                    or not parsed.hostname
+                    or parsed.hostname.casefold() not in fallback_hosts
+                ):
+                    continue
+                try:
+                    fallback = fallback_fetcher.fetch(fallback_url)
+                except SourceFetchError:
+                    continue
+                fallback_html = fallback.content.decode("utf-8", errors="ignore")
+                if (
+                    "html" in fallback.content_type.casefold()
+                    and self._RESULT_SIGNAL_RE.search(fallback_html)
+                    and self._FOUR_DIGIT_RE.search(fallback_html)
+                ):
+                    return fallback
+            raise
+
         if "html" not in initial.content_type.casefold():
             return initial
 
@@ -250,6 +292,23 @@ class EmbeddedIframeSourceFetcher(HttpSourceFetcher):
             score = sum(haystack.count(hint) for hint in self._HINTS)
             candidates.append((score, iframe_url))
 
+        fallback_candidates = set(self.fallback_iframe_urls)
+        for fallback_url in fallback_candidates:
+            parsed = urlparse(fallback_url)
+            if parsed.scheme.lower() != "https" or not parsed.hostname:
+                continue
+            iframe_host = parsed.hostname.casefold()
+            if (
+                iframe_host != host.casefold()
+                and iframe_host not in self.allowed_iframe_hosts
+            ):
+                continue
+            if any(candidate_url == fallback_url for _, candidate_url in candidates):
+                continue
+            # Explicit fallbacks are tried after discovered iframes, but are
+            # always considered when an observed iframe is unreachable.
+            candidates.append((-1, fallback_url))
+
         if not candidates:
             return initial
 
@@ -262,11 +321,24 @@ class EmbeddedIframeSourceFetcher(HttpSourceFetcher):
             transport=self.transport,
         )
 
+        explicit_fallbacks = {
+            fallback_url for fallback_url in self.fallback_iframe_urls
+        }
         for _, iframe_url in candidates:
             try:
                 nested = nested_fetcher.fetch(iframe_url)
             except SourceFetchError:
                 continue
+
+            if (
+                iframe_url in explicit_fallbacks
+                and "html" in nested.content_type.casefold()
+            ):
+                # The URL is explicitly allowlisted and is the verified
+                # first-party fallback. Let the specialized parser decide
+                # whether its HTML contains a supported result instead of
+                # rejecting it with a generic fetch-layer heuristic.
+                return nested
 
             nested_html = nested.content.decode("utf-8", errors="ignore")
             if (

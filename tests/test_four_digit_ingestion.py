@@ -4,7 +4,10 @@ import pytest
 
 from app.sources.catalog import build_ingestion_catalog
 from app.sources.contracts import RawDrawRecord
-from app.sources.fetchers import EmbeddedIframeSourceFetcher, SourceFetchResult
+from app.sources.fetchers import (
+    EmbeddedIframeSourceFetcher,
+    SourceFetchResult,
+)
 from app.sources.four_digit_parsers import AntioquenitaHtmlParser
 from app.sources.ingestion import SourceIngestionPipeline
 from app.sources.provider_registry import (
@@ -211,3 +214,42 @@ def test_antioquenita_catalog_uses_cross_origin_iframe_fetcher_and_html_parser()
     assert isinstance(pipeline.parser, AntioquenitaHtmlParser)
     assert pipeline.fetcher.allowed_iframe_hosts == {"boletin.gana.com.co"}
     assert job.enabled is False
+
+
+@pytest.mark.integration
+def test_antioquenita_live_official_iframe_fetch_and_parse() -> None:
+    """Validate the production fetcher and parser against the live official source."""
+    fetcher = EmbeddedIframeSourceFetcher(
+        timeout=20.0,
+        allowed_iframe_hosts={"boletin.gana.com.co"},
+        fallback_iframe_urls=("https://boletin.gana.com.co/",),
+    )
+
+    result = fetcher.fetch("https://rediapuestas.com/resultados/")
+
+    assert result.status_code in {200, 202}
+    assert result.url.startswith("https://boletin.gana.com.co/")
+    assert "html" in result.content_type.casefold()
+    assert len(result.content) > 0
+
+    records = list(AntioquenitaHtmlParser().parse(result))
+
+    assert records, "Live official iframe returned no Antioqueñita records"
+    assert all(
+        record["draw_type"] in {"ANTIOQUENITA_1", "ANTIOQUENITA_2"}
+        for record in records
+    )
+    assert all(
+        isinstance(record["draw_number"], str) and record["draw_number"].isdigit()
+        for record in records
+    )
+    assert all(
+        len(record["number"]) == 4 and record["number"].isdigit()
+        for record in records
+    )
+    assert all(
+        record["metadata"]["source_format"]
+        == "official_rediapuestas_iframe_html"
+        for record in records
+    )
+
