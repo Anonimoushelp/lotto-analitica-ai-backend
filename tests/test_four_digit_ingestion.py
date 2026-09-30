@@ -1,6 +1,8 @@
 import re
 from datetime import UTC, datetime
 
+import httpx
+
 import pytest
 
 from app.sources.catalog import build_ingestion_catalog
@@ -243,11 +245,26 @@ def test_antioquenita_live_official_iframe_fetch_and_parse() -> None:
     assert script_match is not None, "Official iframe did not expose its JavaScript bundle"
 
     asset_url = f"https://boletin.gana.com.co{script_match.group(1)}"
-    asset = HttpSourceFetcher(
+    raw_asset = httpx.get(
+        asset_url,
         timeout=20.0,
-        allowed_hosts={"boletin.gana.com.co"},
-    ).fetch(asset_url)
-    asset_text = asset.content.decode("utf-8", errors="replace")
+        follow_redirects=True,
+        headers={
+            "Accept": "application/javascript,text/javascript,*/*;q=0.1",
+            "Referer": "https://boletin.gana.com.co/",
+            "User-Agent": "Mozilla/5.0",
+        },
+    )
+    print(
+        "\n=== ANTIOQUENITA JS RESPONSE ===\n"
+        + f"status={raw_asset.status_code} url={raw_asset.url} "
+        + f"content_type={raw_asset.headers.get('content-type')} "
+        + f"length={len(raw_asset.content)}\n"
+        + raw_asset.text[:5000]
+        + "\n=== END ANTIOQUENITA JS RESPONSE ==="
+    )
+    raw_asset.raise_for_status()
+    asset_text = raw_asset.text
     backend_urls = sorted(
         set(
             re.findall(
