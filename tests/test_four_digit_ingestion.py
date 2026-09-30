@@ -294,6 +294,36 @@ def test_antioquenita_live_official_iframe_fetch_and_parse() -> None:
             print(url, type(exc).__name__, str(exc)[:160])
     print("=== END ANTIOQUENITA INFRASTRUCTURE PROBES ===")
 
+    ip_paths = (
+        "/api/results",
+        "/api/resultados",
+        "/api/sorteos",
+        "/api/draws",
+        "/resultados",
+        "/sorteos",
+    )
+    print("\n=== ANTIOQUENITA IP BUSINESS PROBES ===")
+    for path in ip_paths:
+        for host_header in (None, "backend-boletin.gana-web.com"):
+            probe_headers = dict(headers)
+            if host_header:
+                probe_headers["Host"] = host_header
+            response = httpx.get(
+                f"http://18.221.39.113{path}",
+                timeout=10.0,
+                follow_redirects=True,
+                headers=probe_headers,
+            )
+            print(
+                path,
+                host_header or "default-host",
+                response.status_code,
+                response.headers.get("content-type"),
+                len(response.content),
+                response.text[:120].replace("\n", " "),
+            )
+    print("=== END ANTIOQUENITA IP BUSINESS PROBES ===")
+
     print("\n=== ANTIOQUENITA BUSINESS ENDPOINT PROBES ===")
     for path in candidate_paths:
         response = httpx.get(
