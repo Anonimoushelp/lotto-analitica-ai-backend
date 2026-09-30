@@ -18,7 +18,7 @@ class GeminiClient:
     )
 
     @classmethod
-    def generate_json(cls, prompt: str) -> dict[str, Any]:
+    def generate_json(cls, prompt: str, temperature: float = 0.2) -> dict[str, Any]:
         api_key = getattr(settings, "gemini_api_key", "")
         if not api_key:
             raise HTTPException(
@@ -28,7 +28,7 @@ class GeminiClient:
         body = {
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {
-                "temperature": 0.2,
+                "temperature": temperature,
                 "responseMimeType": "application/json",
             },
         }
