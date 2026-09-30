@@ -256,9 +256,24 @@ def test_antioquenita_live_official_iframe_fetch_and_parse() -> None:
             )
         )
     )
+    backend_context = []
+    for marker in ("backend-boletin.gana-web.com", "backend-keno.gana-web.com"):
+        start = 0
+        while True:
+            position = asset_text.find(marker, start)
+            if position < 0:
+                break
+            backend_context.append(
+                asset_text[max(0, position - 1200) : position + 3500]
+            )
+            start = position + len(marker)
+
     print(
         "\n=== ANTIOQUENITA LIVE ASSET DIAGNOSTIC ===\n"
+        + "BACKEND URLS:\n"
         + "\n".join(backend_urls[:50])
+        + "\nBACKEND CONTEXT:\n"
+        + "\n---\n".join(backend_context[:8])
         + "\n=== END ANTIOQUENITA LIVE ASSET DIAGNOSTIC ==="
     )
 
