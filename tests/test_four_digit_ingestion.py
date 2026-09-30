@@ -290,7 +290,7 @@ def test_antioquenita_live_official_iframe_fetch_and_parse() -> None:
                 len(response.content),
                 response.text[:160].replace("\n", " "),
             )
-        except Exception as exc:
+        except (httpx.HTTPError, OSError) as exc:
             print(url, type(exc).__name__, str(exc)[:160])
     print("=== END ANTIOQUENITA INFRASTRUCTURE PROBES ===")
 
