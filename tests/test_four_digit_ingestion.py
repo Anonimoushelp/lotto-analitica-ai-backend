@@ -236,7 +236,7 @@ def test_antioquenita_live_official_iframe_fetch_and_parse() -> None:
 
     live_html = result.content.decode("utf-8", errors="replace")
     script_match = re.search(
-        r'<script[^>]+src="(/assets/index-[^"]+\\.js)"',
+        r'<script[^>]+src="(/assets/index-[^"]+\.js)"',
         live_html,
         re.IGNORECASE,
     )
@@ -245,9 +245,24 @@ def test_antioquenita_live_official_iframe_fetch_and_parse() -> None:
     asset_url = f"https://boletin.gana.com.co{script_match.group(1)}"
     variants = (
         {},
-        {"Accept": "*/*", "Sec-Fetch-Dest": "script", "Sec-Fetch-Mode": "cors", "Sec-Fetch-Site": "same-origin"},
-        {"Accept": "application/javascript", "Sec-Fetch-Dest": "script", "Sec-Fetch-Mode": "cors", "Sec-Fetch-Site": "same-origin"},
-        {"Accept": "*/*", "Sec-Fetch-Dest": "empty", "Sec-Fetch-Mode": "cors", "Sec-Fetch-Site": "same-origin"},
+        {
+            "Accept": "*/*",
+            "Sec-Fetch-Dest": "script",
+            "Sec-Fetch-Mode": "cors",
+            "Sec-Fetch-Site": "same-origin",
+        },
+        {
+            "Accept": "application/javascript",
+            "Sec-Fetch-Dest": "script",
+            "Sec-Fetch-Mode": "cors",
+            "Sec-Fetch-Site": "same-origin",
+        },
+        {
+            "Accept": "*/*",
+            "Sec-Fetch-Dest": "empty",
+            "Sec-Fetch-Mode": "cors",
+            "Sec-Fetch-Site": "same-origin",
+        },
     )
     for index, extra_headers in enumerate(variants):
         headers = {
