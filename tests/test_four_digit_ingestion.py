@@ -1,6 +1,5 @@
 from datetime import UTC, datetime
 
-import httpx
 import pytest
 
 from app.sources.catalog import build_ingestion_catalog
@@ -219,7 +218,7 @@ def test_antioquenita_catalog_uses_cross_origin_iframe_fetcher_and_html_parser()
 
 @pytest.mark.integration
 def test_antioquenita_live_official_iframe_fetch_and_parse() -> None:
-    """Validate the production fetcher against the live official source and verified fallback."""
+    """Validate the production fetcher and parser against the live official source."""
     fetcher = EmbeddedIframeSourceFetcher(
         timeout=20.0,
         allowed_iframe_hosts={"boletin.gana.com.co"},
@@ -232,114 +231,6 @@ def test_antioquenita_live_official_iframe_fetch_and_parse() -> None:
     assert result.url.startswith("https://boletin.gana.com.co/")
     assert "html" in result.content_type.casefold()
     assert len(result.content) > 0
-
-    candidate_paths = (
-        "/resultados",
-        "/resultados/",
-        "/results",
-        "/results/",
-        "/sorteos",
-        "/sorteos/",
-        "/api/resultados",
-        "/api/resultados/",
-        "/api/results",
-        "/api/results/",
-        "/api/sorteos",
-        "/api/sorteos/",
-        "/api/draws",
-        "/api/draws/",
-        "/api/v1/resultados",
-        "/api/v1/results",
-        "/api/v1/sorteos",
-        "/api/v1/draws",
-        "/api/resultados/antioquenita",
-        "/api/results/antioquenita",
-    )
-    headers = {
-        "Accept": "application/json,text/plain,*/*;q=0.1",
-        "Origin": "https://boletin.gana.com.co",
-        "Referer": "https://boletin.gana.com.co/",
-        "User-Agent": "Mozilla/5.0",
-        "Sec-Fetch-Dest": "empty",
-        "Sec-Fetch-Mode": "cors",
-        "Sec-Fetch-Site": "same-site",
-    }
-    infrastructure_urls = (
-        "http://18.221.39.113/",
-        "http://18.221.39.113/openapi.json",
-        "https://18.221.39.113/",
-        "https://18.221.39.113/openapi.json",
-    )
-    print("\n=== ANTIOQUENITA INFRASTRUCTURE PROBES ===")
-    for url in infrastructure_urls:
-        try:
-            response = httpx.get(
-                url,
-                timeout=10.0,
-                follow_redirects=True,
-                verify=False,
-                headers={
-                    **headers,
-                    "Host": "backend-boletin.gana-web.com",
-                },
-            )
-            print(
-                url,
-                response.status_code,
-                response.headers.get("content-type"),
-                len(response.content),
-                response.text[:160].replace("\n", " "),
-            )
-        except (httpx.HTTPError, OSError) as exc:
-            print(url, type(exc).__name__, str(exc)[:160])
-    print("=== END ANTIOQUENITA INFRASTRUCTURE PROBES ===")
-
-    ip_paths = (
-        "/api/results",
-        "/api/resultados",
-        "/api/sorteos",
-        "/api/draws",
-        "/resultados",
-        "/sorteos",
-    )
-    print("\n=== ANTIOQUENITA IP BUSINESS PROBES ===")
-    for path in ip_paths:
-        for host_header in (None, "backend-boletin.gana-web.com"):
-            probe_headers = dict(headers)
-            if host_header:
-                probe_headers["Host"] = host_header
-            response = httpx.get(
-                f"http://18.221.39.113{path}",
-                timeout=10.0,
-                follow_redirects=True,
-                headers=probe_headers,
-            )
-            print(
-                path,
-                host_header or "default-host",
-                response.status_code,
-                response.headers.get("content-type"),
-                len(response.content),
-                response.text[:120].replace("\n", " "),
-            )
-    print("=== END ANTIOQUENITA IP BUSINESS PROBES ===")
-
-    print("\n=== ANTIOQUENITA BUSINESS ENDPOINT PROBES ===")
-    for path in candidate_paths:
-        response = httpx.get(
-            f"https://backend-boletin.gana-web.com{path}",
-            timeout=10.0,
-            follow_redirects=True,
-            headers=headers,
-        )
-        print(
-            path,
-            response.status_code,
-            response.headers.get("content-type"),
-            len(response.content),
-            response.text[:120].replace("\n", " "),
-        )
-    print("=== END ANTIOQUENITA BUSINESS ENDPOINT PROBES ===")
 
     records = list(AntioquenitaHtmlParser().parse(result))
 
@@ -361,3 +252,4 @@ def test_antioquenita_live_official_iframe_fetch_and_parse() -> None:
         == "official_rediapuestas_iframe_html"
         for record in records
     )
+
