@@ -1,4 +1,3 @@
-import re
 from datetime import UTC, datetime
 
 import httpx
@@ -265,6 +264,36 @@ def test_antioquenita_live_official_iframe_fetch_and_parse() -> None:
         "Sec-Fetch-Mode": "cors",
         "Sec-Fetch-Site": "same-site",
     }
+    infrastructure_urls = (
+        "http://18.221.39.113/",
+        "http://18.221.39.113/openapi.json",
+        "https://18.221.39.113/",
+        "https://18.221.39.113/openapi.json",
+    )
+    print("\n=== ANTIOQUENITA INFRASTRUCTURE PROBES ===")
+    for url in infrastructure_urls:
+        try:
+            response = httpx.get(
+                url,
+                timeout=10.0,
+                follow_redirects=True,
+                verify=False,
+                headers={
+                    **headers,
+                    "Host": "backend-boletin.gana-web.com",
+                },
+            )
+            print(
+                url,
+                response.status_code,
+                response.headers.get("content-type"),
+                len(response.content),
+                response.text[:160].replace("\n", " "),
+            )
+        except Exception as exc:
+            print(url, type(exc).__name__, str(exc)[:160])
+    print("=== END ANTIOQUENITA INFRASTRUCTURE PROBES ===")
+
     print("\n=== ANTIOQUENITA BUSINESS ENDPOINT PROBES ===")
     for path in candidate_paths:
         response = httpx.get(
