@@ -234,80 +234,53 @@ def test_antioquenita_live_official_iframe_fetch_and_parse() -> None:
     assert "html" in result.content_type.casefold()
     assert len(result.content) > 0
 
-    live_html = result.content.decode("utf-8", errors="replace")
-    script_match = re.search(
-        r'<script[^>]+src="(/assets/index-[^"]+\.js)"',
-        live_html,
-        re.IGNORECASE,
+    candidate_paths = (
+        "/resultados",
+        "/resultados/",
+        "/results",
+        "/results/",
+        "/sorteos",
+        "/sorteos/",
+        "/api/resultados",
+        "/api/resultados/",
+        "/api/results",
+        "/api/results/",
+        "/api/sorteos",
+        "/api/sorteos/",
+        "/api/draws",
+        "/api/draws/",
+        "/api/v1/resultados",
+        "/api/v1/results",
+        "/api/v1/sorteos",
+        "/api/v1/draws",
+        "/api/resultados/antioquenita",
+        "/api/results/antioquenita",
     )
-    assert script_match is not None
-
-    asset_url = f"https://boletin.gana.com.co{script_match.group(1)}"
-    variants = (
-        {},
-        {
-            "Accept": "*/*",
-            "Sec-Fetch-Dest": "script",
-            "Sec-Fetch-Mode": "cors",
-            "Sec-Fetch-Site": "same-origin",
-        },
-        {
-            "Accept": "application/javascript",
-            "Sec-Fetch-Dest": "script",
-            "Sec-Fetch-Mode": "cors",
-            "Sec-Fetch-Site": "same-origin",
-        },
-        {
-            "Accept": "*/*",
-            "Sec-Fetch-Dest": "empty",
-            "Sec-Fetch-Mode": "cors",
-            "Sec-Fetch-Site": "same-origin",
-        },
-    )
-    for index, extra_headers in enumerate(variants):
-        headers = {
-            "Referer": "https://boletin.gana.com.co/",
-            "User-Agent": "Mozilla/5.0",
-            **extra_headers,
-        }
+    headers = {
+        "Accept": "application/json,text/plain,*/*;q=0.1",
+        "Origin": "https://boletin.gana.com.co",
+        "Referer": "https://boletin.gana.com.co/",
+        "User-Agent": "Mozilla/5.0",
+        "Sec-Fetch-Dest": "empty",
+        "Sec-Fetch-Mode": "cors",
+        "Sec-Fetch-Site": "same-site",
+    }
+    print("\n=== ANTIOQUENITA BUSINESS ENDPOINT PROBES ===")
+    for path in candidate_paths:
         response = httpx.get(
-            asset_url,
-            timeout=15.0,
+            f"https://backend-boletin.gana-web.com{path}",
+            timeout=10.0,
             follow_redirects=True,
             headers=headers,
         )
         print(
-            f"\\n=== ANTIOQUENITA ASSET VARIANT {index} ===\\n"
-            f"status={response.status_code} url={response.url} "
-            f"content_type={response.headers.get('content-type')} "
-            f"length={len(response.content)}\\n"
-            f"{response.text[:400]}\\n"
-        )
-
-    backend_probe_results = {}
-    for path in ("/", "/openapi.json", "/swagger.json", "/docs", "/api"):
-        response = httpx.get(
-            f"https://backend-boletin.gana-web.com{path}",
-            timeout=15.0,
-            follow_redirects=True,
-            headers={
-                "Accept": "application/json,text/html,*/*;q=0.1",
-                "Origin": "https://boletin.gana.com.co",
-                "Referer": "https://boletin.gana.com.co/",
-                "User-Agent": "Mozilla/5.0",
-            },
-        )
-        backend_probe_results[path] = (
+            path,
             response.status_code,
-            str(response.url),
             response.headers.get("content-type"),
-            response.text[:1200],
+            len(response.content),
+            response.text[:120].replace("\n", " "),
         )
-
-    print("\n=== ANTIOQUENITA BACKEND PROBES ===")
-    for path, details in backend_probe_results.items():
-        print(path, details)
-    print("=== END ANTIOQUENITA BACKEND PROBES ===")
+    print("=== END ANTIOQUENITA BUSINESS ENDPOINT PROBES ===")
 
     records = list(AntioquenitaHtmlParser().parse(result))
 
