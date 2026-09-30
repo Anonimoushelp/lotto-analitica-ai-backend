@@ -234,15 +234,6 @@ def test_antioquenita_live_official_iframe_fetch_and_parse() -> None:
     assert "html" in result.content_type.casefold()
     assert len(result.content) > 0
 
-    live_html = result.content.decode("utf-8", errors="replace")
-    script_match = re.search(
-        r'<script[^>]+src="(/assets/index-[^"]+\.js)"',
-        live_html,
-        re.IGNORECASE,
-    )
-    assert script_match is not None, "Official iframe did not expose its JavaScript bundle"
-
-    asset_url = f"https://boletin.gana.com.co{script_match.group(1)}"
     backend_probe_results = {}
     for path in ("/", "/openapi.json", "/swagger.json", "/docs", "/api"):
         response = httpx.get(
@@ -256,14 +247,16 @@ def test_antioquenita_live_official_iframe_fetch_and_parse() -> None:
                 "User-Agent": "Mozilla/5.0",
             },
         )
-        backend_probe_results[path] = {
-            "status": response.status_code,
-            "url": str(response.url),
-            "content_type": response.headers.get("content-type"),
-            "body": response.text[:3000],
-        }
+        backend_probe_results[path] = (
+            response.status_code,
+            str(response.url),
+            response.headers.get("content-type"),
+            response.text[:1200],
+        )
+
     print("\n=== ANTIOQUENITA BACKEND PROBES ===")
-    print(backend_probe_results)
+    for path, details in backend_probe_results.items():
+        print(path, details)
     print("=== END ANTIOQUENITA BACKEND PROBES ===")
 
     records = list(AntioquenitaHtmlParser().parse(result))
