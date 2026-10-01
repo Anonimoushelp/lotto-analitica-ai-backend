@@ -1,6 +1,7 @@
-from urllib.parse import urlparse
 import re
+from urllib.parse import urlparse
 
+import httpx
 import pytest
 
 from app.sources.fetchers import EmbeddedIframeSourceFetcher
@@ -26,17 +27,23 @@ def test_antioquenita_live_official_iframe_runtime():
         f"status={result.status_code} content_type={result.content_type!r} "
         f"bytes={len(result.content)} url={result.url}"
     )
-    print("ANTIOQUENITA_SCRIPT_SRCS", re.findall(r'<script[^>]+src=["\']([^"\']+)["\']', html, flags=re.I))
+    print(
+        "ANTIOQUENITA_SCRIPT_SRCS",
+        re.findall(r'<script[^>]+src=["\']([^"\']+)["\']', html, flags=re.I),
+    )
     print("ANTIOQUENITA_HTML_BEGIN")
     print(html[:20000])
     print("ANTIOQUENITA_HTML_END")
 
-    script_srcs = re.findall(r'<script[^>]+src=["\']([^"\']+)["\']', html, flags=re.I)
+    script_srcs = re.findall(
+        r'<script[^>]+src=["\']([^"\']+)["\']', html, flags=re.I
+    )
     for script_src in script_srcs:
-        if script_src.startswith("/"):
-            script_url = f"https://boletin.gana.com.co{script_src}"
-        else:
-            script_url = script_src
+        script_url = (
+            f"https://boletin.gana.com.co{script_src}"
+            if script_src.startswith("/")
+            else script_src
+        )
         script_response = httpx.get(
             script_url,
             timeout=30.0,
@@ -54,7 +61,7 @@ def test_antioquenita_live_official_iframe_runtime():
             print(
                 "ANTIOQUENITA_API_HINTS",
                 re.findall(
-                    r"(?:https?://[^\\"'\\s]+|/[^\\"'\\s]+(?:api|result|sorte|ganador)[^\\"'\\s]*)",
+                    r"https?://[^\s\"']+|/[^\s\"']*(?:api|result|sorte|ganador)[^\s\"']*",
                     script_text,
                     flags=re.I,
                 )[:200],
