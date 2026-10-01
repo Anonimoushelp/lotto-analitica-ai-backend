@@ -31,6 +31,35 @@ def test_antioquenita_live_official_iframe_runtime():
     print(html[:20000])
     print("ANTIOQUENITA_HTML_END")
 
+    script_srcs = re.findall(r'<script[^>]+src=["\']([^"\']+)["\']', html, flags=re.I)
+    for script_src in script_srcs:
+        if script_src.startswith("/"):
+            script_url = f"https://boletin.gana.com.co{script_src}"
+        else:
+            script_url = script_src
+        script_response = __import__("httpx").get(
+            script_url,
+            timeout=30.0,
+            headers={"User-Agent": "Mozilla/5.0"},
+        )
+        print(
+            "ANTIOQUENITA_SCRIPT_META",
+            script_response.status_code,
+            script_response.headers.get("content-type"),
+            script_url,
+            len(script_response.content),
+        )
+        if "javascript" in script_response.headers.get("content-type", "").casefold():
+            script_text = script_response.text
+            print(
+                "ANTIOQUENITA_API_HINTS",
+                re.findall(
+                    r"(?:https?://[^\\"'\\s]+|/[^\\"'\\s]+(?:api|result|sorte|ganador)[^\\"'\\s]*)",
+                    script_text,
+                    flags=re.I,
+                )[:200],
+            )
+
     records = list(AntioquenitaHtmlParser().parse(result))
 
     assert records, "The official Antioqueñita iframe returned no parseable records"
