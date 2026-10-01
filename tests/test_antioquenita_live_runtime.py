@@ -44,18 +44,35 @@ def test_antioquenita_live_official_iframe_runtime():
             if script_src.startswith("/")
             else script_src
         )
-        script_response = httpx.get(
-            script_url,
-            timeout=30.0,
-            headers={"User-Agent": "Mozilla/5.0"},
-        )
-        print(
-            "ANTIOQUENITA_SCRIPT_META",
-            script_response.status_code,
-            script_response.headers.get("content-type"),
-            script_url,
-            len(script_response.content),
-        )
+        request_headers = [
+            {
+                "User-Agent": "Mozilla/5.0",
+                "Accept": "text/javascript,*/*;q=0.1",
+                "Referer": "https://boletin.gana.com.co/",
+                "Sec-Fetch-Dest": "script",
+                "Sec-Fetch-Mode": "cors",
+                "Sec-Fetch-Site": "same-origin",
+            },
+            {
+                "User-Agent": "Mozilla/5.0",
+                "Accept": "*/*",
+            },
+        ]
+        script_response = None
+        for headers in request_headers:
+            candidate = httpx.get(script_url, timeout=30.0, headers=headers)
+            print(
+                "ANTIOQUENITA_SCRIPT_META",
+                candidate.status_code,
+                candidate.headers.get("content-type"),
+                script_url,
+                len(candidate.content),
+                headers.get("Accept"),
+            )
+            script_response = candidate
+            if "javascript" in candidate.headers.get("content-type", "").casefold():
+                break
+        assert script_response is not None
         if "javascript" in script_response.headers.get("content-type", "").casefold():
             script_text = script_response.text
             print(
@@ -66,6 +83,9 @@ def test_antioquenita_live_official_iframe_runtime():
                     flags=re.I,
                 )[:200],
             )
+            print("ANTIOQUENITA_SCRIPT_HEAD", script_text[:4000])
+        else:
+            print("ANTIOQUENITA_SCRIPT_HEAD", script_response.text[:4000])
 
     records = list(AntioquenitaHtmlParser().parse(result))
 
