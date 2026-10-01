@@ -1,4 +1,5 @@
 from urllib.parse import urlparse
+import re
 
 import pytest
 
@@ -18,6 +19,17 @@ def test_antioquenita_live_official_iframe_runtime():
 
     assert 200 <= result.status_code < 300
     assert urlparse(result.url).hostname == "boletin.gana.com.co"
+
+    html = result.content.decode("utf-8", errors="replace")
+    print(
+        "\nANTIOQUENITA_SOURCE_META "
+        f"status={result.status_code} content_type={result.content_type!r} "
+        f"bytes={len(result.content)} url={result.url}"
+    )
+    print("ANTIOQUENITA_SCRIPT_SRCS", re.findall(r'<script[^>]+src=["\']([^"\']+)["\']', html, flags=re.I))
+    print("ANTIOQUENITA_HTML_BEGIN")
+    print(html[:20000])
+    print("ANTIOQUENITA_HTML_END")
 
     records = list(AntioquenitaHtmlParser().parse(result))
 
