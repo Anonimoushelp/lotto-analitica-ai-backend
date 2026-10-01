@@ -37,7 +37,7 @@ def test_antioquenita_live_official_iframe_runtime():
             script_url = f"https://boletin.gana.com.co{script_src}"
         else:
             script_url = script_src
-        script_response = __import__("httpx").get(
+        script_response = httpx.get(
             script_url,
             timeout=30.0,
             headers={"User-Agent": "Mozilla/5.0"},
