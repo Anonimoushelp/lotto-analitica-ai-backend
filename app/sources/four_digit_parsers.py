@@ -204,6 +204,57 @@ class AntioquenitaHtmlParser:
         return records
 
 
+class AntioquenitaLoteriaYaHtmlParser:
+    """Extract Antioqueñita results from LoteríaYa's server-rendered history."""
+
+    _ROW_RE = re.compile(
+        r'''<tr[^>]*>.*?'''
+        r'''<a[^>]+href=["'][^"']*/resultado/(?P<date>\d{4}-\d{2}-\d{2})["'][^>]*>.*?</a>.*?'''
+        r'''<td[^>]*>\s*(?P<number>\d{4})\s*</td>.*?'''
+        r'''<td[^>]*>\s*(?P<quinta>\d)\s*</td>.*?</tr>''',
+        re.IGNORECASE | re.DOTALL,
+    )
+
+    def __init__(self, *, draw_type: str) -> None:
+        if draw_type not in {"ANTIOQUENITA_1", "ANTIOQUENITA_2"}:
+            raise ValueError(
+                "draw_type must be ANTIOQUENITA_1 or ANTIOQUENITA_2"
+            )
+        self.draw_type = draw_type
+
+    def parse(self, result: Any) -> list[Mapping[str, Any]]:
+        try:
+            html = result.content.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise SourceParseError(
+                "LoteríaYa Antioqueñita history is not valid UTF-8"
+            ) from exc
+
+        records: list[Mapping[str, Any]] = []
+        for match in self._ROW_RE.finditer(html):
+            raw_number = match.group("number")
+            records.append(
+                {
+                    "draw_type": self.draw_type,
+                    "draw_number": None,
+                    "draw_date": match.group("date"),
+                    "number": raw_number,
+                    "metadata": {
+                        "raw_result": raw_number,
+                        "digit_count": 4,
+                        "quinta": int(match.group("quinta")),
+                        "source_format": "lotteriaya_server_rendered_history",
+                    },
+                }
+            )
+
+        if not records:
+            raise SourceParseError(
+                f"LoteríaYa source does not contain {self.draw_type} history rows"
+            )
+        return records
+
+
 class AntioquenitaJsonParser:
     def parse_record(self, payload: Mapping[str, Any]) -> dict[str, Any]:
         return parse_four_digit_record(
