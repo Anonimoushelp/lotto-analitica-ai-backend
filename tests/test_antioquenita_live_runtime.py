@@ -121,6 +121,53 @@ def test_antioquenita_live_official_iframe_runtime():
             probe.text[:2500].replace("\n", " "),
         )
 
+    graphql_headers = {
+        "User-Agent": "Mozilla/5.0",
+        "Accept": "application/json",
+        "Content-Type": "application/json",
+        "Referer": "https://boletin.gana.com.co/",
+        "Origin": "https://boletin.gana.com.co",
+        "Host": "backend-boletin.gana-web.com",
+    }
+    introspection_query = """
+    {
+      __schema {
+        queryType {
+          fields {
+            name
+            args {
+              name
+              type {
+                kind
+                name
+                ofType {
+                  kind
+                  name
+                  ofType {
+                    kind
+                    name
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+    """
+    graphql_response = httpx.post(
+        "http://18.221.39.113/graphql",
+        json={"query": introspection_query},
+        timeout=15.0,
+        headers=graphql_headers,
+    )
+    print(
+        "ANTIOQUENITA_GRAPHQL_SCHEMA",
+        graphql_response.status_code,
+        graphql_response.headers.get("content-type"),
+    )
+    print("ANTIOQUENITA_GRAPHQL_BODY", graphql_response.text[:20000])
+
     records = list(AntioquenitaHtmlParser().parse(result))
 
     assert records, "The official Antioqueñita iframe returned no parseable records"
