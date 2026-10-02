@@ -39,11 +39,11 @@ def test_antioquenita_live_official_iframe_runtime():
     )
     print(
         "ANTIOQUENITA_GANA_IFRAMES",
-        re.findall(r'<iframe\\b[^>]*?(?:src|data-src)\\s*=\\s*["\\'](.*?)["\\']', gana_html, flags=re.I),
+        re.findall(r'''<iframe[^>]+(?:src|data-src)\\s*=\\s*["']([^"']+)["']''', gana_html, flags=re.I),
     )
     print(
         "ANTIOQUENITA_GANA_SCRIPTS",
-        re.findall(r'<script[^>]+src=["\\']([^"\\']+)["\\']', gana_html, flags=re.I)[:100],
+        re.findall(r'''<script[^>]+src=["']([^"']+)["']''', gana_html, flags=re.I)[:100],
     )
     print("ANTIOQUENITA_GANA_HEAD", gana_html[:12000])
 
