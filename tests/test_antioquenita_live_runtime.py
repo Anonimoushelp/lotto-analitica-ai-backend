@@ -21,6 +21,32 @@ def test_antioquenita_live_official_iframe_runtime():
     assert 200 <= result.status_code < 300
     assert urlparse(result.url).hostname == "boletin.gana.com.co"
 
+    gana_response = httpx.get(
+        "https://www.gana.com.co/lista-resultados/",
+        timeout=20.0,
+        headers={
+            "User-Agent": "Mozilla/5.0",
+            "Accept": "text/html,application/xhtml+xml,*/*;q=0.8",
+        },
+    )
+    gana_html = gana_response.text
+    print(
+        "ANTIOQUENITA_GANA_RESULTS_META",
+        gana_response.status_code,
+        gana_response.headers.get("content-type"),
+        len(gana_response.content),
+        gana_response.url,
+    )
+    print(
+        "ANTIOQUENITA_GANA_IFRAMES",
+        re.findall(r'<iframe\\b[^>]*?(?:src|data-src)\\s*=\\s*["\\'](.*?)["\\']', gana_html, flags=re.I),
+    )
+    print(
+        "ANTIOQUENITA_GANA_SCRIPTS",
+        re.findall(r'<script[^>]+src=["\\']([^"\\']+)["\\']', gana_html, flags=re.I)[:100],
+    )
+    print("ANTIOQUENITA_GANA_HEAD", gana_html[:12000])
+
     html = result.content.decode("utf-8", errors="replace")
     print(
         "\nANTIOQUENITA_SOURCE_META "
