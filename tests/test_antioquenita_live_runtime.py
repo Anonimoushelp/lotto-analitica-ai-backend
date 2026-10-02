@@ -87,6 +87,51 @@ def test_antioquenita_live_official_iframe_runtime():
         else:
             print("ANTIOQUENITA_SCRIPT_HEAD", script_response.text[:4000])
 
+    for base_url in (
+        "https://backend-boletin.gana-web.com",
+        "https://backend-keno.gana-web.com",
+    ):
+        for path in (
+            "/",
+            "/openapi.json",
+            "/swagger/index.html",
+            "/swagger/v1/swagger.json",
+            "/api",
+            "/api/resultados",
+            "/api/resultados/",
+            "/api/result",
+            "/api/results",
+            "/api/sorteos",
+            "/api/resultado",
+            "/api/lotteries",
+            "/api/v1/resultados",
+            "/api/v1/results",
+            "/api/v1/sorteos",
+            "/resultados",
+            "/resultados/",
+        ):
+            endpoint = base_url + path
+            try:
+                probe = httpx.get(
+                    endpoint,
+                    timeout=5.0,
+                    headers={
+                        "User-Agent": "Mozilla/5.0",
+                        "Accept": "application/json,text/plain,*/*",
+                        "Referer": "https://boletin.gana.com.co/",
+                    },
+                )
+                print(
+                    "ANTIOQUENITA_API_PROBE",
+                    probe.status_code,
+                    probe.headers.get("content-type"),
+                    endpoint,
+                    len(probe.content),
+                    probe.text[:300].replace("\n", " "),
+                )
+            except httpx.HTTPError as exc:
+                print("ANTIOQUENITA_API_PROBE_ERROR", endpoint, repr(exc))
+
     records = list(AntioquenitaHtmlParser().parse(result))
 
     assert records, "The official Antioqueñita iframe returned no parseable records"
