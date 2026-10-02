@@ -1,6 +1,5 @@
 from urllib.parse import urlparse
 
-import httpx
 import pytest
 
 from app.sources.fetchers import EmbeddedIframeSourceFetcher, HttpSourceFetcher
