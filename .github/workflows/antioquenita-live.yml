@@ -42,5 +42,5 @@ jobs:
           pip install -r requirements.txt
           pip install pytest==9.0.2
 
-      - name: Run official live integration
+      - name: Run live source validation
         run: pytest -q tests/test_antioquenita_live_runtime.py -m integration
