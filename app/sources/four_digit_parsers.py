@@ -208,10 +208,10 @@ class AntioquenitaLoteriaYaHtmlParser:
     """Extract Antioqueñita results from LoteríaYa's server-rendered history."""
 
     _ROW_RE = re.compile(
-        r'<tr[^>]*>.*?'
-        r'<a[^>]+href=["'][^"']*/resultado/(?P<date>\d{4}-\d{2}-\d{2})["'][^>]*>.*?</a>.*?'
-        r'<td[^>]*>\s*(?P<number>\d{4})\s*</td>.*?'
-        r'<td[^>]*>\s*(?P<quinta>\d)\s*</td>.*?</tr>',
+        r'''<tr[^>]*>.*?'''
+        r'''<a[^>]+href=["'][^"']*/resultado/(?P<date>\d{4}-\d{2}-\d{2})["'][^>]*>.*?</a>.*?'''
+        r'''<td[^>]*>\s*(?P<number>\d{4})\s*</td>.*?'''
+        r'''<td[^>]*>\s*(?P<quinta>\d)\s*</td>.*?</tr>''',
         re.IGNORECASE | re.DOTALL,
     )
 
