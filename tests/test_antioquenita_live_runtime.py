@@ -99,3 +99,60 @@ def test_antioquenita_live_official_iframe_runtime():
         assert str(record["draw_date"])
         assert str(record["number"]).isdigit()
         assert len(str(record["number"])) == 4
+
+
+@pytest.mark.integration
+def test_antioquenita_public_backend_endpoint_discovery():
+    base_urls = (
+        "https://backend-boletin.gana-web.com",
+        "https://backend-keno.gana-web.com",
+    )
+    paths = (
+        "/",
+        "/openapi.json",
+        "/swagger/index.html",
+        "/swagger/v1/swagger.json",
+        "/api",
+        "/api/resultados",
+        "/api/resultados/",
+        "/api/result",
+        "/api/results",
+        "/api/sorteos",
+        "/api/resultado",
+        "/api/lotteries",
+        "/api/v1/resultados",
+        "/api/v1/results",
+        "/api/v1/sorteos",
+    )
+    found = []
+    for base_url in base_urls:
+        for path in paths:
+            try:
+                response = httpx.get(
+                    base_url + path,
+                    timeout=10.0,
+                    headers={
+                        "User-Agent": "Mozilla/5.0",
+                        "Accept": "application/json,text/plain,*/*",
+                    },
+                )
+            except httpx.HTTPError as exc:
+                print("ANTIOQUENITA_API_PROBE_ERROR", base_url + path, repr(exc))
+                continue
+            content_type = response.headers.get("content-type", "")
+            preview = response.text[:500].replace("\n", " ")
+            print(
+                "ANTIOQUENITA_API_PROBE",
+                response.status_code,
+                content_type,
+                base_url + path,
+                len(response.content),
+                preview,
+            )
+            if response.status_code < 500 and (
+                "json" in content_type.casefold()
+                or "sorte" in response.text.casefold()
+                or "antioquen" in response.text.casefold()
+            ):
+                found.append((base_url + path, response.status_code, content_type))
+    print("ANTIOQUENITA_API_PROBE_FOUND", found)
