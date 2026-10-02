@@ -1,4 +1,4 @@
-name: Antioqueñita Live Integration
+name: Antioqueñita Live Source Validation
 
 on:
   pull_request:
@@ -17,7 +17,7 @@ permissions:
 
 jobs:
   live:
-    name: Antioqueñita official live runtime
+    name: Antioqueñita live source validation
     runs-on: ubuntu-latest
     timeout-minutes: 10
     env:
