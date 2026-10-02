@@ -34,7 +34,7 @@ def test_antioquenita_lotteriaya_live_fallback_is_parseable_and_cross_checked():
         timeout=30.0,
         allowed_hosts={
             "www.loteriaya.com.co",
-            "resultadosloterias.com.co",
+            "resultadoschancehoy.com",
         },
     )
     day = fetcher.fetch(
@@ -43,7 +43,8 @@ def test_antioquenita_lotteriaya_live_fallback_is_parseable_and_cross_checked():
     afternoon = fetcher.fetch(
         "https://www.loteriaya.com.co/chance/antioquenita-tarde/historial"
     )
-    independent = fetcher.fetch("https://resultadosloterias.com.co/")
+    independent_day = fetcher.fetch("https://resultadoschancehoy.com/resultados-antioquenita-dia")
+    independent_afternoon = fetcher.fetch("https://resultadoschancehoy.com/resultados-antioquenita-tarde")
 
     day_records = AntioquenitaLoteriaYaHtmlParser(
         draw_type="ANTIOQUENITA_1"
@@ -54,7 +55,8 @@ def test_antioquenita_lotteriaya_live_fallback_is_parseable_and_cross_checked():
 
     assert day.status_code == 200
     assert afternoon.status_code == 200
-    assert independent.status_code == 200
+    assert independent_day.status_code == 200
+    assert independent_afternoon.status_code == 200
     assert day_records
     assert afternoon_records
 
@@ -77,6 +79,7 @@ def test_antioquenita_lotteriaya_live_fallback_is_parseable_and_cross_checked():
         assert record["draw_date"]
         assert 1 <= record["metadata"]["quinta"] <= 9
 
-    independent_html = independent.content.decode("utf-8")
-    assert common_day["number"] in independent_html
-    assert common_afternoon["number"] in independent_html
+    independent_day_html = independent_day.content.decode("utf-8")
+    independent_afternoon_html = independent_afternoon.content.decode("utf-8")
+    assert common_day["number"] in independent_day_html
+    assert common_afternoon["number"] in independent_afternoon_html
