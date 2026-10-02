@@ -276,6 +276,30 @@ def test_antioquenita_live_official_iframe_runtime():
     except (KeyError, TypeError, ValueError) as exc:
         print("ANTIOQUENITA_GRAPHQL_TYPES_PARSE_ERROR", repr(exc), types_response.text[:12000])
 
+    for path in (
+        "/server/specs/oas",
+        "/server/info",
+        "/collections",
+        "/permissions/me",
+        "/items/Boletin_resultados",
+    ):
+        try:
+            directus_probe = httpx.get(
+                f"http://18.221.39.113{path}",
+                timeout=10.0,
+                headers=backend_headers,
+            )
+            print(
+                "ANTIOQUENITA_DIRECTUS",
+                directus_probe.status_code,
+                directus_probe.headers.get("content-type"),
+                path,
+                len(directus_probe.content),
+                directus_probe.text[:8000].replace("\n", " "),
+            )
+        except httpx.HTTPError as exc:
+            print("ANTIOQUENITA_DIRECTUS_ERROR", path, repr(exc))
+
     records = list(AntioquenitaHtmlParser().parse(result))
 
     assert records, "The official Antioqueñita iframe returned no parseable records"
