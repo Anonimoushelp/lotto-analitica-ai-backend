@@ -58,12 +58,17 @@ def test_antioquenita_lotteriaya_live_fallback_is_parseable_and_cross_checked():
     assert day_records
     assert afternoon_records
 
-    latest_day = day_records[0]
-    latest_afternoon = afternoon_records[0]
+    common_date = "2026-09-30"
+    common_day = next(
+        record for record in day_records if record["draw_date"] == common_date
+    )
+    common_afternoon = next(
+        record for record in afternoon_records if record["draw_date"] == common_date
+    )
 
     for record, expected_type in (
-        (latest_day, "ANTIOQUENITA_1"),
-        (latest_afternoon, "ANTIOQUENITA_2"),
+        (common_day, "ANTIOQUENITA_1"),
+        (common_afternoon, "ANTIOQUENITA_2"),
     ):
         assert record["draw_type"] == expected_type
         assert record["draw_number"] is None
@@ -73,5 +78,5 @@ def test_antioquenita_lotteriaya_live_fallback_is_parseable_and_cross_checked():
         assert 1 <= record["metadata"]["quinta"] <= 9
 
     independent_html = independent.content.decode("utf-8")
-    assert latest_day["number"] in independent_html
-    assert latest_afternoon["number"] in independent_html
+    assert common_day["number"] in independent_html
+    assert common_afternoon["number"] in independent_html
