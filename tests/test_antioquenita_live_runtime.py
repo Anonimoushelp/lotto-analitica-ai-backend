@@ -238,6 +238,44 @@ def test_antioquenita_live_official_iframe_runtime():
     print("ANTIOQUENITA_GRAPHQL_RESULTS", results_response.status_code)
     print("ANTIOQUENITA_GRAPHQL_RESULTS_BODY", results_response.text[:30000])
 
+    types_query = """
+    {
+      __schema {
+        types {
+          name
+          kind
+          fields {
+            name
+          }
+        }
+      }
+    }
+    """
+    types_response = httpx.post(
+        "http://18.221.39.113/graphql",
+        json={"query": types_query},
+        timeout=15.0,
+        headers=graphql_headers,
+    )
+    print("ANTIOQUENITA_GRAPHQL_TYPES", types_response.status_code)
+    try:
+        type_rows = types_response.json()["data"]["__schema"]["types"]
+        candidates = [
+            {
+                "name": row.get("name"),
+                "kind": row.get("kind"),
+                "fields": [field.get("name") for field in (row.get("fields") or [])],
+            }
+            for row in type_rows
+            if any(
+                token in (row.get("name") or "").casefold()
+                for token in ("resultado", "result", "sorteo", "boletin", "antio", "loter")
+            )
+        ]
+        print("ANTIOQUENITA_GRAPHQL_CANDIDATES", candidates[:200])
+    except (KeyError, TypeError, ValueError) as exc:
+        print("ANTIOQUENITA_GRAPHQL_TYPES_PARSE_ERROR", repr(exc), types_response.text[:12000])
+
     records = list(AntioquenitaHtmlParser().parse(result))
 
     assert records, "The official Antioqueñita iframe returned no parseable records"
