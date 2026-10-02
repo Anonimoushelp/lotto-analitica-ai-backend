@@ -11,57 +11,25 @@ from app.sources.four_digit_parsers import (
 
 
 @pytest.mark.integration
-def test_antioquenita_primary_source_reaches_official_iframe():
+def test_antioquenita_official_source_state_is_explicit():
     fetcher = EmbeddedIframeSourceFetcher(
         timeout=30.0,
         allowed_iframe_hosts={"boletin.gana.com.co"},
         fallback_iframe_urls=("https://boletin.gana.com.co/",),
     )
-
     result = fetcher.fetch("https://rediapuestas.com/resultados/")
 
     assert 200 <= result.status_code < 300
     assert urlparse(result.url).hostname == "boletin.gana.com.co"
+    html = result.content.decode("utf-8", errors="replace")
+    assert 'id="root"' in html
 
     with pytest.raises(ValueError, match="supported result"):
         AntioquenitaHtmlParser().parse(result)
 
 
 @pytest.mark.integration
-@pytest.mark.parametrize(
-    ("url", "draw_type"),
-    (
-        (
-            "https://www.loteriaya.com.co/chance/antioquenita-dia/historial",
-            "ANTIOQUENITA_1",
-        ),
-        (
-            "https://www.loteriaya.com.co/chance/antioquenita-tarde/historial",
-            "ANTIOQUENITA_2",
-        ),
-    ),
-)
-def test_antioquenita_secondary_live_history(url: str, draw_type: str):
-    fetcher = HttpSourceFetcher(
-        timeout=30.0,
-        allowed_hosts={"www.loteriaya.com.co"},
-    )
-    result = fetcher.fetch(url)
-    records = AntioquenitaLoteriaYaHtmlParser(draw_type=draw_type).parse(result)
-
-    assert result.status_code == 200
-    assert records
-    latest = records[0]
-    assert latest["draw_type"] == draw_type
-    assert latest["draw_number"] is None
-    assert len(latest["number"]) == 4
-    assert latest["number"].isdigit()
-    assert latest["draw_date"]
-    assert 1 <= latest["metadata"]["quinta"] <= 9
-
-
-@pytest.mark.integration
-def test_antioquenita_secondary_sources_agree_on_latest_result():
+def test_antioquenita_lotteriaya_live_fallback_is_parseable_and_cross_checked():
     fetcher = HttpSourceFetcher(
         timeout=30.0,
         allowed_hosts={
@@ -84,13 +52,26 @@ def test_antioquenita_secondary_sources_agree_on_latest_result():
         draw_type="ANTIOQUENITA_2"
     ).parse(afternoon)
 
-    independent_html = independent.content.decode("utf-8")
+    assert day.status_code == 200
+    assert afternoon.status_code == 200
     assert independent.status_code == 200
-    assert (
-        day_records[0]["draw_date"] in independent_html
-        or day_records[0]["number"] in independent_html
-    )
-    assert (
-        afternoon_records[0]["draw_date"] in independent_html
-        or afternoon_records[0]["number"] in independent_html
-    )
+    assert day_records
+    assert afternoon_records
+
+    latest_day = day_records[0]
+    latest_afternoon = afternoon_records[0]
+
+    for record, expected_type in (
+        (latest_day, "ANTIOQUENITA_1"),
+        (latest_afternoon, "ANTIOQUENITA_2"),
+    ):
+        assert record["draw_type"] == expected_type
+        assert record["draw_number"] is None
+        assert len(record["number"]) == 4
+        assert record["number"].isdigit()
+        assert record["draw_date"]
+        assert 1 <= record["metadata"]["quinta"] <= 9
+
+    independent_html = independent.content.decode("utf-8")
+    assert latest_day["number"] in independent_html
+    assert latest_afternoon["number"] in independent_html
