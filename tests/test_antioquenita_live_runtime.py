@@ -214,6 +214,30 @@ def test_antioquenita_live_official_iframe_runtime():
     print("ANTIOQUENITA_GRAPHQL_SAMPLE_ID", sample_response.status_code)
     print("ANTIOQUENITA_GRAPHQL_SAMPLE_ID_BODY", sample_response.text[:12000])
 
+    results_query = """
+    {
+      Boletin_resultados(limit: 50, sort: ["-date_created"]) {
+        id
+        status
+        date_created
+        date_updated
+        Nombre_Sorteo
+        logo {
+          id
+          filename_download
+        }
+      }
+    }
+    """
+    results_response = httpx.post(
+        "http://18.221.39.113/graphql",
+        json={"query": results_query},
+        timeout=15.0,
+        headers=graphql_headers,
+    )
+    print("ANTIOQUENITA_GRAPHQL_RESULTS", results_response.status_code)
+    print("ANTIOQUENITA_GRAPHQL_RESULTS_BODY", results_response.text[:30000])
+
     records = list(AntioquenitaHtmlParser().parse(result))
 
     assert records, "The official Antioqueñita iframe returned no parseable records"
