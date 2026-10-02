@@ -300,6 +300,30 @@ def test_antioquenita_live_official_iframe_runtime():
         except httpx.HTTPError as exc:
             print("ANTIOQUENITA_DIRECTUS_ERROR", path, repr(exc))
 
+    secondary_urls = (
+        "https://www.loteriaya.com.co/chance/antioquenita-dia/historial",
+        "https://www.loteriaya.com.co/chance/antioquenita-tarde/historial",
+        "https://resultadosloterias.com.co/",
+    )
+    for secondary_url in secondary_urls:
+        response = httpx.get(
+            secondary_url,
+            timeout=20.0,
+            headers={
+                "User-Agent": "Mozilla/5.0",
+                "Accept": "text/html,application/xhtml+xml,*/*;q=0.8",
+            },
+        )
+        print(
+            "ANTIOQUENITA_SECONDARY",
+            response.status_code,
+            response.headers.get("content-type"),
+            response.url,
+            len(response.content),
+        )
+        text_body = re.sub(r"\\s+", " ", response.text)
+        print("ANTIOQUENITA_SECONDARY_TEXT", text_body[:16000])
+
     records = list(AntioquenitaHtmlParser().parse(result))
 
     assert records, "The official Antioqueñita iframe returned no parseable records"
