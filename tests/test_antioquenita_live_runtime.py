@@ -87,10 +87,15 @@ def test_antioquenita_live_official_iframe_runtime():
         else:
             print("ANTIOQUENITA_SCRIPT_HEAD", script_response.text[:4000])
 
-    for base_url in (
-        "https://backend-boletin.gana-web.com",
-        "https://backend-keno.gana-web.com",
-    ):
+    base_requests = (
+        ("https://backend-boletin.gana-web.com", {}),
+        ("https://backend-keno.gana-web.com", {}),
+        (
+            "http://18.221.39.113",
+            {"Host": "backend-boletin.gana-web.com"},
+        ),
+    )
+    for base_url, host_headers in base_requests:
         for path in (
             "/",
             "/openapi.json",
@@ -119,6 +124,7 @@ def test_antioquenita_live_official_iframe_runtime():
                         "User-Agent": "Mozilla/5.0",
                         "Accept": "application/json,text/plain,*/*",
                         "Referer": "https://boletin.gana.com.co/",
+                        **host_headers,
                     },
                 )
                 print(
