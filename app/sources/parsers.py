@@ -272,7 +272,7 @@ class BalotoResultPageParser:
         # between the draw date and the "TOTAL GANADORES" section. Older pages
         # exposed an intermediate video marker, so keep both forms supported.
         result_block = re.search(
-            r"MIRA EL VIDEO OFICIAL DEL SORTEO\\s+(.*?)(?:TOTAL GANADORES|TOTAL DE GANADORES)",
+            r"MIRA EL VIDEO OFICIAL DEL SORTEO\s+(.*?)(?:TOTAL GANADORES|TOTAL DE GANADORES)",
             text,
             re.IGNORECASE | re.DOTALL,
         )
@@ -281,7 +281,7 @@ class BalotoResultPageParser:
         else:
             direct_block = re.search(
                 re.escape(date_match.group(0))
-                + r"\\s+(.*?)(?:TOTAL GANADORES|TOTAL DE GANADORES)",
+                + r"\s+(.*?)(?:TOTAL GANADORES|TOTAL DE GANADORES)",
                 text,
                 re.IGNORECASE | re.DOTALL,
             )
@@ -289,7 +289,7 @@ class BalotoResultPageParser:
                 raise SourceParseError("Baloto result page is missing the official result block")
             number_text = direct_block.group(1)
 
-        numbers = [int(value) for value in re.findall(r"(?<!\\d)(\\d{1,2})(?!\\d)", number_text)]
+        numbers = [int(value) for value in re.findall(r"(?<!\d)(\d{1,2})(?!\d)", number_text)]
         if len(numbers) < 6:
             raise SourceParseError("Baloto result page must contain five main numbers and one bonus number")
         numbers = numbers[:6]
