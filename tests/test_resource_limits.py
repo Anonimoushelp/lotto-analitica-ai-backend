@@ -11,9 +11,15 @@ def test_database_pool_has_bounded_resource_settings():
     assert engine.pool._pre_ping is True
 
 
-def test_redis_client_has_bounded_socket_timeouts():
+def test_redis_client_has_bounded_socket_timeouts(monkeypatch):
+    monkeypatch.setattr(
+        settings,
+        "redis_url",
+        "rediss://redis.example.com:6379/0",
+    )
     client = LoginRateLimiter()._redis
 
+    assert client is not None
     assert client.connection_pool.connection_kwargs["socket_connect_timeout"] == 5.0
     assert client.connection_pool.connection_kwargs["socket_timeout"] == 5.0
     assert client.connection_pool.connection_kwargs["health_check_interval"] == 30
