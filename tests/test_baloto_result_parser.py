@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+import datetime
 
 from app.sources.fetchers import SourceFetchResult
 from app.sources.parsers import BalotoResultPageParser
@@ -23,7 +23,7 @@ def _result(numbers: str, date: str) -> SourceFetchResult:
         status_code=200,
         content=DETAIL_TEMPLATE.format(date=date, numbers=numbers).encode(),
         content_type="text/html",
-        fetched_at=datetime.now(UTC),
+        fetched_at=datetime.datetime.now(datetime.UTC),
     )
 
 
