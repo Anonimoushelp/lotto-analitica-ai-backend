@@ -15,7 +15,7 @@ Mako==1.4.1
 MarkupSafe==3.0.3
 packaging==26.3
 pluggy==1.6.0
-psycopg==3.3.5
+psycopg==3.3.6
 psycopg-binary==3.3.5
 pydantic==2.13.5
 pydantic-settings==2.15.0
