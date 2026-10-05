@@ -1,4 +1,4 @@
-from datetime import UTC, datetime
+from datetime import datetime, UTC
 
 from app.sources.fetchers import SourceFetchResult
 from app.sources.parsers import BalotoResultPageParser
