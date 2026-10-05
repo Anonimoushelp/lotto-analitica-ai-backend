@@ -15,7 +15,7 @@ class Settings(BaseSettings):
     database_pool_timeout: int = Field(default=10, ge=1, le=120)
     database_pool_recycle: int = Field(default=1800, ge=60, le=86400)
     database_connect_timeout: int = Field(default=5, ge=1, le=60)
-    redis_url: str = "redis://localhost:6379/0"
+    redis_url: str = ""
     redis_connect_timeout: float = Field(default=5.0, gt=0, le=60)
     redis_socket_timeout: float = Field(default=5.0, gt=0, le=60)
     redis_health_check_interval: int = Field(default=30, ge=0, le=3600)
@@ -71,17 +71,18 @@ class Settings(BaseSettings):
                     "DATABASE_URL must require PostgreSQL TLS in production"
                 )
 
-            redis = urlparse(self.redis_url)
-            redis_host = (redis.hostname or "").lower().rstrip(".")
-            redis_is_tls = redis.scheme == "rediss"
-            redis_is_railway_private = redis.scheme == "redis" and (
-                redis_host == "railway.internal"
-                or redis_host.endswith(".railway.internal")
-            )
-            if not (redis_is_tls or redis_is_railway_private):
-                raise ValueError(
-                    "REDIS_URL must use TLS or Railway private networking in production"
+            if self.redis_url.strip():
+                redis = urlparse(self.redis_url)
+                redis_host = (redis.hostname or "").lower().rstrip(".")
+                redis_is_tls = redis.scheme == "rediss"
+                redis_is_railway_private = redis.scheme == "redis" and (
+                    redis_host == "railway.internal"
+                    or redis_host.endswith(".railway.internal")
                 )
+                if not (redis_is_tls or redis_is_railway_private):
+                    raise ValueError(
+                        "REDIS_URL must use TLS or Railway private networking in production"
+                    )
 
             if self.allow_initial_registration:
                 raise ValueError(
