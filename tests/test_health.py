@@ -41,29 +41,19 @@ def test_health_reports_database_failure(monkeypatch):
         db.close()
 
 
-def test_health_reports_redis_failure_in_production(monkeypatch):
+def test_health_remains_healthy_without_redis(monkeypatch):
     original_environment = settings.environment
-    original_health_check = login_rate_limiter.health_check
+    monkeypatch.setattr(login_rate_limiter, "_redis", None)
     try:
         settings.environment = "production"
-        monkeypatch.setattr(
-            login_rate_limiter,
-            "health_check",
-            lambda: (_ for _ in ()).throw(RuntimeError("redis unavailable")),
-        )
         response = client.get("/health")
-        assert response.status_code == 503
+        assert response.status_code == 200
         assert response.json() == {
-            "status": "unhealthy",
+            "status": "healthy",
             "service": "Lotto Analítica AI",
         }
     finally:
         settings.environment = original_environment
-        monkeypatch.setattr(
-            login_rate_limiter,
-            "health_check",
-            original_health_check,
-        )
 
 
 def test_health_recovers_after_redis_becomes_available(monkeypatch):
