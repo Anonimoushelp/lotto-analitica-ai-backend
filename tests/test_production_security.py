@@ -44,6 +44,14 @@ def test_production_rejects_non_tls_redis():
         Settings(**{**BASE_PRODUCTION, "redis_url": "redis://redis.example.com:6379/0"})
 
 
+def test_production_allows_missing_redis_for_free_deployment():
+    values = {**BASE_PRODUCTION, "redis_url": ""}
+
+    settings = Settings(**values)
+
+    assert settings.redis_url == ""
+
+
 def test_production_rejects_initial_registration():
     with raises(ValidationError, match="ALLOW_INITIAL_REGISTRATION must be false"):
         Settings(**{**BASE_PRODUCTION, "allow_initial_registration": True})
