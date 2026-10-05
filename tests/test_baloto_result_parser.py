@@ -1,7 +1,7 @@
 import datetime
 
-from app.sources.parsers import BalotoResultPageParser
 from app.sources.fetchers import SourceFetchResult
+from app.sources.parsers import BalotoResultPageParser
 
 
 DETAIL_TEMPLATE = """
