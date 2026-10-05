@@ -289,6 +289,15 @@ class BalotoResultPageParser:
                 raise SourceParseError("Baloto result page is missing the official result block")
             number_text = direct_block.group(1)
 
+        # The official detail page may place the jackpot accumulation immediately
+        # before the six result balls. Remove that monetary metadata so its amount
+        # is never interpreted as a lottery number.
+        number_text = re.sub(
+            r"ACUMULADO\s+DEL\s+SORTEO\s*:\s*\$?\s*[\d.,]+(?:\s*MILLONES)?",
+            " ",
+            number_text,
+            flags=re.IGNORECASE,
+        )
         numbers = [int(value) for value in re.findall(r"(?<!\d)(\d{1,2})(?!\d)", number_text)]
         if len(numbers) < 6:
             raise SourceParseError("Baloto result page must contain five main numbers and one bonus number")
