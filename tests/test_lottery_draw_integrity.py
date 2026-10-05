@@ -400,6 +400,46 @@ def test_persist_raw_record_accepts_canonical_numeric_raw_result(db):
     assert same.metadata_json["raw_result"] == "4008"
 
 
+def test_persist_raw_record_reconciles_verified_source_payload(db):
+    lottery = seed_lottery(db, "Revancha")
+    first = LotteryDrawService.create_draw(
+        db=db,
+        lottery_id=lottery.id,
+        draw_number="2712",
+        draw_date=date(2026, 9, 21),
+        main_numbers=[1, 2, 3, 4, 5],
+        bonus_numbers=[6],
+        draw_type="REVANCHA",
+        source="Baloto",
+        source_url="https://www.baloto.com/resultados-revancha/2712",
+        metadata_json={"source_format": "legacy"},
+    )
+
+    record = RawDrawRecord(
+        lottery_code="revancha",
+        draw_type="REVANCHA",
+        draw_number="2712",
+        draw_date=date(2026, 9, 21),
+        draw_time=None,
+        main_numbers=[5, 32, 33, 36, 40],
+        bonus_numbers=[4],
+        metadata={
+            "source_format": "official_draw_page",
+            "source_verified": True,
+        },
+        source_name="Baloto",
+        source_url="https://www.baloto.com/resultados-revancha/2712",
+    )
+
+    reconciled = LotteryDrawService.persist_raw_record(db=db, record=record)
+
+    assert reconciled.id == first.id
+    assert reconciled.main_numbers == [5, 32, 33, 36, 40]
+    assert reconciled.bonus_numbers == [4]
+    assert reconciled.metadata_json["source_verified"] is True
+    assert reconciled.validation_json["reconciled_from_verified_source"] is True
+
+
 def test_persist_raw_record_rejects_semantic_metadata_change(db):
     lottery = seed_lottery(db, "MiLoto")
     LotteryDrawService.create_draw(
