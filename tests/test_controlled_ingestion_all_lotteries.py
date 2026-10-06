@@ -433,6 +433,12 @@ def test_raw_record_persistence_rejects_conflicting_duplicate(db):
         }
     )
 
+    # The official MiLoto adapter now marks the source as verified.
+    # This test must explicitly model an unverified source to preserve
+    # the conflict-rejection invariant.
+    first.metadata["source_verified"] = False
+    conflicting.metadata["source_verified"] = False
+
     LotteryDrawService.persist_raw_record(db=db, record=first)
 
     with pytest.raises(Exception) as exc:

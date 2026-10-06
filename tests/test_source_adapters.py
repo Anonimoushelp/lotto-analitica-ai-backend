@@ -26,6 +26,7 @@ def test_miloto_adapter_normalizes_official_shape():
     assert record.draw_date == date(2026, 9, 18)
     assert record.main_numbers == [10, 15, 31, 33, 39]
     assert record.bonus_numbers is None
+    assert record.metadata["source_verified"] is True
 
 
 def test_baloto_adapter_maps_superbalota():
@@ -42,6 +43,7 @@ def test_baloto_adapter_maps_superbalota():
     assert record.draw_type == "BALOTO"
     assert record.main_numbers == [11, 13, 17, 19, 39]
     assert record.bonus_numbers == [4]
+    assert record.metadata["source_verified"] is True
 
 
 def test_revancha_adapter_is_independent_draw_type():
@@ -58,6 +60,7 @@ def test_revancha_adapter_is_independent_draw_type():
     assert record.draw_type == "REVANCHA"
     assert record.main_numbers == [10, 25, 27, 38, 42]
     assert record.bonus_numbers == [3]
+    assert record.metadata["source_verified"] is True
 
 
 def test_super_astro_sol_preserves_four_digit_result_and_sign():

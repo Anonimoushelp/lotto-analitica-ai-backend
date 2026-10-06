@@ -54,6 +54,8 @@ class MappingSourceAdapter:
             else None
         )
         metadata = dict(self._get(payload, "metadata", {}))
+        if self.spec.primary_verified:
+            metadata["source_verified"] = True
         source_name = str(
             self._get(payload, "source_name", self.spec.primary_name)
         )

@@ -84,3 +84,4 @@ jobs:
 
       - name: Ejecutar pruebas
         run: pytest -q -m "not integration"
+# CI runner availability trigger
