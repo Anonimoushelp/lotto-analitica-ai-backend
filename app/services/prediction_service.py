@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 from fastapi import HTTPException, status
 from sqlalchemy.orm import Session
 
+from app.core.config import settings
 from app.models.lottery import Lottery
 from app.repositories.lottery_draw_repository import LotteryDrawRepository
 from app.services.gemini_client import GeminiClient
@@ -14,7 +15,7 @@ from app.services.gemini_validator import validate_predictions
 class PredictionService:
     @staticmethod
     def model_status() -> dict[str, str]:
-        configured = bool(getattr(__import__("app.core.config", fromlist=["settings"]).settings, "gemini_api_key", ""))
+        configured = bool(getattr(settings, "gemini_api_key", ""))
         return {
             "model_name": "Lotto-Net Gemini AI Core",
             "version": GeminiClient.MODEL if configured else "not-configured",
