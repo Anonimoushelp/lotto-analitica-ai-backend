@@ -6,6 +6,7 @@ from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.cli.bootstrap_admin import bootstrap_admin
+from app.cli.reset_admin_password import reset_admin_password
 from app.core.security import verify_password
 from app.models.user import User
 
@@ -83,4 +84,71 @@ def test_bootstrap_admin_validates_email_and_password():
         )
     with pytest.raises(ValueError):
         bootstrap_admin(db, email="valid@example.com", password="short")
+    db.close()
+
+
+def test_reset_admin_password_updates_existing_admin_and_audits():
+    db = TestingSessionLocal()
+    bootstrap_admin(
+        db,
+        email=" Admin@Example.com ",
+        password="OldStrongPassword123!",
+    )
+    with patch("app.cli.reset_admin_password.log_mutation") as audit:
+        user = reset_admin_password(
+            db,
+            email=" ADMIN@example.com ",
+            password="NewStrongPassword456!",
+        )
+    db.close()
+
+    assert user.email == "admin@example.com"
+    assert verify_password("NewStrongPassword456!", user.password_hash)
+    assert not verify_password("OldStrongPassword123!", user.password_hash)
+    audit.assert_called_once()
+    assert audit.call_args.kwargs["action"] == "update"
+    assert audit.call_args.kwargs["resource"] == "admin_password"
+
+
+def test_reset_admin_password_rejects_missing_or_non_admin_target():
+    db = TestingSessionLocal()
+    with pytest.raises(RuntimeError, match="Administrator account not found"):
+        reset_admin_password(
+            db,
+            email="missing@example.com",
+            password="NewStrongPassword456!",
+        )
+
+    user = User(
+        email="viewer@example.com",
+        password_hash="placeholder",
+        role="viewer",
+        is_active=True,
+    )
+    db.add(user)
+    db.commit()
+
+    with pytest.raises(RuntimeError, match="active administrator"):
+        reset_admin_password(
+            db,
+            email="viewer@example.com",
+            password="NewStrongPassword456!",
+        )
+    db.close()
+
+
+def test_reset_admin_password_validates_email_and_password():
+    db = TestingSessionLocal()
+    with pytest.raises(ValueError):
+        reset_admin_password(
+            db,
+            email="not-an-email",
+            password="StrongTestPassword123!",
+        )
+    with pytest.raises(ValueError):
+        reset_admin_password(
+            db,
+            email="valid@example.com",
+            password="short",
+        )
     db.close()
