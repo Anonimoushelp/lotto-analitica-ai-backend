@@ -33,10 +33,11 @@ class GeminiClient:
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {
                 "responseMimeType": "application/json",
+                "thinkingConfig": {"thinkingLevel": "low"},
             },
         }
         try:
-            with httpx.Client(timeout=15.0) as client:
+            with httpx.Client(timeout=45.0) as client:
                 response = client.post(
                     cls.API_URL,
                     headers={"x-goog-api-key": api_key},
