@@ -56,15 +56,45 @@ class PredictionService:
                 detail="The selected lottery has no main numbers available",
             )
 
+        lottery_code = (getattr(lottery, "code", "") or "").strip().upper()
+        lottery_name = (lottery.name or "").strip().casefold()
+        uses_superbalota = (
+            lottery_code in {"BALOTO", "REVANCHA"}
+            or "baloto" in lottery_name
+            or "revancha" in lottery_name
+        )
+        include_extra_number = bool(payload.include_extra_number or uses_superbalota)
+        historical_extra_numbers = [
+            number
+            for draw in draws
+            if draw.main_numbers
+            for number in (draw.bonus_numbers or [])
+            if isinstance(number, int) and not isinstance(number, bool)
+        ]
+        extra_number_label = "Superbalota" if uses_superbalota else "número adicional"
+        extra_number_min = 1
+        extra_number_max = 16 if uses_superbalota else 1000
+
         prompt = build_prediction_prompt(
             lottery_name=lottery.name,
             strategy=payload.strategy,
             prediction_count=payload.prediction_count,
             historical_numbers=historical_numbers,
+            include_extra_number=include_extra_number,
+            historical_extra_numbers=historical_extra_numbers,
+            extra_number_label=extra_number_label,
+            extra_number_min=extra_number_min,
+            extra_number_max=extra_number_max,
         )
         generated = GeminiClient.generate_json(prompt)
         generated = normalize_prediction_risk_levels(generated)
-        if not validate_predictions(generated, payload.prediction_count):
+        if not validate_predictions(
+            generated,
+            payload.prediction_count,
+            include_extra_number=include_extra_number,
+            extra_number_min=extra_number_min,
+            extra_number_max=extra_number_max,
+        ):
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 detail="Gemini returned predictions that do not match the required contract",
