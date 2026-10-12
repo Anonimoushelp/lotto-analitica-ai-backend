@@ -82,6 +82,7 @@ def test_prediction_service_includes_superbalota_for_baloto_family(
 
     assert response["predictions"][0]["numbers"] == [1, 9, 20, 31, 42]
     assert response["predictions"][0]["extra_number"] == 8
+    assert "numbers (exactamente 5 enteros distintos de 1 a 43)" in prompts[0]
     assert "extra_number" in prompts[0]
     assert "Histórico de Superbalota: [7,13]" in prompts[0]
     assert "exactamente un entero de 1 a 16" in prompts[0]
@@ -145,4 +146,5 @@ def test_prediction_service_does_not_require_extra_number_for_miloto(
     )
 
     assert response["predictions"][0]["extra_number"] is None
+    assert "numbers (exactamente 5 enteros distintos de 1 a 39)" in prompts[0]
     assert "extra_number" not in prompts[0]
