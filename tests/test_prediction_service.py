@@ -2,7 +2,6 @@ from types import SimpleNamespace
 
 import pytest
 
-from app.models.lottery import Lottery
 from app.repositories.lottery_draw_repository import LotteryDrawRepository
 from app.schemas.ai_prediction import AiPredictionRequest
 from app.services.gemini_client import GeminiClient
