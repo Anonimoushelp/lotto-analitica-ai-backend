@@ -208,3 +208,7 @@ def test_gemini_client_keeps_api_key_out_of_url_and_body(monkeypatch):
     assert request["body"]["generationConfig"]["thinkingConfig"] == {
         "thinkingLevel": "low"
     }
+
+def test_gemini_client_uses_cost_efficient_flash_lite_model():
+    assert GeminiClient.MODEL == "gemini-3.5-flash-lite"
+    assert GeminiClient.API_URL.endswith("/models/gemini-3.5-flash-lite:generateContent")
