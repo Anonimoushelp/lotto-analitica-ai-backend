@@ -9,6 +9,8 @@ def build_prediction_prompt(
     prediction_count: int,
     historical_numbers: list[list[int]],
     *,
+    main_number_min: int = 1,
+    main_number_max: int = 1000,
     include_extra_number: bool = False,
     historical_extra_numbers: list[int] | None = None,
     extra_number_label: str = "número adicional",
@@ -17,8 +19,9 @@ def build_prediction_prompt(
 ) -> str:
     history = json.dumps(historical_numbers, separators=(",", ":"))
     required_fields = (
-        "numbers (exactamente 5 enteros distintos), confidence_score "
-        "entre 0 y 100, risk_level y rationale"
+        f"numbers (exactamente 5 enteros distintos de {main_number_min} "
+        f"a {main_number_max}), confidence_score entre 0 y 100, "
+        "risk_level y rationale"
     )
     extra_history_text = ""
     if include_extra_number:

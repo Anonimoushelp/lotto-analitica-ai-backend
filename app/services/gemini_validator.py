@@ -66,6 +66,8 @@ def validate_predictions(
     expected_count: int,
     *,
     include_extra_number: bool = False,
+    main_number_min: int = 1,
+    main_number_max: int = 1000,
     extra_number_min: int = 1,
     extra_number_max: int = 1000,
 ) -> bool:
@@ -82,9 +84,15 @@ def validate_predictions(
         if (
             not isinstance(numbers, list)
             or len(numbers) != 5
-            or any(not isinstance(number, int) or not 1 <= number <= 1000 for number in numbers)
+            or any(
+                not isinstance(number, int)
+                or isinstance(number, bool)
+                or not main_number_min <= number <= main_number_max
+                for number in numbers
+            )
             or len(set(numbers)) != 5
             or not isinstance(confidence, (int, float))
+            or isinstance(confidence, bool)
             or not 0 <= confidence <= 100
             or item.get("risk_level") not in ALLOWED_RISK_LEVELS
         ):

@@ -1,6 +1,7 @@
 from types import SimpleNamespace
 
 import pytest
+from fastapi import HTTPException
 
 from app.repositories.lottery_draw_repository import LotteryDrawRepository
 from app.schemas.ai_prediction import AiPredictionRequest
@@ -82,6 +83,7 @@ def test_prediction_service_includes_superbalota_for_baloto_family(
 
     assert response["predictions"][0]["numbers"] == [1, 9, 20, 31, 42]
     assert response["predictions"][0]["extra_number"] == 8
+    assert "numbers (exactamente 5 enteros distintos de 1 a 43)" in prompts[0]
     assert "extra_number" in prompts[0]
     assert "Histórico de Superbalota: [7,13]" in prompts[0]
     assert "exactamente un entero de 1 a 16" in prompts[0]
@@ -145,4 +147,49 @@ def test_prediction_service_does_not_require_extra_number_for_miloto(
     )
 
     assert response["predictions"][0]["extra_number"] is None
+    assert "numbers (exactamente 5 enteros distintos de 1 a 39)" in prompts[0]
     assert "extra_number" not in prompts[0]
+
+
+def test_prediction_service_rejects_out_of_range_baloto_number(monkeypatch):
+    lottery = SimpleNamespace(id=17, code="BALOTO", name="Baloto")
+    draws = [
+        SimpleNamespace(main_numbers=[5, 12, 23, 31, 42], bonus_numbers=[7]),
+    ]
+    db = SimpleNamespace(get=lambda model, record_id: lottery)
+
+    monkeypatch.setattr(
+        LotteryDrawRepository,
+        "list",
+        staticmethod(lambda **kwargs: draws),
+    )
+    monkeypatch.setattr(
+        GeminiClient,
+        "generate_json",
+        staticmethod(
+            lambda prompt: {
+                "predictions": [
+                    {
+                        "numbers": [1, 2, 3, 4, 44],
+                        "extra_number": 8,
+                        "confidence_score": 76,
+                        "risk_level": "Moderado",
+                        "rationale": "Fixture inválido para comprobar el contrato.",
+                    }
+                ]
+            }
+        ),
+    )
+
+    with pytest.raises(HTTPException) as exc_info:
+        PredictionService.generate(
+            db=db,
+            payload=AiPredictionRequest(
+                lottery_id=17,
+                prediction_count=1,
+                include_extra_number=False,
+            ),
+        )
+
+    assert exc_info.value.status_code == 502
+    assert "required contract" in str(exc_info.value.detail)

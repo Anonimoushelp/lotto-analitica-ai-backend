@@ -122,3 +122,101 @@ def test_validate_predictions_requires_superbalota_within_official_range():
         extra_number_min=1,
         extra_number_max=16,
     )
+
+
+@pytest.mark.parametrize(
+    ("number", "expected"),
+    [(1, True), (43, True), (44, False), (0, False), (True, False)],
+)
+def test_validate_predictions_enforces_baloto_main_number_range(number, expected):
+    value = {
+        "predictions": [
+            {
+                "numbers": [number, 2, 3, 4, 5],
+                "extra_number": 8,
+                "confidence_score": 82,
+                "risk_level": "Moderado",
+            }
+        ]
+    }
+
+    assert validate_predictions(
+        value,
+        expected_count=1,
+        include_extra_number=True,
+        main_number_min=1,
+        main_number_max=43,
+        extra_number_min=1,
+        extra_number_max=16,
+    ) is expected
+
+
+@pytest.mark.parametrize(("number", "expected"), [(39, True), (40, False)])
+def test_validate_predictions_enforces_miloto_main_number_range(number, expected):
+    value = {
+        "predictions": [
+            {
+                "numbers": [number, 2, 3, 4, 5],
+                "confidence_score": 82,
+                "risk_level": "Moderado",
+            }
+        ]
+    }
+
+    assert validate_predictions(
+        value,
+        expected_count=1,
+        main_number_min=1,
+        main_number_max=39,
+    ) is expected
+
+
+def test_validate_predictions_rejects_boolean_confidence_score():
+    value = {
+        "predictions": [
+            {
+                "numbers": [1, 2, 3, 4, 5],
+                "confidence_score": True,
+                "risk_level": "Moderado",
+            }
+        ]
+    }
+
+    assert not validate_predictions(value, expected_count=1)
+
+
+def test_validate_predictions_rejects_duplicate_main_numbers():
+    value = {
+        "predictions": [
+            {
+                "numbers": [1, 2, 2, 4, 5],
+                "confidence_score": 82,
+                "risk_level": "Moderado",
+            }
+        ]
+    }
+
+    assert not validate_predictions(value, expected_count=1)
+
+
+def test_validate_predictions_rejects_boolean_superbalota():
+    value = {
+        "predictions": [
+            {
+                "numbers": [1, 2, 3, 4, 5],
+                "extra_number": True,
+                "confidence_score": 82,
+                "risk_level": "Moderado",
+            }
+        ]
+    }
+
+    assert not validate_predictions(
+        value,
+        expected_count=1,
+        include_extra_number=True,
+        main_number_min=1,
+        main_number_max=43,
+        extra_number_min=1,
+        extra_number_max=16,
+    )

@@ -71,6 +71,16 @@ class PredictionService:
             for number in (draw.bonus_numbers or [])
             if isinstance(number, int) and not isinstance(number, bool)
         ]
+        is_miloto = lottery_code == "MILOTO" or "miloto" in lottery_name
+        if uses_superbalota:
+            main_number_min, main_number_max = 1, 43
+        elif is_miloto:
+            main_number_min, main_number_max = 1, 39
+        else:
+            # Generic fallback retained until this game's format is explicitly
+            # described in the rules registry.
+            main_number_min, main_number_max = 1, 1000
+
         extra_number_label = "Superbalota" if uses_superbalota else "número adicional"
         extra_number_min = 1
         extra_number_max = 16 if uses_superbalota else 1000
@@ -80,6 +90,8 @@ class PredictionService:
             strategy=payload.strategy,
             prediction_count=payload.prediction_count,
             historical_numbers=historical_numbers,
+            main_number_min=main_number_min,
+            main_number_max=main_number_max,
             include_extra_number=include_extra_number,
             historical_extra_numbers=historical_extra_numbers,
             extra_number_label=extra_number_label,
@@ -92,6 +104,8 @@ class PredictionService:
             generated,
             payload.prediction_count,
             include_extra_number=include_extra_number,
+            main_number_min=main_number_min,
+            main_number_max=main_number_max,
             extra_number_min=extra_number_min,
             extra_number_max=extra_number_max,
         ):
