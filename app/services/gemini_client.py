@@ -36,7 +36,8 @@ class GeminiClient:
             },
         }
         try:
-            with httpx.Client(timeout=15.0) as client:
+            # Allow more time for model generation while keeping the request bounded.
+            with httpx.Client(timeout=30.0) as client:
                 response = client.post(
                     cls.API_URL,
                     headers={"x-goog-api-key": api_key},
