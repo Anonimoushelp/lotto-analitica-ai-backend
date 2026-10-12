@@ -18,7 +18,7 @@ class PredictionService:
         configured = bool(getattr(settings, "gemini_api_key", ""))
         return {
             "model_name": "Lotto-Net Gemini AI Core",
-            "version": "gemini-2.5-flash" if configured else "not-configured",
+            "version": GeminiClient.MODEL if configured else "not-configured",
             "status": "IDLE" if configured else "UNAVAILABLE",
         }
 

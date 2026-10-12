@@ -15,9 +15,10 @@ logger = logging.getLogger(__name__)
 class GeminiClient:
     """Server-side Gemini client using Google's generateContent REST API."""
 
+    MODEL = "gemini-3.8-flash"
     API_URL = (
         "https://generativelanguage.googleapis.com/v1beta/models/"
-        "gemini-2.5-flash:generateContent"
+        f"{MODEL}:generateContent"
     )
 
     @classmethod
@@ -31,7 +32,6 @@ class GeminiClient:
         body = {
             "contents": [{"parts": [{"text": prompt}]}],
             "generationConfig": {
-                "temperature": 0.2,
                 "responseMimeType": "application/json",
             },
         }

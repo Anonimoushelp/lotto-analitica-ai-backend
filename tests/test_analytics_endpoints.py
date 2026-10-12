@@ -8,6 +8,7 @@ from app.api.dependencies.auth import get_current_user
 from app.core.config import settings
 from app.main import app
 from app.schemas.ai_prediction import AiPatternInsight, AiPredictionRequest
+from app.services.gemini_client import GeminiClient
 from app.services.gemini_validator import validate_predictions
 from app.services.statistical_service import StatisticalService
 
@@ -73,11 +74,9 @@ def test_prediction_model_status_is_idle_when_key_is_configured(monkeypatch):
     assert response.status_code == 200
     assert response.json() == {
         "model_name": "Lotto-Net Gemini AI Core",
-        "version": "gemini-2.5-flash",
+        "version": GeminiClient.MODEL,
         "status": "IDLE",
     }
-
-    monkeypatch.setattr(settings, "gemini_api_key", "")
 
 
 def test_gemini_validator_rejects_out_of_range_numbers():
