@@ -26,9 +26,11 @@ class MockResponse:
 class MockClient:
     response = None
     last_request = None
+    last_timeout = None
 
     def __init__(self, *args, **kwargs):
         self.timeout = kwargs.get("timeout")
+        type(self).last_timeout = self.timeout
 
     def __enter__(self):
         return self
@@ -145,3 +147,7 @@ def test_gemini_client_keeps_api_key_out_of_url_and_body(monkeypatch):
     assert secret not in request["url"]
     assert secret not in json.dumps(request["body"])
     assert request["headers"]["x-goog-api-key"] == secret
+    assert MockClient.last_timeout == 45.0
+    assert request["body"]["generationConfig"]["thinkingConfig"] == {
+        "thinkingLevel": "low"
+    }
