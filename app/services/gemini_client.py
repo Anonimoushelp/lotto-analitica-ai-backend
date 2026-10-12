@@ -16,7 +16,7 @@ logger = logging.getLogger(__name__)
 class GeminiClient:
     """Server-side Gemini client using Google's generateContent REST API."""
 
-    MODEL = "gemini-3.8-flash"
+    MODEL = "gemini-3.5-flash-lite"
     API_URL = (
         "https://generativelanguage.googleapis.com/v1beta/models/"
         f"{MODEL}:generateContent"
