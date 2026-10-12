@@ -11,6 +11,8 @@ def build_prediction_prompt(
     *,
     main_number_min: int = 1,
     main_number_max: int = 1000,
+    main_number_count: int = 5,
+    single_number_mode: bool = False,
     include_extra_number: bool = False,
     historical_extra_numbers: list[int] | None = None,
     extra_number_label: str = "número adicional",
@@ -18,9 +20,20 @@ def build_prediction_prompt(
     extra_number_max: int = 1000,
 ) -> str:
     history = json.dumps(historical_numbers, separators=(",", ":"))
+    if single_number_mode:
+        number_requirement = (
+            "numbers (una lista con exactamente un entero entre 0 y 9999 "
+            "que representa un único resultado de cuatro cifras; no generes "
+            "cinco bolas ni una combinación de números. el cliente completará "
+            "los ceros iniciales al mostrar el resultado: 7 se verá como 0007)"
+        )
+    else:
+        number_requirement = (
+            f"numbers (exactamente {main_number_count} enteros distintos de "
+            f"{main_number_min} a {main_number_max})"
+        )
     required_fields = (
-        f"numbers (exactamente 5 enteros distintos de {main_number_min} "
-        f"a {main_number_max}), confidence_score entre 0 y 100, "
+        f"{number_requirement}, confidence_score entre 0 y 100, "
         "risk_level y rationale"
     )
     extra_history_text = ""

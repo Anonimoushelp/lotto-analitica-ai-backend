@@ -1,3 +1,4 @@
+# ruff: noqa: I001
 from collections import Counter
 from datetime import UTC, datetime
 
@@ -13,6 +14,70 @@ from app.services.gemini_validator import (
     normalize_prediction_risk_levels,
     validate_predictions,
 )
+
+
+# These games draw a single four-digit ticket result rather than five balls.
+# Codes match the catalog seeded by Lotto Analítica AI and the four-digit
+# provider adapters. The historical-shape fallback below supports future
+# single-result games even when their code is not yet registered here.
+FOUR_DIGIT_LOTTERY_CODES = {
+    "LOTERIA_CUNDINAMARCA",
+    "LOTERIA_TOLIMA",
+    "LOTERIA_CRUZ_ROJA",
+    "LOTERIA_HUILA",
+    "LOTERIA_MANIZALES",
+    "LOTERIA_VALLE",
+    "LOTERIA_META",
+    "LOTERIA_BOGOTA",
+    "LOTERIA_QUINDIO",
+    "LOTERIA_MEDELLIN",
+    "LOTERIA_SANTANDER",
+    "LOTERIA_RISARALDA",
+    "LOTERIA_BOYACA",
+    "LOTERIA_CAUCA",
+    "EXTRA_COLOMBIA",
+    "SUPER_ASTRO",
+    "ANTIOQUENITA",
+    "CHONTICO",
+    "DORADO",
+    "CAFETERITO",
+    "PAISITA",
+    "FANTASTICA",
+}
+
+
+def _has_four_digit_history(draws) -> bool:
+    for draw in draws:
+        metadata = getattr(draw, "metadata_json", None)
+        if not isinstance(metadata, dict):
+            continue
+        if metadata.get("digit_count") == 4:
+            return True
+        raw_result = metadata.get("raw_result")
+        if isinstance(raw_result, str) and len(raw_result) == 4 and raw_result.isdigit():
+            return True
+    return False
+
+
+def _is_single_four_digit_result(
+    lottery_code: str,
+    lottery_name: str,
+    draws,
+    historical_numbers: list[list[int]],
+) -> bool:
+    if lottery_code in FOUR_DIGIT_LOTTERY_CODES:
+        return True
+    if lottery_code.startswith("LOTERIA_") or "lotería" in lottery_name:
+        return True
+    if _has_four_digit_history(draws):
+        return True
+
+    # An unknown game whose historical draws consistently contain one value
+    # is a single-result game, not a five-ball combination.
+    if historical_numbers:
+        single_result_draws = sum(len(numbers) == 1 for numbers in historical_numbers)
+        return single_result_draws / len(historical_numbers) >= 0.8
+    return False
 
 
 class PredictionService:
@@ -63,6 +128,18 @@ class PredictionService:
             or "baloto" in lottery_name
             or "revancha" in lottery_name
         )
+        is_miloto = lottery_code == "MILOTO" or "miloto" in lottery_name
+        is_single_four_digit = (
+            not uses_superbalota
+            and not is_miloto
+            and _is_single_four_digit_result(
+                lottery_code,
+                lottery_name,
+                draws,
+                historical_numbers,
+            )
+        )
+
         include_extra_number = bool(payload.include_extra_number or uses_superbalota)
         historical_extra_numbers = [
             number
@@ -71,15 +148,20 @@ class PredictionService:
             for number in (draw.bonus_numbers or [])
             if isinstance(number, int) and not isinstance(number, bool)
         ]
-        is_miloto = lottery_code == "MILOTO" or "miloto" in lottery_name
+
         if uses_superbalota:
             main_number_min, main_number_max = 1, 43
+            main_number_count = 5
         elif is_miloto:
             main_number_min, main_number_max = 1, 39
+            main_number_count = 5
+        elif is_single_four_digit:
+            main_number_min, main_number_max = 0, 9999
+            main_number_count = 1
         else:
-            # Generic fallback retained until this game's format is explicitly
-            # described in the rules registry.
+            # Retain the existing fallback for any unregistered multi-ball game.
             main_number_min, main_number_max = 1, 1000
+            main_number_count = 5
 
         extra_number_label = "Superbalota" if uses_superbalota else "número adicional"
         extra_number_min = 1
@@ -92,6 +174,8 @@ class PredictionService:
             historical_numbers=historical_numbers,
             main_number_min=main_number_min,
             main_number_max=main_number_max,
+            main_number_count=main_number_count,
+            single_number_mode=is_single_four_digit,
             include_extra_number=include_extra_number,
             historical_extra_numbers=historical_extra_numbers,
             extra_number_label=extra_number_label,
@@ -106,6 +190,7 @@ class PredictionService:
             include_extra_number=include_extra_number,
             main_number_min=main_number_min,
             main_number_max=main_number_max,
+            main_number_count=main_number_count,
             extra_number_min=extra_number_min,
             extra_number_max=extra_number_max,
         ):
@@ -122,7 +207,7 @@ class PredictionService:
         ranked = [number for number, _ in frequency.most_common()]
         predictions = []
         for index, item in enumerate(generated["predictions"]):
-            numbers = sorted(item["numbers"])
+            numbers = item["numbers"] if is_single_four_digit else sorted(item["numbers"])
             even = sum(number % 2 == 0 for number in numbers)
             predictions.append(
                 {
@@ -137,7 +222,11 @@ class PredictionService:
                         "Análisis generado por Gemini a partir del histórico real disponible en el backend; no representa una garantía de resultado futuro.",
                     ),
                     "expected_sum": sum(numbers),
-                    "parity_ratio": f"{even} Par / {len(numbers) - even} Impar",
+                    "parity_ratio": (
+                        "No aplica a un resultado único de cuatro cifras"
+                        if is_single_four_digit
+                        else f"{even} Par / {len(numbers) - even} Impar"
+                    ),
                     "timestamp": datetime.now(UTC).isoformat(),
                 }
             )
