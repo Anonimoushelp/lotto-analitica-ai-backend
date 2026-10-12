@@ -43,6 +43,15 @@ class MockClient:
         return self.response
 
 
+def make_http_error(status_code: int) -> httpx.HTTPStatusError:
+    request = httpx.Request("POST", GeminiClient.API_URL)
+    return httpx.HTTPStatusError(
+        "upstream error",
+        request=request,
+        response=httpx.Response(status_code, request=request),
+    )
+
+
 def test_gemini_client_requires_api_key(monkeypatch):
     monkeypatch.setattr(settings, "gemini_api_key", "")
 
@@ -81,16 +90,63 @@ def test_gemini_client_maps_transport_error_to_502(monkeypatch):
     assert exc_info.value.status_code == 502
 
 
-def test_gemini_client_maps_http_error_to_502(monkeypatch):
-    request = httpx.Request("POST", GeminiClient.API_URL)
-    MockClient.response = MockResponse(
-        error=httpx.HTTPStatusError(
-            "bad gateway",
-            request=request,
-            response=httpx.Response(500, request=request),
-        )
-    )
+def test_gemini_client_retries_503_once_and_succeeds(monkeypatch):
+    class RetryClient(MockClient):
+        responses = [
+            MockResponse(error=make_http_error(503)),
+            MockResponse(
+                payload={
+                    "candidates": [
+                        {"content": {"parts": [{"text": json.dumps({"predictions": []})}]}}
+                    ]
+                }
+            ),
+        ]
+        calls = 0
 
+        def post(self, url, *, headers, json):
+            type(self).last_request = {"url": url, "headers": headers, "body": json}
+            response = type(self).responses[type(self).calls]
+            type(self).calls += 1
+            return response
+
+    monkeypatch.setattr(settings, "gemini_api_key", "test-key")
+    monkeypatch.setattr("app.services.gemini_client.httpx.Client", RetryClient)
+    monkeypatch.setattr("app.services.gemini_client.time.sleep", lambda _: None)
+
+    result = GeminiClient.generate_json("test prompt")
+
+    assert result == {"predictions": []}
+    assert RetryClient.calls == 2
+
+
+def test_gemini_client_maps_persistent_503_to_503(monkeypatch):
+    MockClient.response = MockResponse(error=make_http_error(503))
+    monkeypatch.setattr(settings, "gemini_api_key", "test-key")
+    monkeypatch.setattr("app.services.gemini_client.httpx.Client", MockClient)
+    monkeypatch.setattr("app.services.gemini_client.time.sleep", lambda _: None)
+
+    with pytest.raises(HTTPException) as exc_info:
+        GeminiClient.generate_json("test prompt")
+
+    assert exc_info.value.status_code == 503
+    assert "temporarily unavailable" in str(exc_info.value.detail)
+
+
+def test_gemini_client_maps_429_to_429(monkeypatch):
+    MockClient.response = MockResponse(error=make_http_error(429))
+    monkeypatch.setattr(settings, "gemini_api_key", "test-key")
+    monkeypatch.setattr("app.services.gemini_client.httpx.Client", MockClient)
+
+    with pytest.raises(HTTPException) as exc_info:
+        GeminiClient.generate_json("test prompt")
+
+    assert exc_info.value.status_code == 429
+    assert "rate limit" in str(exc_info.value.detail)
+
+
+def test_gemini_client_maps_http_error_to_502(monkeypatch):
+    MockClient.response = MockResponse(error=make_http_error(500))
     monkeypatch.setattr(settings, "gemini_api_key", "test-key")
     monkeypatch.setattr("app.services.gemini_client.httpx.Client", MockClient)
 
@@ -147,7 +203,7 @@ def test_gemini_client_keeps_api_key_out_of_url_and_body(monkeypatch):
     assert secret not in request["url"]
     assert secret not in json.dumps(request["body"])
     assert request["headers"]["x-goog-api-key"] == secret
-    assert MockClient.last_timeout == 45.0
+    assert MockClient.last_timeout == GeminiClient.REQUEST_TIMEOUT_SECONDS
     assert request["body"]["generationConfig"]["thinkingConfig"] == {
         "thinkingLevel": "low"
     }
