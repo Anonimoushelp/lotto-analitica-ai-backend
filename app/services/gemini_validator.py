@@ -61,7 +61,14 @@ def normalize_prediction_risk_levels(value: dict[str, Any]) -> dict[str, Any]:
     return normalized_value
 
 
-def validate_predictions(value: object, expected_count: int) -> bool:
+def validate_predictions(
+    value: object,
+    expected_count: int,
+    *,
+    include_extra_number: bool = False,
+    extra_number_min: int = 1,
+    extra_number_max: int = 1000,
+) -> bool:
     if not isinstance(value, dict) or not isinstance(value.get("predictions"), list):
         return False
     predictions = value["predictions"]
@@ -82,4 +89,13 @@ def validate_predictions(value: object, expected_count: int) -> bool:
             or item.get("risk_level") not in ALLOWED_RISK_LEVELS
         ):
             return False
+
+        if include_extra_number:
+            extra_number = item.get("extra_number")
+            if (
+                not isinstance(extra_number, int)
+                or isinstance(extra_number, bool)
+                or not extra_number_min <= extra_number <= extra_number_max
+            ):
+                return False
     return True
