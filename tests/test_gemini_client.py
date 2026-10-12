@@ -209,6 +209,54 @@ def test_gemini_client_keeps_api_key_out_of_url_and_body(monkeypatch):
         "thinkingLevel": "low"
     }
 
+
 def test_gemini_client_uses_cost_efficient_flash_lite_model():
     assert GeminiClient.MODEL == "gemini-3.5-flash-lite"
     assert GeminiClient.API_URL.endswith("/models/gemini-3.5-flash-lite:generateContent")
+
+
+def test_gemini_client_parses_json_markdown_fence(monkeypatch):
+    payload = {
+        "candidates": [
+            {"content": {"parts": [{"text": ' ```json\n{"predictions": []}\n``` '}]}}
+        ]
+    }
+    MockClient.response = MockResponse(payload=payload)
+    monkeypatch.setattr(settings, "gemini_api_key", "test-key")
+    monkeypatch.setattr("app.services.gemini_client.httpx.Client", MockClient)
+
+    assert GeminiClient.generate_json("test prompt") == {"predictions": []}
+
+
+def test_gemini_client_joins_multiple_text_parts(monkeypatch):
+    payload = {
+        "candidates": [
+            {
+                "content": {
+                    "parts": [
+                        {"text": '{"predictions":'},
+                        {"text": ' []}'},
+                    ]
+                }
+            }
+        ]
+    }
+    MockClient.response = MockResponse(payload=payload)
+    monkeypatch.setattr(settings, "gemini_api_key", "test-key")
+    monkeypatch.setattr("app.services.gemini_client.httpx.Client", MockClient)
+
+    assert GeminiClient.generate_json("test prompt") == {"predictions": []}
+
+
+def test_gemini_client_rejects_missing_text_parts(monkeypatch):
+    MockClient.response = MockResponse(
+        payload={"candidates": [{"content": {"parts": [{"thought": True}]}}]}
+    )
+    monkeypatch.setattr(settings, "gemini_api_key", "test-key")
+    monkeypatch.setattr("app.services.gemini_client.httpx.Client", MockClient)
+
+    with pytest.raises(HTTPException) as exc_info:
+        GeminiClient.generate_json("test prompt")
+
+    assert exc_info.value.status_code == 502
+    assert "invalid structured response" in str(exc_info.value.detail)

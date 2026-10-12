@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import logging
+import re
 import time
 from typing import Any
 
@@ -59,8 +60,6 @@ class GeminiClient:
                 ) from exc
             except httpx.HTTPStatusError as exc:
                 upstream_status = exc.response.status_code
-                # A 503 normally indicates temporary provider overload or
-                # unavailability. Retry once with a short bounded backoff.
                 if (
                     upstream_status == status.HTTP_503_SERVICE_UNAVAILABLE
                     and attempt < cls.HTTP_503_RETRIES
@@ -71,8 +70,6 @@ class GeminiClient:
                     time.sleep(cls.RETRY_BACKOFF_SECONDS)
                     continue
 
-                # Log only the upstream status code. Never log credentials,
-                # request headers, prompts, or raw provider response bodies.
                 logger.warning(
                     "Gemini API returned HTTP status=%s",
                     upstream_status,
@@ -102,7 +99,6 @@ class GeminiClient:
                 ) from exc
 
         if response is None:
-            # Defensive guard: all unsuccessful HTTP paths should have raised.
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
                 detail="Gemini AI request failed",
@@ -110,8 +106,21 @@ class GeminiClient:
 
         try:
             payload = response.json()
-            text = payload["candidates"][0]["content"]["parts"][0]["text"]
-            result = json.loads(text.strip().strip("`"))
+            candidates = payload["candidates"]
+            parts = candidates[0]["content"]["parts"]
+            # Gemini can return text in more than one part. Join text parts and
+            # tolerate Markdown code fences without logging the generated data.
+            text = "".join(
+                part["text"] for part in parts
+                if isinstance(part, dict) and isinstance(part.get("text"), str)
+            ).strip()
+            fenced = re.fullmatch(
+                r"```(?:json)?\s*(.*?)\s*```", text,
+                flags=re.IGNORECASE | re.DOTALL,
+            )
+            if fenced:
+                text = fenced.group(1).strip()
+            result = json.loads(text)
         except (KeyError, IndexError, TypeError, ValueError, json.JSONDecodeError) as exc:
             logger.warning("Gemini API returned an invalid structured response")
             raise HTTPException(
