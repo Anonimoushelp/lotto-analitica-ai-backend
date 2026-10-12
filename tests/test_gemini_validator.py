@@ -183,3 +183,40 @@ def test_validate_predictions_rejects_boolean_confidence_score():
     }
 
     assert not validate_predictions(value, expected_count=1)
+
+
+def test_validate_predictions_rejects_duplicate_main_numbers():
+    value = {
+        "predictions": [
+            {
+                "numbers": [1, 2, 2, 4, 5],
+                "confidence_score": 82,
+                "risk_level": "Moderado",
+            }
+        ]
+    }
+
+    assert not validate_predictions(value, expected_count=1)
+
+
+def test_validate_predictions_rejects_boolean_superbalota():
+    value = {
+        "predictions": [
+            {
+                "numbers": [1, 2, 3, 4, 5],
+                "extra_number": True,
+                "confidence_score": 82,
+                "risk_level": "Moderado",
+            }
+        ]
+    }
+
+    assert not validate_predictions(
+        value,
+        expected_count=1,
+        include_extra_number=True,
+        main_number_min=1,
+        main_number_max=43,
+        extra_number_min=1,
+        extra_number_max=16,
+    )
