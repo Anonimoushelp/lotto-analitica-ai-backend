@@ -1,4 +1,5 @@
 import json
+from typing import ClassVar
 
 import httpx
 import pytest
@@ -92,7 +93,7 @@ def test_gemini_client_maps_transport_error_to_502(monkeypatch):
 
 def test_gemini_client_retries_503_once_and_succeeds(monkeypatch):
     class RetryClient(MockClient):
-        responses = [
+        responses: ClassVar[list[MockResponse]] = [
             MockResponse(error=make_http_error(503)),
             MockResponse(
                 payload={
@@ -102,7 +103,7 @@ def test_gemini_client_retries_503_once_and_succeeds(monkeypatch):
                 }
             ),
         ]
-        calls = 0
+        calls: ClassVar[int] = 0
 
         def post(self, url, *, headers, json):
             type(self).last_request = {"url": url, "headers": headers, "body": json}
