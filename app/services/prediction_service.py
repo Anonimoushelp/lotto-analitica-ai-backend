@@ -9,7 +9,10 @@ from app.models.lottery import Lottery
 from app.repositories.lottery_draw_repository import LotteryDrawRepository
 from app.services.gemini_client import GeminiClient
 from app.services.gemini_prompt import build_prediction_prompt
-from app.services.gemini_validator import validate_predictions
+from app.services.gemini_validator import (
+    normalize_prediction_risk_levels,
+    validate_predictions,
+)
 
 
 class PredictionService:
@@ -60,6 +63,7 @@ class PredictionService:
             historical_numbers=historical_numbers,
         )
         generated = GeminiClient.generate_json(prompt)
+        generated = normalize_prediction_risk_levels(generated)
         if not validate_predictions(generated, payload.prediction_count):
             raise HTTPException(
                 status_code=status.HTTP_502_BAD_GATEWAY,
@@ -82,7 +86,7 @@ class PredictionService:
                     "numbers": numbers,
                     "extra_number": item.get("extra_number"),
                     "confidence_score": round(float(item["confidence_score"]), 2),
-                    "risk_level": item.get("risk_level", "Moderado"),
+                    "risk_level": item["risk_level"],
                     "pattern_detected": item.get("pattern_detected", "Análisis Gemini"),
                     "rationale": item.get(
                         "rationale",

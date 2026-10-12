@@ -82,17 +82,29 @@ def test_prediction_model_status_is_idle_when_key_is_configured(monkeypatch):
 def test_gemini_validator_rejects_out_of_range_numbers():
     valid = {
         "predictions": [
-            {"numbers": [1, 20, 300, 700, 1000], "confidence_score": 80}
+            {
+                "numbers": [1, 20, 300, 700, 1000],
+                "confidence_score": 80,
+                "risk_level": "Moderado",
+            }
         ]
     }
     invalid_low = {
         "predictions": [
-            {"numbers": [0, 20, 300, 700, 1000], "confidence_score": 80}
+            {
+                "numbers": [0, 20, 300, 700, 1000],
+                "confidence_score": 80,
+                "risk_level": "Moderado",
+            }
         ]
     }
     invalid_high = {
         "predictions": [
-            {"numbers": [1, 20, 300, 700, 1001], "confidence_score": 80}
+            {
+                "numbers": [1, 20, 300, 700, 1001],
+                "confidence_score": 80,
+                "risk_level": "Moderado",
+            }
         ]
     }
 
