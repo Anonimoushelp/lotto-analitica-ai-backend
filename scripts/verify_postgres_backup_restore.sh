@@ -9,6 +9,9 @@ set -euo pipefail
 
 restore_db="ci_restore_verify"
 backup_file="$(mktemp --suffix=.dump)"
+backup_dir="$(dirname "$backup_file")"
+backup_name="$(basename "$backup_file")"
+pg_client_image="${PG_CLIENT_IMAGE:-postgres:16}"
 
 cleanup() {
   rm -f "$backup_file"
@@ -31,12 +34,25 @@ SQL
 
 expected_migration="$(psql --host="$PGHOST" --port="$PGPORT" --username="$PGUSER" --dbname="$PGDATABASE" --tuples-only --no-align --set=ON_ERROR_STOP=1 -c "SELECT version_num FROM alembic_version LIMIT 1;")"
 
-pg_dump --host="$PGHOST" --port="$PGPORT" --username="$PGUSER" --dbname="$PGDATABASE" --format=custom --file="$backup_file"
+# Match the PostgreSQL client major version to the CI server image. Newer
+# pg_dump clients can emit settings (for example transaction_timeout) that
+# older PostgreSQL servers do not recognize during restore.
+docker run --rm --network host \
+  --env "PGPASSWORD=$PGPASSWORD" \
+  --volume "$backup_dir:/backup" \
+  "$pg_client_image" \
+  pg_dump --host="$PGHOST" --port="$PGPORT" --username="$PGUSER" \
+    --dbname="$PGDATABASE" --format=custom --file="/backup/$backup_name"
 
 "${psql_cmd[@]}" -c "DROP DATABASE IF EXISTS \"$restore_db\" WITH (FORCE);"
 "${psql_cmd[@]}" -c "CREATE DATABASE \"$restore_db\";"
 
-pg_restore --host="$PGHOST" --port="$PGPORT" --username="$PGUSER" --dbname="$restore_db" --no-owner --exit-on-error "$backup_file"
+docker run --rm --network host \
+  --env "PGPASSWORD=$PGPASSWORD" \
+  --volume "$backup_dir:/backup:ro" \
+  "$pg_client_image" \
+  pg_restore --host="$PGHOST" --port="$PGPORT" --username="$PGUSER" \
+    --dbname="$restore_db" --no-owner --exit-on-error "/backup/$backup_name"
 
 restored_marker="$(psql --host="$PGHOST" --port="$PGPORT" --username="$PGUSER" --dbname="$restore_db" --tuples-only --no-align --set=ON_ERROR_STOP=1 -c "SELECT marker FROM backup_restore_probe WHERE id = 1;")"
 restored_payload="$(psql --host="$PGHOST" --port="$PGPORT" --username="$PGUSER" --dbname="$restore_db" --tuples-only --no-align --set=ON_ERROR_STOP=1 -c "SELECT payload->>'schema' FROM backup_restore_probe WHERE id = 1;")"
