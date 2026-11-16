@@ -1,6 +1,6 @@
-from datetime import date
 import html as html_lib
 import re
+from datetime import date
 from urllib.parse import urlparse
 
 import pytest
