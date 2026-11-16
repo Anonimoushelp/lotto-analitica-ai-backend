@@ -466,7 +466,7 @@ class PagaTodoResultPageParser:
     _DATE_RE = re.compile(r"(?P<day>\d{2})/(?P<month>\d{2})/(?P<year>\d{4})")
     _WINNER_RE = re.compile(
         r"Número\s+Ganador\s*:?[ \t]*(?P<number>\d(?:\s*\d){3})"
-        r"(?:\s*-\s*(?P<extra>\d))?",
+        r"(?!\s*\d)(?:\s*-\s*(?P<extra>\d))?",
         re.IGNORECASE,
     )
 
