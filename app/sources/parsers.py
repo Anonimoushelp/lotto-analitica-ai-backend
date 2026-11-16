@@ -446,15 +446,34 @@ class SuperAstroResultPageParser:
 
 
 class PagaTodoResultPageParser:
-    """Extract El Dorado results from the official Paga Todo La Quinta page."""
+    """Extract the four-digit El Dorado chance result from Paga Todo pages.
 
-    _MONTHS: ClassVar[dict[str, str]] = {
-        "01": "01", "02": "02", "03": "03", "04": "04", "05": "05",
-        "06": "06", "07": "07", "08": "08", "09": "09", "10": "10",
-        "11": "11", "12": "12",
+    Paga Todo publishes the four-digit chance result on both the general
+    results page and the La Quinta page. The optional fifth value on the
+    La Quinta page is retained only as metadata; it is not part of the
+    four-digit El Dorado result.
+    """
+
+    _ALIASES: ClassVar[dict[str, str]] = {
+        "DORADO_DIA": "Sorteo El Dorado Día",
+        "DORADO_TARDE": "Sorteo El Dorado Tarde",
+        "DORADO_NOCHE": "Sorteo El Dorado Noche",
     }
+    _TITLE_RE = re.compile(
+        r"Sorteo El Dorado (?:Día|Tarde|Noche)",
+        re.IGNORECASE,
+    )
+    _DATE_RE = re.compile(r"(?P<day>\d{2})/(?P<month>\d{2})/(?P<year>\d{4})")
+    _WINNER_RE = re.compile(
+        r"Número\s+Ganador\s*:?[ \t]*(?P<number>\d(?:\s*\d){3})"
+        r"(?:\s*-\s*(?P<extra>\d))?",
+        re.IGNORECASE,
+    )
 
     def __init__(self, *, draw_types: tuple[str, ...]) -> None:
+        unsupported = set(draw_types).difference(self._ALIASES)
+        if unsupported:
+            raise ValueError(f"Unsupported Paga Todo draw types: {sorted(unsupported)}")
         self.draw_types = draw_types
 
     def parse(self, result: SourceFetchResult) -> Iterable[Mapping[str, Any]]:
@@ -464,36 +483,67 @@ class PagaTodoResultPageParser:
             raise SourceParseError("Paga Todo result page is not valid UTF-8") from exc
 
         text = " ".join(html_lib.unescape(re.sub(r"<[^>]+>", " ", html)).split())
+        titles = list(self._TITLE_RE.finditer(text))
         records: list[Mapping[str, Any]] = []
-        aliases = {
-            "DORADO_DIA": "Sorteo El Dorado Día",
-            "DORADO_TARDE": "Sorteo El Dorado Tarde",
-            "DORADO_NOCHE": "Sorteo El Dorado Noche",
-        }
+
         for draw_type in self.draw_types:
-            title = aliases[draw_type]
-            pattern = re.compile(
-                re.escape(title)
-                + r".*?(?P<date>\d{2}/\d{2}/\d{4}).*?"
-                + r"Número Ganador.*?(?P<number>\d\s*\d\s*\d\s*\d)"
-                + r"\s*-\s*(?P<extra>\d)",
-                re.IGNORECASE | re.DOTALL,
+            title = self._ALIASES[draw_type]
+            title_match = next(
+                (
+                    match
+                    for match in titles
+                    if self._normalize_title(match.group(0))
+                    == self._normalize_title(title)
+                ),
+                None,
             )
-            match = pattern.search(text)
-            if match is None:
+            if title_match is None:
+                raise SourceParseError(f"Paga Todo result page is missing {draw_type}")
+
+            next_title = next(
+                (match.start() for match in titles if match.start() > title_match.start()),
+                len(text),
+            )
+            section = text[title_match.start():next_title]
+            date_match = self._DATE_RE.search(section)
+            winner_match = self._WINNER_RE.search(section)
+            if date_match is None or winner_match is None:
                 raise SourceParseError(
-                    f"Paga Todo result page is missing {draw_type}"
+                    f"Paga Todo result page is missing the date or winning number for {draw_type}"
                 )
-            raw_number = re.sub(r"\s+", "", match.group("number"))
-            day, month, year = match.group("date").split("/")
-            records.append({
-                "draw_type": draw_type,
-                "draw_date": f"{year}-{month}-{day}",
-                "result": raw_number,
-                "metadata": {
-                    "additional_value": match.group("extra"),
-                    "source_format": "official_la_quinta_page",
-                },
-            })
+
+            raw_number = re.sub(r"\s+", "", winner_match.group("number"))
+            if len(raw_number) != 4 or not raw_number.isdigit():
+                raise SourceParseError(
+                    f"Paga Todo result for {draw_type} must contain exactly four digits"
+                )
+
+            metadata: dict[str, Any] = {
+                "source_format": "official_pagatodo_results_page",
+            }
+            extra = winner_match.group("extra")
+            if extra is not None:
+                metadata["additional_value"] = extra
+
+            records.append(
+                {
+                    "draw_type": draw_type,
+                    "draw_date": (
+                        f"{date_match.group('year')}-{date_match.group('month')}-"
+                        f"{date_match.group('day')}"
+                    ),
+                    "result": raw_number,
+                    "metadata": metadata,
+                }
+            )
 
         return records
+
+    @staticmethod
+    def _normalize_title(value: str) -> str:
+        return (
+            unicodedata.normalize("NFKD", value)
+            .encode("ascii", "ignore")
+            .decode("ascii")
+            .casefold()
+        )
