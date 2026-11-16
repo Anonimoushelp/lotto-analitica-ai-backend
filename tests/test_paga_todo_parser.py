@@ -108,6 +108,7 @@ def test_paga_todo_parser_supports_results_page_without_la_quinta_extra():
     [
         b"<section><h2>Sorteo El Dorado D&iacute;a</h2><div>14/11/2026</div></section>",
         b"<section><h2>Sorteo El Dorado D&iacute;a</h2><div>N&uacute;mero Ganador 12345</div><div>Fecha 14/11/2026</div></section>",
+        b"<section><h2>Sorteo El Dorado D&iacute;a</h2><div>N&uacute;mero Ganador 1 2 3 4 5</div><div>Fecha 14/11/2026</div></section>",
     ],
 )
 def test_paga_todo_parser_rejects_missing_or_invalid_result(html: bytes):
