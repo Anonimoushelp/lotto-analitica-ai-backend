@@ -11,7 +11,6 @@ from app.sources.four_digit_parsers import (
     AntioquenitaLoteriaYaHtmlParser,
 )
 
-
 _MONTH_NAMES = (
     "enero", "febrero", "marzo", "abril", "mayo", "junio",
     "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
