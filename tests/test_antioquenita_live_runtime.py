@@ -1,3 +1,6 @@
+import html as html_lib
+import re
+from datetime import date
 from urllib.parse import urlparse
 
 import pytest
@@ -7,6 +10,37 @@ from app.sources.four_digit_parsers import (
     AntioquenitaHtmlParser,
     AntioquenitaLoteriaYaHtmlParser,
 )
+
+_MONTH_NAMES = (
+    "enero", "febrero", "marzo", "abril", "mayo", "junio",
+    "julio", "agosto", "septiembre", "octubre", "noviembre", "diciembre",
+)
+
+
+def _latest_shared_record(records, independent_html):
+    """Return the newest record whose date and number also appear in the secondary page."""
+    without_scripts = re.sub(
+        r"<(script|style)[^>]*>.*?</\1>",
+        " ",
+        independent_html,
+        flags=re.IGNORECASE | re.DOTALL,
+    )
+    visible_text = " ".join(
+        html_lib.unescape(re.sub(r"<[^>]+>", " ", without_scripts)).split()
+    )
+
+    for record in sorted(records, key=lambda item: item["draw_date"], reverse=True):
+        draw_date = date.fromisoformat(record["draw_date"])
+        month = _MONTH_NAMES[draw_date.month - 1]
+        number = r"\s*".join(re.escape(digit) for digit in record["number"])
+        row_pattern = re.compile(
+            rf"\b{draw_date.day}\s+de\s+{month}"
+            rf"(?:\s+de\s+{draw_date.year})?\s+{number}(?!\d)",
+            re.IGNORECASE,
+        )
+        if row_pattern.search(visible_text):
+            return record
+    return None
 
 
 @pytest.mark.integration
@@ -59,13 +93,12 @@ def test_antioquenita_lotteriaya_live_fallback_is_parseable_and_cross_checked():
     assert day_records
     assert afternoon_records
 
-    common_date = "2026-09-30"
-    common_day = next(
-        record for record in day_records if record["draw_date"] == common_date
-    )
-    common_afternoon = next(
-        record for record in afternoon_records if record["draw_date"] == common_date
-    )
+    independent_day_html = independent_day.content.decode("utf-8")
+    independent_afternoon_html = independent_afternoon.content.decode("utf-8")
+    common_day = _latest_shared_record(day_records, independent_day_html)
+    common_afternoon = _latest_shared_record(afternoon_records, independent_afternoon_html)
+    assert common_day is not None, "No shared Antioqueñita Día result was found"
+    assert common_afternoon is not None, "No shared Antioqueñita Tarde result was found"
 
     for record, expected_type in (
         (common_day, "ANTIOQUENITA_1"),
@@ -78,7 +111,3 @@ def test_antioquenita_lotteriaya_live_fallback_is_parseable_and_cross_checked():
         assert record["draw_date"]
         assert 1 <= record["metadata"]["quinta"] <= 9
 
-    independent_day_html = independent_day.content.decode("utf-8")
-    independent_afternoon_html = independent_afternoon.content.decode("utf-8")
-    assert common_day["number"] in independent_day_html
-    assert common_afternoon["number"] in independent_afternoon_html
