@@ -11,7 +11,8 @@ from app.sources.adapters import (
     SuperAstroAdapter,
 )
 from app.sources.contracts import SourceAdapter
-from app.sources.fetchers import (\n    BalotoLatestResultFetcher,
+from app.sources.fetchers import (
+    BalotoLatestResultFetcher,
     CundinamarcaActaSourceFetcher,
     EmbeddedIframeSourceFetcher,
     HttpSourceFetcher,
