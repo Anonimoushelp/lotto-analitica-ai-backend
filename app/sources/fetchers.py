@@ -129,11 +129,11 @@ class BalotoLatestResultFetcher(HttpSourceFetcher):
     """Resolve the current Baloto/Revancha detail page from the official results index."""
 
     _HREF_RE = re.compile(
-        r"""href\\s*=\\s*(?P<quote>['"])(?P<href>[^'"]+)(?P=quote)""",
+        r"""href\s*=\s*(?P<quote>['"])(?P<href>[^'"]+)(?P=quote)""",
         re.IGNORECASE,
     )
     _DETAIL_PATH_RE = re.compile(
-        r"^/resultados-(?P<game>baloto|revancha)/(?P<draw>\\d+)/?$",
+        r"^/resultados-(?P<game>baloto|revancha)/(?P<draw>\d+)/?$",
         re.IGNORECASE,
     )
     _OFFICIAL_HOSTS = {"baloto.com", "www.baloto.com"}
