@@ -125,6 +125,72 @@ class HttpSourceFetcher:
         )
 
 
+class BalotoLatestResultFetcher(HttpSourceFetcher):
+    """Resolve the current Baloto/Revancha detail page from the official results index."""
+
+    _HREF_RE = re.compile(
+        r"""href\\s*=\\s*(?P<quote>['"])(?P<href>[^'"]+)(?P=quote)""",
+        re.IGNORECASE,
+    )
+    _DETAIL_PATH_RE = re.compile(
+        r"^/resultados-(?P<game>baloto|revancha)/(?P<draw>\\d+)/?$",
+        re.IGNORECASE,
+    )
+    _OFFICIAL_HOSTS = {"baloto.com", "www.baloto.com"}
+
+    def __init__(
+        self,
+        *,
+        draw_type: str,
+        transport: httpx.BaseTransport | None = None,
+    ) -> None:
+        normalized_draw_type = draw_type.strip().upper()
+        if normalized_draw_type not in {"BALOTO", "REVANCHA"}:
+            raise ValueError("draw_type must be BALOTO or REVANCHA")
+        super().__init__(
+            allowed_hosts=self._OFFICIAL_HOSTS,
+            transport=transport,
+        )
+        self.draw_type = normalized_draw_type
+
+    def fetch(self, url: str) -> SourceFetchResult:
+        listing = super().fetch(url)
+        if "html" not in listing.content_type.casefold():
+            raise SourceFetchError("Baloto results index must be an HTML document")
+
+        try:
+            html = listing.content.decode("utf-8")
+        except UnicodeDecodeError as exc:
+            raise SourceFetchError(
+                "Baloto results index is not valid UTF-8"
+            ) from exc
+
+        for match in self._HREF_RE.finditer(html):
+            href = html_lib.unescape(match.group("href")).strip()
+            detail_url = urljoin(listing.url, href)
+            parsed = urlparse(detail_url)
+            if (
+                parsed.scheme.casefold() != "https"
+                or parsed.hostname is None
+                or parsed.hostname.casefold() not in self.allowed_hosts
+            ):
+                continue
+
+            detail_match = self._DETAIL_PATH_RE.fullmatch(unquote(parsed.path))
+            if (
+                detail_match is None
+                or detail_match.group("game").upper() != self.draw_type
+            ):
+                continue
+
+            return super().fetch(detail_url)
+
+        raise SourceFetchError(
+            f"Official Baloto results index is missing the latest "
+            f"{self.draw_type} detail link"
+        )
+
+
 class RisaraldaOfficialSourceFetcher(HttpSourceFetcher):
     """Combine two official institutional pages into one parseable source.
 
