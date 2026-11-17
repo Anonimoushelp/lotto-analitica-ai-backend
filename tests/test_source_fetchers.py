@@ -2,10 +2,12 @@ import pytest
 from httpx import MockTransport, Response
 
 from app.sources.fetchers import (
+    BalotoLatestResultFetcher,
     EmbeddedIframeSourceFetcher,
     HttpSourceFetcher,
     SourceFetchError,
 )
+from app.sources.parsers import BalotoResultPageParser
 
 
 def test_http_fetcher_requires_https():
@@ -155,3 +157,96 @@ def test_embedded_iframe_fetcher_tries_explicit_fallback_after_discovered_iframe
 
     assert result.url == "https://boletin.gana.com.co/"
     assert b"official iframe payload" in result.content
+
+
+@pytest.mark.parametrize(
+    ("draw_type", "detail_path", "numbers", "expected_main", "bonus_key", "expected_bonus"),
+    [
+        (
+            "BALOTO",
+            "/resultados-baloto/2736",
+            "02 12 19 25 42 07",
+            [2, 12, 19, 25, 42],
+            "superbalota",
+            [7],
+        ),
+        (
+            "REVANCHA",
+            "/resultados-revancha/2736",
+            "02 17 27 33 37 10",
+            [2, 17, 27, 33, 37],
+            "revancha_bonus",
+            [10],
+        ),
+    ],
+)
+def test_baloto_latest_fetcher_resolves_the_matching_official_detail_page(
+    draw_type,
+    detail_path,
+    numbers,
+    expected_main,
+    bonus_key,
+    expected_bonus,
+):
+    requests = []
+
+    def handler(request):
+        requests.append(request.url.path)
+        if request.url.path == "/resultados":
+            return Response(
+                200,
+                content=(
+                    b'<a href="/resultados-baloto/2736">Ver detalle</a>'
+                    b'<a href="/resultados-revancha/2736">Ver detalle</a>'
+                ),
+                headers={"content-type": "text/html; charset=utf-8"},
+            )
+        if request.url.path == detail_path:
+            detail_html = (
+                "<html><body>"
+                "<div>SORTEO 2.736</div>"
+                "<div>16 de Noviembre de 2026</div>"
+                "<div>MIRA EL VIDEO OFICIAL DEL SORTEO</div>"
+                f"<div>{numbers}</div>"
+                "<div>TOTAL GANADORES</div>"
+                "</body></html>"
+            ).encode()
+            return Response(
+                200,
+                content=detail_html,
+                headers={"content-type": "text/html; charset=utf-8"},
+            )
+        return Response(404, content=b"not found")
+
+    fetcher = BalotoLatestResultFetcher(
+        draw_type=draw_type,
+        transport=MockTransport(handler),
+    )
+    fetched = fetcher.fetch("https://www.baloto.com/resultados")
+    payload = next(iter(BalotoResultPageParser(draw_type=draw_type).parse(fetched)))
+
+    assert fetched.url == f"https://www.baloto.com{detail_path}"
+    assert payload["draw_number"] == "2736"
+    assert payload["draw_date"] == "2026-11-16"
+    assert payload["main_numbers"] == expected_main
+    assert payload[bonus_key] == expected_bonus
+    assert requests == ["/resultados", detail_path]
+
+
+def test_baloto_latest_fetcher_rejects_an_index_without_the_requested_game():
+    def handler(request):
+        return Response(
+            200,
+            content=b'<a href="/resultados-baloto/2736">Ver detalle</a>',
+            headers={"content-type": "text/html; charset=utf-8"},
+        )
+
+    fetcher = BalotoLatestResultFetcher(
+        draw_type="REVANCHA",
+        transport=MockTransport(handler),
+    )
+
+    with pytest.raises(
+        SourceFetchError, match="missing the latest REVANCHA detail link"
+    ):
+        fetcher.fetch("https://www.baloto.com/resultados")

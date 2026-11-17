@@ -12,6 +12,7 @@ from app.sources.adapters import (
 )
 from app.sources.contracts import SourceAdapter
 from app.sources.fetchers import (
+    BalotoLatestResultFetcher,
     CundinamarcaActaSourceFetcher,
     EmbeddedIframeSourceFetcher,
     HttpSourceFetcher,
@@ -151,7 +152,7 @@ def build_ingestion_catalog() -> tuple[IngestionJob, ...]:
                 lottery_code="BALOTO",
                 url=specs("BALOTO").primary_url or "",
                 pipeline_factory=lambda: SourceIngestionPipeline(
-                    fetcher=HttpSourceFetcher(),
+                    fetcher=BalotoLatestResultFetcher(draw_type="BALOTO"),
                     parser=BalotoResultPageParser(draw_type="BALOTO"),
                     adapter=BalotoAdapter(),
                 ),
@@ -163,7 +164,7 @@ def build_ingestion_catalog() -> tuple[IngestionJob, ...]:
                 lottery_code="REVANCHA",
                 url=specs("REVANCHA").primary_url or "",
                 pipeline_factory=lambda: SourceIngestionPipeline(
-                    fetcher=HttpSourceFetcher(),
+                    fetcher=BalotoLatestResultFetcher(draw_type="REVANCHA"),
                     parser=BalotoResultPageParser(draw_type="REVANCHA"),
                     adapter=RevanchaAdapter(),
                 ),
