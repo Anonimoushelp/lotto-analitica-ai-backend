@@ -207,7 +207,7 @@ def test_baloto_latest_fetcher_resolves_the_matching_official_detail_page(
                 f"<div>{numbers}</div>"
                 "<div>TOTAL GANADORES</div>"
                 "</body></html>"
-            ).encode("utf-8")
+            ).encode()
             return Response(
                 200,
                 content=detail_html,
