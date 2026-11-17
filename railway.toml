@@ -1,6 +1,6 @@
 [deploy]
 startCommand = "uvicorn app.main:app --host 0.0.0.0 --port $PORT"
-preDeployCommand = "alembic upgrade head"
+# Database migrations are deliberately not automated; execute only after individual approval.
 healthcheckPath = "/health"
 healthcheckTimeout = 30
 restartPolicyType = "ON_FAILURE"
