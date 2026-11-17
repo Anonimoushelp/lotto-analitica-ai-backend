@@ -160,12 +160,13 @@ def test_embedded_iframe_fetcher_tries_explicit_fallback_after_discovered_iframe
 
 
 @pytest.mark.parametrize(
-    ("draw_type", "detail_path", "numbers", "bonus_key", "expected_bonus"),
+    ("draw_type", "detail_path", "numbers", "expected_main", "bonus_key", "expected_bonus"),
     [
         (
             "BALOTO",
             "/resultados-baloto/2736",
             "02 12 19 25 42 07",
+            [2, 12, 19, 25, 42],
             "superbalota",
             [7],
         ),
@@ -173,6 +174,7 @@ def test_embedded_iframe_fetcher_tries_explicit_fallback_after_discovered_iframe
             "REVANCHA",
             "/resultados-revancha/2736",
             "02 17 27 33 37 10",
+            [2, 17, 27, 33, 37],
             "revancha_bonus",
             [10],
         ),
@@ -182,6 +184,7 @@ def test_baloto_latest_fetcher_resolves_the_matching_official_detail_page(
     draw_type,
     detail_path,
     numbers,
+    expected_main,
     bonus_key,
     expected_bonus,
 ):
@@ -225,7 +228,7 @@ def test_baloto_latest_fetcher_resolves_the_matching_official_detail_page(
     assert fetched.url == f"https://www.baloto.com{detail_path}"
     assert payload["draw_number"] == "2736"
     assert payload["draw_date"] == "2026-11-16"
-    assert payload["main_numbers"] == [2, 12, 19, 25, 42]
+    assert payload["main_numbers"] == expected_main
     assert payload[bonus_key] == expected_bonus
     assert requests == ["/resultados", detail_path]
 
