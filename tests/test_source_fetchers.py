@@ -2,10 +2,12 @@ import pytest
 from httpx import MockTransport, Response
 
 from app.sources.fetchers import (
+    BalotoLatestResultFetcher,
     EmbeddedIframeSourceFetcher,
     HttpSourceFetcher,
     SourceFetchError,
 )
+from app.sources.parsers import BalotoResultPageParser
 
 
 def test_http_fetcher_requires_https():
@@ -241,5 +243,7 @@ def test_baloto_latest_fetcher_rejects_an_index_without_the_requested_game():
         transport=MockTransport(handler),
     )
 
-    with pytest.raises(SourceFetchError, match="missing the latest REVANCHA detail link"):
+    with pytest.raises(
+        SourceFetchError, match="missing the latest REVANCHA detail link"
+    ):
         fetcher.fetch("https://www.baloto.com/resultados")
