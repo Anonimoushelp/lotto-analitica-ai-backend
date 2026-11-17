@@ -5,7 +5,7 @@ import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from io import BytesIO
-from typing import Protocol
+from typing import ClassVar, Protocol
 from urllib.parse import unquote, urljoin, urlparse
 
 import httpx
@@ -136,7 +136,7 @@ class BalotoLatestResultFetcher(HttpSourceFetcher):
         r"^/resultados-(?P<game>baloto|revancha)/(?P<draw>\d+)/?$",
         re.IGNORECASE,
     )
-    _OFFICIAL_HOSTS = {"baloto.com", "www.baloto.com"}
+    _OFFICIAL_HOSTS: ClassVar[set[str]] = {"baloto.com", "www.baloto.com"}
 
     def __init__(
         self,
