@@ -36,7 +36,7 @@ def test_statistical_overview_contract(monkeypatch):
     monkeypatch.setattr(
         StatisticalService,
         "overview",
-        lambda db: {
+        lambda db, lottery_id=None, source=None: {
             "module_status": "READY",
             "algorithms_count": 8,
             "draws_analyzed": 42,
@@ -51,6 +51,33 @@ def test_statistical_overview_contract(monkeypatch):
         "algorithms_count": 8,
         "draws_analyzed": 42,
     }
+
+
+def test_statistical_overview_passes_lottery_scope(monkeypatch):
+    captured = {}
+
+    def fake_overview(db, lottery_id=None, source=None):
+        captured["lottery_id"] = lottery_id
+        captured["source"] = source
+        return {
+            "module_status": "READY",
+            "algorithms_count": 8,
+            "draws_analyzed": 12,
+        }
+
+    monkeypatch.setattr(StatisticalService, "overview", fake_overview)
+
+    response = client.get("/api/v1/statistics/overview?lottery_id=42&source=Baloto")
+
+    assert response.status_code == 200
+    assert captured == {"lottery_id": 42, "source": "Baloto"}
+    assert response.json()["draws_analyzed"] == 12
+
+
+def test_statistical_overview_rejects_non_positive_lottery_scope():
+    response = client.get("/api/v1/statistics/overview?lottery_id=0")
+
+    assert response.status_code == 422
 
 
 def test_prediction_model_status_is_unavailable_without_key(monkeypatch):
