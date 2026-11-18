@@ -572,8 +572,8 @@ class TraditionalLotteryHtmlParser:
 
 
     _HUILA_RESULT_HEADER_RE = re.compile(
-        r"\\bsorteo\\s*[:#-]?\\s*(?P<draw>\\d{3,6})\\s+"
-        r"(?P<number>\\d{4})\\s+serie\\s*[:#-]?\\s*(?P<series>\\d{1,3})\\b",
+        r"\bsorteo\s*[:#-]?\s*(?P<draw>\d{3,6})\s+"
+        r"(?P<number>\d{4})\s+serie\s*[:#-]?\s*(?P<series>\d{1,3})\b",
         re.IGNORECASE,
     )
 
@@ -597,7 +597,7 @@ class TraditionalLotteryHtmlParser:
             draw_number = int(match.group("draw"))
             raw_number = match.group("number")
             series = match.group("series")
-            if raw_number == str(draw_number) or not re.fullmatch(r"\\d{3}", series):
+            if raw_number == str(draw_number) or not re.fullmatch(r"\d{3}", series):
                 continue
 
             nearby_date_matches = {
