@@ -770,7 +770,7 @@ class TraditionalLotteryHtmlParser:
             )
 
         draw_label_pattern = re.compile(
-            rf"\\bsorteo(?:\\s+(?:n(?:o|ro)?[°º.]?\\.?|#))?\\s*{draw_number}\\b",
+            rf"\bsorteo(?:\s+(?:n(?:o|ro)?[°º.]?\.?|#))?\s*{draw_number}\b",
             re.IGNORECASE,
         )
         draw_labels = list(draw_label_pattern.finditer(search_text))
