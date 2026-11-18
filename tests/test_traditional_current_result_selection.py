@@ -4,6 +4,7 @@ from datetime import UTC, datetime
 import pytest
 
 from app.sources.fetchers import SourceFetchResult
+from app.sources.parsers import SourceParseError
 from app.sources.provider_registry import build_traditional_lottery_components
 
 
@@ -407,6 +408,7 @@ def test_risaralda_official_consultation_table_layout_extracts_major_result_and_
                 """<html><body>
                 <span>2968+</span>
                 <span>Sorteos jugados</span>
+                <p>Sorteo 2968 viernes 25 de septiembre de 2026</p>
                 </body></html>
                 <!-- RISARALDA_OFFICIAL_CONSULTATION -->
                 <table>
@@ -433,35 +435,30 @@ def test_risaralda_official_consultation_table_layout_extracts_major_result_and_
     assert normalized.metadata["source_format"] == "official_institutional_composite"
 
 
-def test_risaralda_official_institutional_composite_layout_extracts_current_result():
-    parser, adapter = build_traditional_lottery_components("LOTERIA_RISARALDA")
+def test_risaralda_official_institutional_composite_rejects_unrelated_article_date():
+    parser, _ = build_traditional_lottery_components("LOTERIA_RISARALDA")
 
-    records = list(
-        parser.parse(
-            _result(
-                """<html><body>
-                <span>2968+</span>
-                <span>Sorteos jugados</span>
-                <article>Noticias 18 de septiembre de 2026</article>
-                </body></html>
-                <!-- RISARALDA_OFFICIAL_CONSULTATION -->
-                <html><body>
-                <h1>Consulta de Lotería</h1>
-                <div>PREMIO MAYOR</div>
-                <div>Número 6731</div>
-                <div>Serie 197</div>
-                <div>SECO EL GORDO DE LA RISARALDA 4842 192</div>
-                </body></html>"""
-            ),
-            "LOTERIA_RISARALDA",
+    with pytest.raises(
+        SourceParseError,
+        match="does not expose the major-result date near the winning number",
+    ):
+        list(
+            parser.parse(
+                _result(
+                    """<html><body>
+                    <span>2968+</span>
+                    <span>Sorteos jugados</span>
+                    <article>Noticias 18 de septiembre de 2026</article>
+                    </body></html>
+                    <!-- RISARALDA_OFFICIAL_CONSULTATION -->
+                    <html><body>
+                    <h1>Consulta de Lotería</h1>
+                    <div>PREMIO MAYOR</div>
+                    <div>Número 6731</div>
+                    <div>Serie 197</div>
+                    <div>SECO EL GORDO DE LA RISARALDA 4842 192</div>
+                    </body></html>"""
+                ),
+                "LOTERIA_RISARALDA",
+            )
         )
-    )
-    normalized = adapter.normalize(records[0])
-
-    assert normalized.draw_number == "2968"
-    assert normalized.draw_date.isoformat() == "2026-09-25"
-    assert normalized.main_numbers == [6731]
-    assert normalized.metadata["raw_result"] == "6731"
-    assert normalized.metadata["series"] == "197"
-    assert normalized.metadata["source_verified"] is True
-    assert normalized.metadata["source_format"] == "official_institutional_composite"
