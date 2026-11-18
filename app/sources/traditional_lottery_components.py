@@ -764,7 +764,7 @@ class TraditionalLotteryHtmlParser:
                 ),
             )[0]
 
-        if not re.fullmatch(r"\\d{3}", series_value):
+        if not re.fullmatch(r"\d{3}", series_value):
             raise SourceParseError(
                 "Risaralda official source does not expose a three-digit major-result series"
             )
