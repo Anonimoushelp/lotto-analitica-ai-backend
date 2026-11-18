@@ -105,6 +105,7 @@ def register(payload: UserCreate, db: Session = Depends(get_db)):
 def me(user: User = Depends(get_current_user)):
     return user
 
+
 @router.post("/revoke-sessions", status_code=status.HTTP_200_OK)
 def revoke_sessions(
     user: User = Depends(get_current_user),
