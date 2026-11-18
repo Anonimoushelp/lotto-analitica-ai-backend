@@ -769,6 +769,16 @@ class TraditionalLotteryHtmlParser:
                 "Risaralda official source does not expose a three-digit major-result series"
             )
 
+        draw_label_pattern = re.compile(
+            rf"\\bsorteo(?:\\s+(?:n(?:o|ro)?[°º.]?\\.?|#))?\\s*{draw_number}\\b",
+            re.IGNORECASE,
+        )
+        draw_labels = list(draw_label_pattern.finditer(search_text))
+        if not draw_labels:
+            raise SourceParseError(
+                "Risaralda official source does not expose the major-result date near the winning number"
+            )
+
         date_patterns = {
             "iso_date_matches": self._ISO_DATE_RE,
             "numeric_date_matches": self._NUMERIC_DATE_RE,
@@ -781,6 +791,7 @@ class TraditionalLotteryHtmlParser:
                 match
                 for match in pattern.finditer(search_text)
                 if abs(match.start() - raw_number_anchor) <= 600
+                and min(abs(match.start() - label.start()) for label in draw_labels) <= 180
             ]
             for name, pattern in date_patterns.items()
         }
