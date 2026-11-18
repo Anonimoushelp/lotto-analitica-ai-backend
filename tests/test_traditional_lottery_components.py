@@ -10,14 +10,19 @@ from app.scheduler.catalog_integration import (
     build_catalog_scheduler_bindings,
 )
 from app.sources.fetchers import CundinamarcaActaSourceFetcher, SourceFetchResult
+from app.sources.parsers import SourceParseError
 from app.sources.provider_registry import build_traditional_lottery_components
 
 
-def _result(html: str) -> SourceFetchResult:
+def _result(
+    html: str,
+    *,
+    fetched_at: datetime | None = None,
+) -> SourceFetchResult:
     return SourceFetchResult(
         url="https://example.test/resultados",
         content=html.encode(),
-        fetched_at=datetime(2026, 9, 21, tzinfo=UTC),
+        fetched_at=fetched_at or datetime(2026, 9, 21, tzinfo=UTC),
         status_code=200,
         content_type="text/html; charset=utf-8",
     )
@@ -177,6 +182,51 @@ def test_traditional_parser_decodes_html_entities_in_date():
     assert records[0]["draw_date"] == "2026-09-18"
     assert records[0]["main_numbers"] == [6711]
     assert records[0]["metadata"]["series"] == "284"
+
+
+def test_huila_parser_extracts_winning_number_series_and_explicit_date():
+    parser, adapter = build_traditional_lottery_components("LOTERIA_HUILA")
+    records = list(
+        parser.parse(
+            _result(
+                "<html><body>"
+                "Resultado Lotería del Huila sorteo 4782 - "
+                "17 de noviembre de 2026 "
+                "Sorteo 4782 8566 Serie 164"
+                "</body></html>",
+                fetched_at=datetime(2026, 11, 18, tzinfo=UTC),
+            )
+        )
+    )
+    normalized = adapter.normalize(records[0])
+
+    assert normalized.draw_number == "4782"
+    assert normalized.draw_date.isoformat() == "2026-11-17"
+    assert normalized.main_numbers == [8566]
+    assert normalized.metadata["raw_result"] == "8566"
+    assert normalized.metadata["series"] == "164"
+    assert normalized.metadata["date_inferred_from_draw_schedule"] is False
+
+
+def test_huila_parser_rejects_draw_number_as_winning_number():
+    parser, _ = build_traditional_lottery_components("LOTERIA_HUILA")
+
+    with pytest.raises(
+        SourceParseError,
+        match="does not expose a valid dated major-result header",
+    ):
+        list(
+            parser.parse(
+                _result(
+                    "<html><body>"
+                    "Resultado Lotería del Huila sorteo 4782 - "
+                    "17 de noviembre de 2026 "
+                    "Sorteo 4782 4782 Serie 164"
+                    "</body></html>",
+                    fetched_at=datetime(2026, 11, 18, tzinfo=UTC),
+                )
+            )
+        )
 
 
 def test_traditional_parser_accepts_cruz_roja_homepage_format():
