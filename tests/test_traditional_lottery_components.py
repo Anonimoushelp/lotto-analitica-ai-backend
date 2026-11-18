@@ -10,6 +10,7 @@ from app.scheduler.catalog_integration import (
     build_catalog_scheduler_bindings,
 )
 from app.sources.fetchers import CundinamarcaActaSourceFetcher, SourceFetchResult
+from app.sources.parsers import SourceParseError
 from app.sources.provider_registry import build_traditional_lottery_components
 
 
