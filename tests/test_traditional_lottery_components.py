@@ -190,9 +190,11 @@ def test_huila_parser_extracts_winning_number_series_and_explicit_date():
         parser.parse(
             _result(
                 "<html><body>"
-                "Resultado Lotería del Huila sorteo 4782 - "
-                "17 de noviembre de 2026 "
-                "Sorteo 4782 8566 Serie 164"
+                "Sorteo 4781 4988 Serie 068 "
+                "Resultado Lotería del Huila sorteo 4781 - "
+                "10 de noviembre de 2026 "
+                "El sorteo número 4781 otorgó el premio mayor al "
+                "número 4988 de la serie 068."
                 "</body></html>",
                 fetched_at=datetime(2026, 11, 18, tzinfo=UTC),
             )
@@ -219,9 +221,11 @@ def test_huila_parser_rejects_draw_number_as_winning_number():
             parser.parse(
                 _result(
                     "<html><body>"
-                    "Resultado Lotería del Huila sorteo 4782 - "
-                    "17 de noviembre de 2026 "
-                    "Sorteo 4782 4782 Serie 164"
+                    "Sorteo 4781 4988 Serie 068 "
+                    "Resultado Lotería del Huila sorteo 4781 - "
+                    "10 de noviembre de 2026 "
+                    "El sorteo número 4781 otorgó el premio mayor al "
+                    "número 4781 de la serie 068."
                     "</body></html>",
                     fetched_at=datetime(2026, 11, 18, tzinfo=UTC),
                 )
