@@ -191,7 +191,6 @@ def test_login_returns_access_token():
     assert decode_access_token(body["access_token"])["session_version"] == 0
 
 
-
 def test_token_without_session_version_is_rejected():
     user = seed_user("legacy-token@example.com", "admin")
     now = datetime.now(UTC)
@@ -260,6 +259,12 @@ def test_user_can_revoke_all_existing_sessions_and_login_again():
         headers={"Authorization": f"Bearer {old_token}"},
     )
     assert old_token_response.status_code == 401
+    protected_mutation = client.post(
+        "/api/v1/lotteries",
+        headers={"Authorization": f"Bearer {old_token}"},
+        json={"name": "Revoked", "code": "REVOKED", "country": "CO"},
+    )
+    assert protected_mutation.status_code == 401
 
     new_login = client.post(
         "/api/v1/auth/login",
@@ -303,6 +308,19 @@ def test_admin_deactivation_invalidates_target_sessions():
     assert old_session.status_code == 401
     assert target_login.status_code == 401
 
+    # Reactivation must not revive tokens issued before deactivation.
+    db = TestingSessionLocal()
+    stored_target = db.get(User, target.id)
+    assert stored_target.session_version == 1
+    stored_target.is_active = True
+    db.commit()
+    db.close()
+    reactivated_old_session = client.get(
+        "/api/v1/auth/me",
+        headers={"Authorization": f"Bearer {target_token}"},
+    )
+    assert reactivated_old_session.status_code == 401
+
 
 def test_non_admin_cannot_deactivate_user():
     viewer = seed_user("deactivate-viewer@example.com", "viewer")
@@ -327,6 +345,7 @@ def test_admin_cannot_deactivate_own_account():
         headers={"Authorization": f"Bearer {token_for(admin)}"},
     )
     assert response.status_code == 400
+
 
 def test_login_logs_success_without_secrets(caplog):
     user = seed_user("logging-success@example.com", "viewer")
