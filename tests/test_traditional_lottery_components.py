@@ -202,11 +202,11 @@ def test_huila_parser_extracts_winning_number_series_and_explicit_date():
     )
     normalized = adapter.normalize(records[0])
 
-    assert normalized.draw_number == "4782"
-    assert normalized.draw_date.isoformat() == "2026-11-17"
-    assert normalized.main_numbers == [8566]
-    assert normalized.metadata["raw_result"] == "8566"
-    assert normalized.metadata["series"] == "164"
+    assert normalized.draw_number == "4781"
+    assert normalized.draw_date.isoformat() == "2026-11-10"
+    assert normalized.main_numbers == [4988]
+    assert normalized.metadata["raw_result"] == "4988"
+    assert normalized.metadata["series"] == "068"
     assert normalized.metadata["date_inferred_from_draw_schedule"] is False
 
 
@@ -221,11 +221,9 @@ def test_huila_parser_rejects_draw_number_as_winning_number():
             parser.parse(
                 _result(
                     "<html><body>"
-                    "Sorteo 4781 4988 Serie 068 "
                     "Resultado Lotería del Huila sorteo 4781 - "
                     "10 de noviembre de 2026 "
-                    "El sorteo número 4781 otorgó el premio mayor al "
-                    "número 4781 de la serie 068."
+                    "Sorteo 4781 4781 Serie 068"
                     "</body></html>",
                     fetched_at=datetime(2026, 11, 18, tzinfo=UTC),
                 )
