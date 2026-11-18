@@ -5,7 +5,7 @@ from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
-from app.api.dependencies.auth import get_current_user
+from app.api.dependencies.auth import get_current_user, require_admin
 from app.core.audit import log_mutation
 from app.core.config import settings
 from app.core.rate_limit import login_rate_limiter
@@ -69,7 +69,11 @@ def login(
             ) from None
 
     logger.info("auth.login.success user_id=%s", user.id)
-    return TokenResponse(access_token=create_access_token(str(user.id), user.role))
+    return TokenResponse(
+        access_token=create_access_token(
+            str(user.id), user.role, session_version=user.session_version
+        )
+    )
 
 
 @router.post("/register", response_model=UserResponse, status_code=status.HTTP_201_CREATED)
@@ -100,3 +104,71 @@ def register(payload: UserCreate, db: Session = Depends(get_db)):
 @router.get("/me", response_model=UserResponse)
 def me(user: User = Depends(get_current_user)):
     return user
+
+@router.post("/revoke-sessions", status_code=status.HTTP_200_OK)
+def revoke_sessions(
+    user: User = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    """Invalidate every access token issued before this request."""
+    user.session_version += 1
+    db.commit()
+    db.refresh(user)
+    log_mutation(
+        action="revoke_sessions",
+        resource="user",
+        resource_id=user.id,
+        actor=user,
+    )
+    return {"detail": "All sessions revoked"}
+
+
+@router.post(
+    "/admin/users/{user_id}/deactivate",
+    response_model=UserResponse,
+)
+def deactivate_user(
+    user_id: int,
+    actor: User = Depends(require_admin),
+    db: Session = Depends(get_db),
+):
+    """Deactivate an account and invalidate all of its existing sessions."""
+    if user_id == actor.id:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Administrators cannot deactivate their own account",
+        )
+
+    target = db.scalar(select(User).where(User.id == user_id).with_for_update())
+    if target is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="User not found",
+        )
+    if not target.is_active:
+        return target
+
+    if target.role == "admin":
+        active_admin_ids = db.scalars(
+            select(User.id)
+            .where(User.role == "admin", User.is_active.is_(True))
+            .with_for_update()
+        ).all()
+        if len(active_admin_ids) <= 1:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail="At least one active administrator must remain",
+            )
+
+    target.is_active = False
+    target.session_version += 1
+    db.commit()
+    db.refresh(target)
+    log_mutation(
+        action="deactivate",
+        resource="user",
+        resource_id=target.id,
+        actor=actor,
+    )
+    return target
+

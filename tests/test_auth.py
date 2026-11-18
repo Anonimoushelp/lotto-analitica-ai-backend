@@ -12,7 +12,12 @@ from sqlalchemy.pool import StaticPool
 
 from app.core.config import Settings, settings
 from app.core.rate_limit import login_rate_limiter
-from app.core.security import ALGORITHM, create_access_token, hash_password
+from app.core.security import (
+    ALGORITHM,
+    create_access_token,
+    decode_access_token,
+    hash_password,
+)
 from app.db.session import get_db
 from app.main import app
 from app.models.lottery import Lottery
@@ -183,7 +188,145 @@ def test_login_returns_access_token():
     body = response.json()
     assert body["token_type"] == "bearer"
     assert body["access_token"]
+    assert decode_access_token(body["access_token"])["session_version"] == 0
 
+
+
+def test_token_without_session_version_is_rejected():
+    user = seed_user("legacy-token@example.com", "admin")
+    now = datetime.now(UTC)
+    token = jwt.encode(
+        {
+            "sub": str(user.id),
+            "role": user.role,
+            "iat": now,
+            "exp": now + timedelta(minutes=5),
+            "type": "access",
+        },
+        settings.secret_key,
+        algorithm=ALGORITHM,
+    )
+    response = client.get(
+        "/api/v1/auth/me",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    assert response.status_code == 401
+
+
+def test_inactive_user_cannot_login_or_use_existing_token():
+    user = seed_user("deactivated@example.com", "viewer")
+    token = token_for(user)
+    db = TestingSessionLocal()
+    stored_user = db.get(User, user.id)
+    stored_user.is_active = False
+    db.commit()
+    db.close()
+
+    me_response = client.get(
+        "/api/v1/auth/me",
+        headers={"Authorization": f"Bearer {token}"},
+    )
+    login_response = client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": user.email,
+            "password": "StrongTestPassword123!",
+        },
+    )
+    assert me_response.status_code == 401
+    assert login_response.status_code == 401
+
+
+def test_user_can_revoke_all_existing_sessions_and_login_again():
+    user = seed_user("revoke@example.com", "viewer")
+    login_response = client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": user.email,
+            "password": "StrongTestPassword123!",
+        },
+    )
+    assert login_response.status_code == 200
+    old_token = login_response.json()["access_token"]
+
+    revoke_response = client.post(
+        "/api/v1/auth/revoke-sessions",
+        headers={"Authorization": f"Bearer {old_token}"},
+    )
+    assert revoke_response.status_code == 200
+
+    old_token_response = client.get(
+        "/api/v1/auth/me",
+        headers={"Authorization": f"Bearer {old_token}"},
+    )
+    assert old_token_response.status_code == 401
+
+    new_login = client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": user.email,
+            "password": "StrongTestPassword123!",
+        },
+    )
+    assert new_login.status_code == 200
+    new_token = new_login.json()["access_token"]
+    assert decode_access_token(new_token)["session_version"] == 1
+    assert client.get(
+        "/api/v1/auth/me",
+        headers={"Authorization": f"Bearer {new_token}"},
+    ).status_code == 200
+
+
+def test_admin_deactivation_invalidates_target_sessions():
+    admin = seed_user("deactivate-admin@example.com", "admin")
+    target = seed_user("deactivate-target@example.com", "viewer")
+    target_token = token_for(target)
+
+    response = client.post(
+        f"/api/v1/auth/admin/users/{target.id}/deactivate",
+        headers={"Authorization": f"Bearer {token_for(admin)}"},
+    )
+    assert response.status_code == 200
+    assert response.json()["is_active"] is False
+
+    old_session = client.get(
+        "/api/v1/auth/me",
+        headers={"Authorization": f"Bearer {target_token}"},
+    )
+    target_login = client.post(
+        "/api/v1/auth/login",
+        json={
+            "email": target.email,
+            "password": "StrongTestPassword123!",
+        },
+    )
+    assert old_session.status_code == 401
+    assert target_login.status_code == 401
+
+
+def test_non_admin_cannot_deactivate_user():
+    viewer = seed_user("deactivate-viewer@example.com", "viewer")
+    target = seed_user("deactivate-protected@example.com", "viewer")
+
+    response = client.post(
+        f"/api/v1/auth/admin/users/{target.id}/deactivate",
+        headers={"Authorization": f"Bearer {token_for(viewer)}"},
+    )
+    assert response.status_code == 403
+
+    db = TestingSessionLocal()
+    stored_target = db.get(User, target.id)
+    assert stored_target.is_active is True
+    db.close()
+
+
+def test_admin_cannot_deactivate_own_account():
+    admin = seed_user("self-deactivate@example.com", "admin")
+    response = client.post(
+        f"/api/v1/auth/admin/users/{admin.id}/deactivate",
+        headers={"Authorization": f"Bearer {token_for(admin)}"},
+    )
+    assert response.status_code == 400
 
 def test_login_logs_success_without_secrets(caplog):
     user = seed_user("logging-success@example.com", "viewer")
