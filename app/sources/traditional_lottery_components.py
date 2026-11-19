@@ -732,6 +732,43 @@ class TraditionalLotteryHtmlParser:
                 "Risaralda official source selected the draw counter as the winning number"
             )
 
+        series_options: list[tuple[str, int, int]] = []
+        for match in self._LABELED_RESULT_SERIES_RE.finditer(search_text):
+            series_options.append((match.group(2), match.start(), 100))
+        for match in self._NUMBER_BEFORE_SERIES_RE.finditer(search_text):
+            series_options.append((match.group(1), match.start(), 95))
+        for match in self._SPACED_SERIES_RE.finditer(search_text):
+            digits = "".join(group for group in match.groups() if group is not None)
+            series_options.append((digits, match.start(), 90))
+        for match in self._SERIES_RE.finditer(search_text):
+            series_options.append((match.group(1), match.start(), 50))
+
+        if table_series is not None:
+            series_value = table_series
+        else:
+            nearby = [
+                item
+                for item in series_options
+                if abs(item[1] - raw_number_anchor) <= 600
+            ]
+            if not nearby:
+                raise SourceParseError(
+                    "Risaralda official source does not expose the major-result series"
+                )
+            series_value = min(
+                nearby,
+                key=lambda item: (
+                    abs(item[1] - raw_number_anchor),
+                    -item[2],
+                    -len(item[0]),
+                ),
+            )[0]
+
+        if not re.fullmatch(r"\d{3}", series_value):
+            raise SourceParseError(
+                "Risaralda official source does not expose a three-digit major-result series"
+            )
+
         date_patterns = {
             "iso_date_matches": self._ISO_DATE_RE,
             "numeric_date_matches": self._NUMERIC_DATE_RE,
