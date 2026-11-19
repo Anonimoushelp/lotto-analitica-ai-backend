@@ -53,6 +53,7 @@ def _token_with_payload(**overrides: object) -> str:
         "iat": now,
         "exp": now + timedelta(minutes=5),
         "type": "access",
+        "session_version": 0,
     }
     payload.update(overrides)
     return jwt.encode(payload, settings.secret_key, algorithm=ALGORITHM)
@@ -67,6 +68,7 @@ def test_access_token_rejects_expired_token():
             "iat": now - timedelta(minutes=2),
             "exp": now - timedelta(minutes=1),
             "type": "access",
+            "session_version": 0,
         },
         settings.secret_key,
         algorithm=ALGORITHM,
@@ -77,7 +79,7 @@ def test_access_token_rejects_expired_token():
 
 
 def test_access_token_rejects_missing_required_claims():
-    required_claims = ("sub", "role", "iat", "exp", "type")
+    required_claims = ("sub", "role", "iat", "exp", "type", "session_version")
 
     for claim in required_claims:
         token = _token_with_payload()
