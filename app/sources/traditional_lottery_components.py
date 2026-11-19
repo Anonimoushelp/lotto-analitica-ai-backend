@@ -793,7 +793,7 @@ class TraditionalLotteryHtmlParser:
         ]
         if not draw_labels:
             raise SourceParseError(
-                "Risaralda official source does not expose the major-result draw label and date near the winning number"
+                "Risaralda official source does not expose the major-result date near the winning number or an explicit draw label"
             )
 
         draw_label = min(
