@@ -721,16 +721,16 @@ class TraditionalLotteryHtmlParser:
             safe_candidates,
             key=lambda item: (item[2], -item[1]),
         )
-        draw_number = int(draw_match.group(1))
+        draw_counter = int(draw_match.group(1))
         anchor_draw = 2967
-        anchor_date = date(2026, 9, 18)
-        if draw_number < anchor_draw:
+        if draw_counter < anchor_draw:
             raise SourceParseError(
                 "Risaralda official draw counter is older than the verified anchor"
             )
-        draw_date = (
-            anchor_date + timedelta(days=(draw_number - anchor_draw) * 7)
-        ).isoformat()
+        if raw_number == str(draw_counter):
+            raise SourceParseError(
+                "Risaralda official source selected the draw counter as the winning number"
+            )
 
         series_options: list[tuple[str, int, int]] = []
         for match in self._LABELED_RESULT_SERIES_RE.finditer(search_text):
@@ -764,13 +764,80 @@ class TraditionalLotteryHtmlParser:
                 ),
             )[0]
 
+        if not re.fullmatch(r"\d{3}", series_value):
+            raise SourceParseError(
+                "Risaralda official source does not expose a three-digit major-result series"
+            )
+
+        date_patterns = {
+            "iso_date_matches": self._ISO_DATE_RE,
+            "numeric_date_matches": self._NUMERIC_DATE_RE,
+            "date_matches": self._DATE_RE,
+            "month_first_date_matches": self._MONTH_FIRST_DATE_RE,
+            "flexible_textual_date_matches": self._FLEXIBLE_TEXTUAL_DATE_RE,
+        }
+        all_dates = [
+            match
+            for pattern in date_patterns.values()
+            for match in pattern.finditer(search_text)
+        ]
+        draw_label_pattern = re.compile(
+            r"\bsorteo(?:\s+(?:n(?:o|ro)?[°º.]?\.?|#))?\s*(?P<draw>\d{3,6})\b",
+            re.IGNORECASE,
+        )
+        draw_labels = [
+            label
+            for label in draw_label_pattern.finditer(search_text)
+            if abs(label.start() - raw_number_anchor) <= 600
+            and any(abs(candidate.start() - label.start()) <= 180 for candidate in all_dates)
+        ]
+        if not draw_labels:
+            raise SourceParseError(
+                "Risaralda official source does not expose the major-result date near the winning number or an explicit draw label"
+            )
+
+        draw_label = min(
+            draw_labels,
+            key=lambda label: (abs(label.start() - raw_number_anchor), label.start()),
+        )
+        draw_number = int(draw_label.group("draw"))
+        if draw_number < anchor_draw:
+            raise SourceParseError(
+                "Risaralda official draw label is older than the verified anchor"
+            )
+
+        nearby_date_matches = {
+            name: [
+                match
+                for match in pattern.finditer(search_text)
+                if abs(match.start() - raw_number_anchor) <= 600
+                and abs(match.start() - draw_label.start()) <= 180
+            ]
+            for name, pattern in date_patterns.items()
+        }
+        if not any(nearby_date_matches.values()):
+            raise SourceParseError(
+                "Risaralda official source does not expose the major-result date near the winning number"
+            )
+
+        draw_date = self._parse_date(
+            **nearby_date_matches,
+            reference_date=result.fetched_at.date(),
+            anchor_position=raw_number_anchor,
+        )
+        if date.fromisoformat(draw_date) > result.fetched_at.date():
+            raise SourceParseError(
+                "Risaralda official result date is in the future relative to source fetch time"
+            )
+
         profile = get_traditional_source("LOTERIA_RISARALDA")
         metadata = {
             "raw_result": raw_number,
             "digit_count": 4,
             "source_verified": profile.verified,
             "series": series_value,
-            "date_inferred_from_draw_schedule": True,
+            "date_inferred_from_draw_schedule": False,
+            "date_source": "official_result_context",
             "source_format": "official_institutional_composite",
         }
         return {

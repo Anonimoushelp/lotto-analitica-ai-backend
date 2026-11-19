@@ -10,14 +10,20 @@ from app.scheduler.catalog_integration import (
     build_catalog_scheduler_bindings,
 )
 from app.sources.fetchers import CundinamarcaActaSourceFetcher, SourceFetchResult
+from app.sources.parsers import SourceParseError
 from app.sources.provider_registry import build_traditional_lottery_components
 
 
-def _result(html: str) -> SourceFetchResult:
+def _result(
+    html: str,
+    *,
+    fetched_at: datetime | None = None,
+    url: str = "https://example.test/resultados",
+) -> SourceFetchResult:
     return SourceFetchResult(
-        url="https://example.test/resultados",
+        url=url,
         content=html.encode(),
-        fetched_at=datetime(2026, 9, 21, tzinfo=UTC),
+        fetched_at=fetched_at or datetime(2026, 9, 21, tzinfo=UTC),
         status_code=200,
         content_type="text/html; charset=utf-8",
     )
@@ -660,6 +666,115 @@ def test_risaralda_official_result_date_with_comma():
     assert records[0]["draw_number"] == "2967"
     assert records[0]["draw_date"] == "2026-09-18"
     assert records[0]["main_numbers"] == [6711]
+
+
+def test_risaralda_official_parser_uses_explicit_result_date_and_series():
+    parser, _ = build_traditional_lottery_components("LOTERIA_RISARALDA")
+    records = list(
+        parser.parse(
+            _result(
+                "<html><body>"
+                "2976+ sorteos jugados "
+                "Sorteo 2976 del martes 17 de noviembre de 2026 "
+                "Premio mayor 5950 Serie 049"
+                "</body></html>",
+                fetched_at=datetime(2026, 11, 18, tzinfo=UTC),
+            )
+        )
+    )
+
+    assert records[0]["draw_number"] == "2976"
+    assert records[0]["draw_date"] == "2026-11-17"
+    assert records[0]["main_numbers"] == [5950]
+    assert records[0]["metadata"]["raw_result"] == "5950"
+    assert records[0]["metadata"]["series"] == "049"
+    assert records[0]["metadata"]["date_inferred_from_draw_schedule"] is False
+
+
+def test_risaralda_parser_uses_official_draw_label_not_homepage_counter():
+    parser, adapter = build_traditional_lottery_components("LOTERIA_RISARALDA")
+    result = _result(
+        "<html><body>"
+        "2976+ sorteos jugados "
+        "Sorteo No. 2975 viernes, 13 de noviembre de 2026 "
+        "Premio mayor 8362 Serie 118"
+        "</body></html>",
+        fetched_at=datetime(2026, 11, 19, 12, 45, tzinfo=UTC),
+        url="https://ventas.loteriadelrisaralda.com/resultados",
+    )
+
+    records = list(parser.parse(result))
+    normalized = adapter.normalize(records[0])
+
+    assert normalized.draw_number == "2975"
+    assert normalized.draw_date.isoformat() == "2026-11-13"
+    assert normalized.main_numbers == [8362]
+    assert normalized.metadata["raw_result"] == "8362"
+    assert normalized.metadata["series"] == "118"
+    assert normalized.metadata["date_inferred_from_draw_schedule"] is False
+    assert records[0]["source_url"] == "https://ventas.loteriadelrisaralda.com/resultados"
+
+
+def test_risaralda_official_parser_rejects_draw_counter_as_winning_number():
+    parser, _ = build_traditional_lottery_components("LOTERIA_RISARALDA")
+
+    with pytest.raises(
+        SourceParseError,
+        match="selected the draw counter as the winning number",
+    ):
+        list(
+            parser.parse(
+                _result(
+                    "<html><body>"
+                    "2976+ sorteos jugados "
+                    "Premio mayor 2976 Serie 049"
+                    "</body></html>",
+                    fetched_at=datetime(2026, 11, 18, tzinfo=UTC),
+                )
+            )
+        )
+
+
+def test_risaralda_official_parser_rejects_non_three_digit_series():
+    parser, _ = build_traditional_lottery_components("LOTERIA_RISARALDA")
+
+    with pytest.raises(
+        SourceParseError,
+        match="three-digit major-result series",
+    ):
+        list(
+            parser.parse(
+                _result(
+                    "<html><body>"
+                    "2976+ sorteos jugados "
+                    "Sorteo 2976 del martes 17 de noviembre de 2026 "
+                    "Premio mayor 5950 Serie 28"
+                    "</body></html>",
+                    fetched_at=datetime(2026, 11, 18, tzinfo=UTC),
+                )
+            )
+        )
+
+
+def test_risaralda_official_parser_rejects_future_draw_date():
+    parser, _ = build_traditional_lottery_components("LOTERIA_RISARALDA")
+
+    with pytest.raises(
+        SourceParseError,
+        match="future relative to source fetch time",
+    ):
+        list(
+            parser.parse(
+                _result(
+                    "<html><body>"
+                    "2976+ sorteos jugados "
+                    "Sorteo 2976 del viernes 20 de noviembre de 2026 "
+                    "Premio mayor 5950 Serie 049"
+                    "</body></html>",
+                    fetched_at=datetime(2026, 11, 18, tzinfo=UTC),
+                )
+            )
+        )
 
 
 def test_boyaca_parser_prefers_visible_resultado_sorteo_heading_over_year_token():
