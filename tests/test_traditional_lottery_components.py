@@ -210,6 +210,41 @@ def test_huila_parser_extracts_winning_number_series_and_explicit_date():
     assert normalized.metadata["date_inferred_from_draw_schedule"] is False
 
 
+def test_huila_parser_extracts_current_official_sorteo_4782_result():
+    parser, adapter = build_traditional_lottery_components("LOTERIA_HUILA")
+    official_page = (
+        "<html><body>"
+        "Sorteo 4782 8566 Serie 164 "
+        "# Sorteos "
+        "Resultado Lotería del Huila sorteo 4782 – "
+        "17 de noviembre de 2026 "
+        "Este martes, 17 de noviembre de 2026, se celebró el sorteo "
+        "de la Lotería del Huila. El sorteo número 4782 otorgó el "
+        "premio mayor al número 8566 de la serie 164. "
+        "Resultado Lotería del Huila sorteo 4781 – "
+        "10 de noviembre de 2026"
+        "</body></html>"
+    )
+    result = SourceFetchResult(
+        url="https://loteriadelhuila.com/category/sorteos/",
+        content=official_page.encode(),
+        fetched_at=datetime(2026, 11, 19, 12, 45, tzinfo=UTC),
+        status_code=200,
+        content_type="text/html; charset=utf-8",
+    )
+
+    records = list(parser.parse(result))
+    normalized = adapter.normalize(records[0])
+
+    assert normalized.draw_number == "4782"
+    assert normalized.draw_date.isoformat() == "2026-11-17"
+    assert normalized.main_numbers == [8566]
+    assert normalized.metadata["raw_result"] == "8566"
+    assert normalized.metadata["series"] == "164"
+    assert normalized.metadata["date_inferred_from_draw_schedule"] is False
+    assert records[0]["source_url"] == "https://loteriadelhuila.com/category/sorteos/"
+
+
 def test_huila_parser_rejects_draw_number_as_winning_number():
     parser, _ = build_traditional_lottery_components("LOTERIA_HUILA")
 
