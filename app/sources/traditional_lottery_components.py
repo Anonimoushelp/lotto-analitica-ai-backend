@@ -721,62 +721,15 @@ class TraditionalLotteryHtmlParser:
             safe_candidates,
             key=lambda item: (item[2], -item[1]),
         )
-        draw_number = int(draw_match.group(1))
+        draw_counter = int(draw_match.group(1))
         anchor_draw = 2967
-        if draw_number < anchor_draw:
+        if draw_counter < anchor_draw:
             raise SourceParseError(
                 "Risaralda official draw counter is older than the verified anchor"
             )
-        if raw_number == str(draw_number):
+        if raw_number == str(draw_counter):
             raise SourceParseError(
                 "Risaralda official source selected the draw counter as the winning number"
-            )
-
-        series_options: list[tuple[str, int, int]] = []
-        for match in self._LABELED_RESULT_SERIES_RE.finditer(search_text):
-            series_options.append((match.group(2), match.start(), 100))
-        for match in self._NUMBER_BEFORE_SERIES_RE.finditer(search_text):
-            series_options.append((match.group(1), match.start(), 95))
-        for match in self._SPACED_SERIES_RE.finditer(search_text):
-            digits = "".join(group for group in match.groups() if group is not None)
-            series_options.append((digits, match.start(), 90))
-        for match in self._SERIES_RE.finditer(search_text):
-            series_options.append((match.group(1), match.start(), 50))
-
-        if table_series is not None:
-            series_value = table_series
-        else:
-            nearby = [
-                item
-                for item in series_options
-                if abs(item[1] - raw_number_anchor) <= 600
-            ]
-            if not nearby:
-                raise SourceParseError(
-                    "Risaralda official source does not expose the major-result series"
-                )
-            series_value = min(
-                nearby,
-                key=lambda item: (
-                    abs(item[1] - raw_number_anchor),
-                    -item[2],
-                    -len(item[0]),
-                ),
-            )[0]
-
-        if not re.fullmatch(r"\d{3}", series_value):
-            raise SourceParseError(
-                "Risaralda official source does not expose a three-digit major-result series"
-            )
-
-        draw_label_pattern = re.compile(
-            rf"\bsorteo(?:\s+(?:n(?:o|ro)?[°º.]?\.?|#))?\s*{draw_number}\b",
-            re.IGNORECASE,
-        )
-        draw_labels = list(draw_label_pattern.finditer(search_text))
-        if not draw_labels:
-            raise SourceParseError(
-                "Risaralda official source does not expose the major-result date near the winning number"
             )
 
         date_patterns = {
@@ -786,12 +739,43 @@ class TraditionalLotteryHtmlParser:
             "month_first_date_matches": self._MONTH_FIRST_DATE_RE,
             "flexible_textual_date_matches": self._FLEXIBLE_TEXTUAL_DATE_RE,
         }
+        all_dates = [
+            match
+            for pattern in date_patterns.values()
+            for match in pattern.finditer(search_text)
+        ]
+        draw_label_pattern = re.compile(
+            r"\\bsorteo(?:\\s+(?:n(?:o|ro)?[°º.]?\\.?|#))?\\s*(?P<draw>\\d{3,6})\\b",
+            re.IGNORECASE,
+        )
+        draw_labels = [
+            label
+            for label in draw_label_pattern.finditer(search_text)
+            if abs(label.start() - raw_number_anchor) <= 600
+            and int(label.group("draw")) <= draw_counter
+            and any(abs(candidate.start() - label.start()) <= 180 for candidate in all_dates)
+        ]
+        if not draw_labels:
+            raise SourceParseError(
+                "Risaralda official source does not expose the major-result draw label and date near the winning number"
+            )
+
+        draw_label = min(
+            draw_labels,
+            key=lambda label: (abs(label.start() - raw_number_anchor), label.start()),
+        )
+        draw_number = int(draw_label.group("draw"))
+        if draw_number < anchor_draw:
+            raise SourceParseError(
+                "Risaralda official draw label is older than the verified anchor"
+            )
+
         nearby_date_matches = {
             name: [
                 match
                 for match in pattern.finditer(search_text)
                 if abs(match.start() - raw_number_anchor) <= 600
-                and min(abs(match.start() - label.start()) for label in draw_labels) <= 180
+                and abs(match.start() - draw_label.start()) <= 180
             ]
             for name, pattern in date_patterns.items()
         }
