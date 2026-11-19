@@ -745,14 +745,13 @@ class TraditionalLotteryHtmlParser:
             for match in pattern.finditer(search_text)
         ]
         draw_label_pattern = re.compile(
-            r"\\bsorteo(?:\\s+(?:n(?:o|ro)?[°º.]?\\.?|#))?\\s*(?P<draw>\\d{3,6})\\b",
+            r"\bsorteo(?:\s+(?:n(?:o|ro)?[°º.]?\.?|#))?\s*(?P<draw>\d{3,6})\b",
             re.IGNORECASE,
         )
         draw_labels = [
             label
             for label in draw_label_pattern.finditer(search_text)
             if abs(label.start() - raw_number_anchor) <= 600
-            and int(label.group("draw")) <= draw_counter
             and any(abs(candidate.start() - label.start()) <= 180 for candidate in all_dates)
         ]
         if not draw_labels:
