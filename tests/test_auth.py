@@ -19,6 +19,7 @@ from app.core.security import (
     hash_password,
 )
 from app.db.session import get_db
+from app.api.routes.auth import revoke_sessions
 from app.main import app
 from app.models.lottery import Lottery
 from app.models.user import User
@@ -280,6 +281,25 @@ def test_user_can_revoke_all_existing_sessions_and_login_again():
         "/api/v1/auth/me",
         headers={"Authorization": f"Bearer {new_token}"},
     ).status_code == 200
+
+
+def test_session_revocation_uses_database_side_increment_for_stale_user():
+    user = seed_user("concurrent-revoke@example.com", "viewer")
+    db = TestingSessionLocal()
+    try:
+        stored_user = db.get(User, user.id)
+        assert stored_user is not None
+
+        revoke_sessions(user=stored_user, db=db)
+        assert stored_user.session_version == 1
+
+        # Simulate a concurrent request holding a stale ORM instance.
+        stored_user.session_version = 0
+        revoke_sessions(user=stored_user, db=db)
+
+        assert stored_user.session_version == 2
+    finally:
+        db.close()
 
 
 def test_admin_deactivation_invalidates_target_sessions():
