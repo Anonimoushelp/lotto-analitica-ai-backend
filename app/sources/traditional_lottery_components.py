@@ -115,6 +115,14 @@ class TraditionalLotteryHtmlParser:
         search_text = self._strip_accents(text)
         code = (lottery_code or self.lottery_code).upper()
 
+        if code == "LOTERIA_HUILA":
+            return [
+                self._parse_huila_current_result(
+                    search_text=search_text,
+                    result=result,
+                )
+            ]
+
         if code == "LOTERIA_CAUCA":
             cauca_record = self._parse_cauca_homepage_current_result(
                 search_text=search_text,
@@ -558,6 +566,113 @@ class TraditionalLotteryHtmlParser:
                 "source_verified": profile.verified,
                 "source_format": "official_homepage_major_result_block",
             },
+            "source_url": result.url,
+            "source_timestamp": result.fetched_at,
+        }
+
+
+    _HUILA_RESULT_HEADER_RE = re.compile(
+        r"\bsorteo(?:\s+(?:n(?:umero|ro|o)?[°º.]?\.?|#))?\s*"
+        r"(?P<draw>\d{3,6})\s+(?P<number>\d{4})\s+"
+        r"serie\s*[:#-]?\s*(?P<series>\d{3})\b",
+        re.IGNORECASE,
+    )
+    _HUILA_LABELED_RESULT_RE = re.compile(
+        r"\bsorteo(?:\s+(?:n(?:umero|ro|o)?[°º.]?\.?|#))?\s*"
+        r"(?P<draw>\d{3,6})\b.{0,240}?\bnumero\s*[:#-]?\s*"
+        r"(?P<number>\d{4})\b.{0,120}?\bserie\s*[:#-]?\s*"
+        r"(?P<series>\d{3})\b",
+        re.IGNORECASE,
+    )
+    _HUILA_PREMIO_RESULT_RE = re.compile(
+        r"\bsorteo(?:\s+(?:n(?:umero|ro|o)?[°º.]?\.?|#))?\s*"
+        r"(?P<draw>\d{3,6})\b.{0,240}?\bpremio\s+mayor\s*[:#-]?\s*"
+        r"(?P<number>\d{4})\b.{0,100}?\bnumero\s*[:#-]?\s*"
+        r"(?P<series>\d{3})\s+serie\b",
+        re.IGNORECASE,
+    )
+
+    def _parse_huila_current_result(
+        self,
+        *,
+        search_text: str,
+        result: SourceFetchResult,
+    ) -> Mapping[str, object]:
+        reference_date = result.fetched_at.date()
+        valid_matches: list[tuple[date, int, str, str]] = []
+        date_patterns = {
+            "iso_date_matches": self._ISO_DATE_RE,
+            "numeric_date_matches": self._NUMERIC_DATE_RE,
+            "date_matches": self._DATE_RE,
+            "month_first_date_matches": self._MONTH_FIRST_DATE_RE,
+            "flexible_textual_date_matches": self._FLEXIBLE_TEXTUAL_DATE_RE,
+        }
+        result_patterns = (
+            self._HUILA_RESULT_HEADER_RE,
+            self._HUILA_LABELED_RESULT_RE,
+            self._HUILA_PREMIO_RESULT_RE,
+        )
+
+        for pattern in result_patterns:
+            for match in pattern.finditer(search_text):
+                draw_number = int(match.group("draw"))
+                raw_number = match.group("number")
+                series = match.group("series")
+                if raw_number == str(draw_number) or not re.fullmatch(r"\d{3}", series):
+                    continue
+
+                nearby_date_matches = {
+                    name: [
+                        candidate
+                        for candidate in date_pattern.finditer(search_text)
+                        if abs(candidate.start() - match.start()) <= 250
+                    ]
+                    for name, date_pattern in date_patterns.items()
+                }
+                if not any(nearby_date_matches.values()):
+                    continue
+
+                try:
+                    draw_date = date.fromisoformat(
+                        self._parse_date(
+                            **nearby_date_matches,
+                            reference_date=reference_date,
+                            anchor_position=match.start(),
+                        )
+                    )
+                except SourceParseError:
+                    continue
+                if draw_date > reference_date:
+                    continue
+
+                valid_matches.append((draw_date, draw_number, raw_number, series))
+
+        if not valid_matches:
+            raise SourceParseError(
+                "Lotería del Huila source does not expose a valid dated major-result header"
+            )
+
+        draw_date, draw_number, raw_number, series = max(
+            valid_matches,
+            key=lambda item: (item[0], item[1]),
+        )
+        profile = get_traditional_source("LOTERIA_HUILA")
+        metadata = {
+            "raw_result": raw_number,
+            "digit_count": 4,
+            "source_verified": profile.verified,
+            "series": series,
+            "date_inferred_from_draw_schedule": False,
+            "date_source": "official_huila_result_context",
+            "source_format": "official_huila_result_header",
+        }
+        return {
+            "lottery_code": "LOTERIA_HUILA",
+            "draw_type": "LOTERIA_HUILA_ORDINARY",
+            "draw_number": str(draw_number),
+            "draw_date": draw_date.isoformat(),
+            "main_numbers": [int(raw_number)],
+            "metadata": metadata,
             "source_url": result.url,
             "source_timestamp": result.fetched_at,
         }
