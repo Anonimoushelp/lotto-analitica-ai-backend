@@ -2,7 +2,7 @@ import logging
 
 import redis
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlalchemy import select, text
+from sqlalchemy import select, text, update
 from sqlalchemy.orm import Session
 
 from app.api.dependencies.auth import get_current_user, require_admin
@@ -112,7 +112,12 @@ def revoke_sessions(
     db: Session = Depends(get_db),
 ):
     """Invalidate every access token issued before this request."""
-    user.session_version += 1
+    # Increment in SQL so concurrent revocation requests cannot lose an update.
+    db.execute(
+        update(User)
+        .where(User.id == user.id)
+        .values(session_version=User.session_version + 1)
+    )
     db.commit()
     db.refresh(user)
     log_mutation(
