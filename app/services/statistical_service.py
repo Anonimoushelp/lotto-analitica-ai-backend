@@ -50,10 +50,17 @@ class StatisticalService:
         return (draw.draw_date,getattr(draw,"id",0) or 0,str(getattr(draw,"source","") or ""),str(getattr(draw,"draw_number","") or ""))
 
     @staticmethod
-    def _load_draws(db, lottery_id, source=None):
-        statement=select(LotteryDraw).where(LotteryDraw.lottery_id==lottery_id).order_by(LotteryDraw.draw_date.asc(),LotteryDraw.id.asc())
-        if source is not None: statement=statement.where(LotteryDraw.source==source.strip())
-        return list(db.scalars(statement.limit(_MAX_ANALYZABLE_DRAWS+1)).all())
+    def _load_draws(db, lottery_id=None, source=None):
+        statement = select(LotteryDraw)
+        if lottery_id is not None:
+            statement = statement.where(LotteryDraw.lottery_id == lottery_id)
+        if source is not None:
+            statement = statement.where(LotteryDraw.source == source.strip())
+        statement = statement.order_by(
+            LotteryDraw.draw_date.asc(),
+            LotteryDraw.id.asc(),
+        )
+        return list(db.scalars(statement.limit(_MAX_ANALYZABLE_DRAWS + 1)).all())
 
     @staticmethod
     def analyze(draws, lottery_id=None, source=None):
@@ -111,7 +118,7 @@ class StatisticalService:
     @staticmethod
     def overview(db,lottery_id=None,source=None):
         StatisticalService._validate_lottery_id(lottery_id)
-        draws=StatisticalService._load_draws(db,lottery_id,source) if lottery_id else list(db.scalars(select(LotteryDraw).limit(_MAX_ANALYZABLE_DRAWS+1)).all())
+        draws = StatisticalService._load_draws(db, lottery_id, source)
         if len(draws)>_MAX_ANALYZABLE_DRAWS: raise StatisticalInputLimitError("Statistical analysis input is too large")
         analyzable=[d for d in draws if d.main_numbers]
         if not analyzable: return {"module_status":"STANDBY","algorithms_count":0,"draws_analyzed":0}

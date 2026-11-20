@@ -12,10 +12,16 @@ router = APIRouter(prefix="/api/v1/statistics", tags=["Statistics"])
 
 @router.get("/overview", response_model=StatisticalOverviewResponse)
 def get_statistical_overview(
+    lottery_id: int | None = Query(default=None, gt=0),
+    source: str | None = Query(default=None, max_length=255),
     db: Session = Depends(get_db),
     current_user=Depends(require_admin_or_analyst),
 ):
-    return StatisticalService.overview(db=db)
+    return StatisticalService.overview(
+        db=db,
+        lottery_id=lottery_id,
+        source=source,
+    )
 
 
 @router.get("/analysis", response_model=StatisticalAnalysisResponse)
