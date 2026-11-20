@@ -72,3 +72,24 @@ def test_analysis_rejects_excessive_pair_work():
 
     with pytest.raises(StatisticalInputLimitError):
         StatisticalService.analyze(draws, lottery_id=1)
+
+
+def test_overview_applies_source_filter_without_lottery_scope():
+    class FakeScalarResult:
+        def all(self):
+            return [
+                draw(1, 1, [1, 2, 3], 1, source="official"),
+                draw(2, 2, [4, 5, 6], 2, source="official"),
+            ]
+
+    class FakeSession:
+        def scalars(self, statement):
+            sql = str(statement.compile(compile_kwargs={"literal_binds": True}))
+            assert "lottery_draws.source = 'official'" in sql
+            assert "lottery_draws.lottery_id IS NULL" not in sql
+            return FakeScalarResult()
+
+    result = StatisticalService.overview(FakeSession(), source="official")
+
+    assert result["module_status"] == "READY"
+    assert result["draws_analyzed"] == 2
