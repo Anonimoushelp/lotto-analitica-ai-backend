@@ -414,8 +414,8 @@ class TraditionalLotteryHtmlParser:
             "digit_count": 4,
             "source_verified": profile.verified,
         }
-        if date_inferred_from_draw_schedule:
-            metadata["date_inferred_from_draw_schedule"] = True
+        if code == "LOTERIA_RISARALDA" or date_inferred_from_draw_schedule:
+            metadata["date_inferred_from_draw_schedule"] = date_inferred_from_draw_schedule
 
         series_value: str | None = None
 
