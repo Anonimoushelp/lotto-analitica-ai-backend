@@ -82,6 +82,7 @@ def test_risaralda_sales_portal_fetcher_parses_official_major_result():
     assert normalized.main_numbers == [8362]
     assert normalized.metadata["series"] == "118"
     assert normalized.metadata["date_inferred_from_draw_schedule"] is False
+    assert normalized.metadata["source_format"] == "official_sales_portal_result"
     assert normalized.source_url == "https://ventas.loteriadelrisaralda.com/resultados"
 
 
