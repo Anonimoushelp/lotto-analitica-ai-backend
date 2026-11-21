@@ -195,7 +195,23 @@ class TraditionalLotteryHtmlParser:
         number_matches = list(self._NUMBER_RE.finditer(text))
         spaced_number_matches = list(self._SPACED_NUMBER_RE.finditer(text))
 
-        if code == "LOTERIA_RISARALDA":
+        is_risaralda_official_source = (
+            re.search(
+                r"\b\d{3,6}\s*\+\s*sorteos\s+jugados\b",
+                search_text,
+                re.IGNORECASE,
+            )
+            is not None
+            or "RISARALDA_OFFICIAL_CONSULTATION" in html
+            or result.url.startswith(
+                (
+                    "https://ventas.loteriadelrisaralda.com/",
+                    "https://loteriadelrisaralda.com/",
+                    "https://www.loteriadelrisaralda.com/",
+                )
+            )
+        )
+        if code == "LOTERIA_RISARALDA" and is_risaralda_official_source:
             official_record = self._parse_risaralda_official(
                 search_text=search_text,
                 result=result,
