@@ -155,15 +155,15 @@ class RisaraldaOfficialSourceFetcher(HttpSourceFetcher):
             html_lib.unescape(re.sub(r"<[^>]+>", " ", html)).split()
         )
         has_draw = re.search(
-            r"\\bsorteo\\s+(?:n(?:o|ro)?[°º.]?\\.?\\s*)?\\d{3,6}\\b",
+            r"\bsorteo\s+(?:n(?:o|ro)?[°º.]?\.?\s*)?\d{3,6}\b",
             visible_text,
             re.IGNORECASE,
         )
         has_major_prize = re.search(
-            r"\\bpremio\\s+mayor\\b", visible_text, re.IGNORECASE
+            r"\bpremio\s+mayor\b", visible_text, re.IGNORECASE
         )
         has_series = re.search(
-            r"\\bserie\\s+\\d{3}\\b", visible_text, re.IGNORECASE
+            r"\bserie\s+\d{3}\b", visible_text, re.IGNORECASE
         )
         return bool(has_draw and has_major_prize and has_series)
 
@@ -182,7 +182,10 @@ class RisaraldaOfficialSourceFetcher(HttpSourceFetcher):
             return primary
 
         primary_host = urlparse(primary.url).hostname
-        if primary_host in self.INSTITUTIONAL_HOSTS and urlparse(primary.url).path in {"", "/"}:
+        if (
+            primary_host in self.INSTITUTIONAL_HOSTS
+            and urlparse(primary.url).path in {"", "/"}
+        ):
             institutional_home = primary
         else:
             try:
@@ -212,7 +215,7 @@ class RisaraldaOfficialSourceFetcher(HttpSourceFetcher):
 
         combined = (
             institutional_home.content
-            + b"\\n<!-- RISARALDA_OFFICIAL_CONSULTATION -->\\n"
+            + b"\n<!-- RISARALDA_OFFICIAL_CONSULTATION -->\n"
             + consultation.content
         )
         return SourceFetchResult(
