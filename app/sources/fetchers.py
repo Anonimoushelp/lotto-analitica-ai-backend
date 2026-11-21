@@ -126,42 +126,84 @@ class HttpSourceFetcher:
 
 
 class RisaraldaOfficialSourceFetcher(HttpSourceFetcher):
-    """Combine two official institutional pages into one parseable source.
+    """Fetch the official sales portal, with an institutional fallback.
 
-    The public sales portal can return a JavaScript shell to non-browser
-    clients. The institutional site exposes the current draw counter and the
-    official prize query separately, so fetch both same-origin documents.
+    The sales portal is the primary result source. If it responds with a
+    JavaScript shell or an incomplete document, combine the official
+    institutional homepage (draw counter) and consultation page (major prize).
     """
 
+    SALES_PORTAL_HOST = "ventas.loteriadelrisaralda.com"
+    INSTITUTIONAL_HOME_URL = "https://loteriadelrisaralda.com/"
     CONSULTATION_URL = "https://loteriadelrisaralda.com/loteriaconsulta/"
+    INSTITUTIONAL_HOSTS = {
+        "loteriadelrisaralda.com",
+        "www.loteriadelrisaralda.com",
+    }
+    OFFICIAL_HOSTS = INSTITUTIONAL_HOSTS | {SALES_PORTAL_HOST}
 
-    def fetch(self, url: str) -> SourceFetchResult:
-        primary = super().fetch(url)
-        host = urlparse(primary.url).hostname
-        if host is None:
-            raise SourceFetchError("Risaralda official source has no hostname")
+    def __init__(self, **kwargs) -> None:
+        configured_hosts = set(kwargs.pop("allowed_hosts", None) or ())
+        super().__init__(allowed_hosts=configured_hosts | self.OFFICIAL_HOSTS, **kwargs)
 
-        official_hosts = {
-            "loteriadelrisaralda.com",
-            "www.loteriadelrisaralda.com",
-        }
-        consultation_fetcher = HttpSourceFetcher(
+    @staticmethod
+    def _has_official_result(result: SourceFetchResult) -> bool:
+        if "html" not in result.content_type.casefold():
+            return False
+        html = result.content.decode("utf-8", errors="ignore")
+        visible_text = " ".join(
+            html_lib.unescape(re.sub(r"<[^>]+>", " ", html)).split()
+        )
+        has_draw = re.search(
+            r"\\bsorteo\\s+(?:n(?:o|ro)?[°º.]?\\.?\\s*)?\\d{3,6}\\b",
+            visible_text,
+            re.IGNORECASE,
+        )
+        has_major_prize = re.search(
+            r"\\bpremio\\s+mayor\\b", visible_text, re.IGNORECASE
+        )
+        has_series = re.search(
+            r"\\bserie\\s+\\d{3}\\b", visible_text, re.IGNORECASE
+        )
+        return bool(has_draw and has_major_prize and has_series)
+
+    def _institutional_fetcher(self) -> HttpSourceFetcher:
+        return HttpSourceFetcher(
             timeout=self.timeout,
             user_agent=self.user_agent,
-            allowed_hosts=official_hosts,
+            allowed_hosts=self.INSTITUTIONAL_HOSTS,
             max_response_bytes=self.max_response_bytes,
             transport=self.transport,
         )
+
+    def fetch(self, url: str) -> SourceFetchResult:
+        primary = super().fetch(url)
+        if self._has_official_result(primary):
+            return primary
+
+        primary_host = urlparse(primary.url).hostname
+        if primary_host in self.INSTITUTIONAL_HOSTS and urlparse(primary.url).path in {"", "/"}:
+            institutional_home = primary
+        else:
+            try:
+                institutional_home = self._institutional_fetcher().fetch(
+                    self.INSTITUTIONAL_HOME_URL
+                )
+            except SourceFetchError as exc:
+                raise SourceFetchError(
+                    "Risaralda official institutional homepage could not be fetched"
+                ) from exc
+
         try:
-            consultation = consultation_fetcher.fetch(self.CONSULTATION_URL)
+            consultation = self._institutional_fetcher().fetch(self.CONSULTATION_URL)
         except SourceFetchError as exc:
             raise SourceFetchError(
                 "Risaralda official consultation source could not be fetched"
             ) from exc
 
-        if "html" not in primary.content_type.casefold():
+        if "html" not in institutional_home.content_type.casefold():
             raise SourceFetchError(
-                "Risaralda official primary source must be an HTML document"
+                "Risaralda official institutional homepage must be an HTML document"
             )
         if "html" not in consultation.content_type.casefold():
             raise SourceFetchError(
@@ -169,16 +211,16 @@ class RisaraldaOfficialSourceFetcher(HttpSourceFetcher):
             )
 
         combined = (
-            primary.content
-            + b"\n<!-- RISARALDA_OFFICIAL_CONSULTATION -->\n"
+            institutional_home.content
+            + b"\\n<!-- RISARALDA_OFFICIAL_CONSULTATION -->\\n"
             + consultation.content
         )
         return SourceFetchResult(
-            url=primary.url,
-            status_code=primary.status_code,
+            url=institutional_home.url,
+            status_code=institutional_home.status_code,
             content=combined,
-            content_type=primary.content_type,
-            fetched_at=max(primary.fetched_at, consultation.fetched_at),
+            content_type=institutional_home.content_type,
+            fetched_at=max(institutional_home.fetched_at, consultation.fetched_at),
         )
 
 
