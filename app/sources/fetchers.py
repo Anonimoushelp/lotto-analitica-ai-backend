@@ -5,7 +5,7 @@ import re
 from dataclasses import dataclass
 from datetime import UTC, datetime
 from io import BytesIO
-from typing import Protocol
+from typing import ClassVar, Protocol
 from urllib.parse import unquote, urljoin, urlparse
 
 import httpx
@@ -136,11 +136,11 @@ class RisaraldaOfficialSourceFetcher(HttpSourceFetcher):
     SALES_PORTAL_HOST = "ventas.loteriadelrisaralda.com"
     INSTITUTIONAL_HOME_URL = "https://loteriadelrisaralda.com/"
     CONSULTATION_URL = "https://loteriadelrisaralda.com/loteriaconsulta/"
-    INSTITUTIONAL_HOSTS = {
+    INSTITUTIONAL_HOSTS: ClassVar[set[str]] = {
         "loteriadelrisaralda.com",
         "www.loteriadelrisaralda.com",
     }
-    OFFICIAL_HOSTS = INSTITUTIONAL_HOSTS | {SALES_PORTAL_HOST}
+    OFFICIAL_HOSTS: ClassVar[set[str]] = INSTITUTIONAL_HOSTS | {SALES_PORTAL_HOST}
 
     def __init__(self, **kwargs) -> None:
         configured_hosts = set(kwargs.pop("allowed_hosts", None) or ())
