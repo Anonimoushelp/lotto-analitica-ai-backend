@@ -243,7 +243,7 @@ def test_controlled_ingestion_covers_all_verified_traditional_lotteries(
     persisted = LotteryDrawService.persist_raw_record(db=db, record=normalized)
 
     assert persisted.id is not None
-    assert persisted.draw_number == "4187"
+    assert persisted.draw_number == expected_draw_number
     assert persisted.draw_date == date(2026, 9, 22)
     assert persisted.main_numbers == [6845]
     assert persisted.metadata_json["series"] == "031"
