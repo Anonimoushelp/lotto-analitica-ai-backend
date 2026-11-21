@@ -846,3 +846,46 @@ def test_verified_source_continuity_rejects_unrelated_host():
     )
 
     assert not LotteryDrawService._verified_source_continuity(existing, record)
+
+
+
+def test_risaralda_sales_portal_rejects_result_without_explicit_draw_label():
+    parser, _ = build_traditional_lottery_components("LOTERIA_RISARALDA")
+
+    with pytest.raises(
+        SourceParseError,
+        match="does not expose the major-result date near the winning number or an explicit draw label",
+    ):
+        list(
+            parser.parse(
+                _result(
+                    "<html><body>"
+                    "viernes, 13 de noviembre de 2026 "
+                    "Premio mayor 8362 Serie 118"
+                    "</body></html>",
+                    fetched_at=datetime(2026, 11, 21, tzinfo=UTC),
+                    url="https://ventas.loteriadelrisaralda.com/resultados",
+                )
+            )
+        )
+
+
+def test_risaralda_sales_portal_rejects_future_result_date():
+    parser, _ = build_traditional_lottery_components("LOTERIA_RISARALDA")
+
+    with pytest.raises(
+        SourceParseError,
+        match="future relative to source fetch time",
+    ):
+        list(
+            parser.parse(
+                _result(
+                    "<html><body>"
+                    "Sorteo No. 2977 viernes, 27 de noviembre de 2026 "
+                    "Premio mayor 8362 Serie 118"
+                    "</body></html>",
+                    fetched_at=datetime(2026, 11, 21, tzinfo=UTC),
+                    url="https://ventas.loteriadelrisaralda.com/resultados",
+                )
+            )
+        )
