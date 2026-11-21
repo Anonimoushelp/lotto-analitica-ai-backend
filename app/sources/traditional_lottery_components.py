@@ -644,8 +644,7 @@ class TraditionalLotteryHtmlParser:
             search_text,
             re.IGNORECASE,
         )
-        if draw_match is None:
-            return None
+        draw_counter = int(draw_match.group(1)) if draw_match is not None else None
 
         unrelated_context = re.compile(
             r"\b(?:chontico|dorado|astro|miloto|baloto|revancha|"
@@ -721,13 +720,12 @@ class TraditionalLotteryHtmlParser:
             safe_candidates,
             key=lambda item: (item[2], -item[1]),
         )
-        draw_counter = int(draw_match.group(1))
         anchor_draw = 2967
-        if draw_counter < anchor_draw:
+        if draw_counter is not None and draw_counter < anchor_draw:
             raise SourceParseError(
                 "Risaralda official draw counter is older than the verified anchor"
             )
-        if raw_number == str(draw_counter):
+        if draw_counter is not None and raw_number == str(draw_counter):
             raise SourceParseError(
                 "Risaralda official source selected the draw counter as the winning number"
             )
@@ -838,7 +836,11 @@ class TraditionalLotteryHtmlParser:
             "series": series_value,
             "date_inferred_from_draw_schedule": False,
             "date_source": "official_result_context",
-            "source_format": "official_institutional_composite",
+            "source_format": (
+                "official_institutional_composite"
+                if draw_counter is not None
+                else "official_sales_portal_result"
+            ),
         }
         return {
             "lottery_code": "LOTERIA_RISARALDA",
