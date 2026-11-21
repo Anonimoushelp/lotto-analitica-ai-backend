@@ -94,7 +94,7 @@ _PROFILES = {
     ),
     "LOTERIA_RISARALDA": TraditionalLotterySource(
         "Lotería de Risaralda — resultados oficiales",
-        "https://loteriadelrisaralda.com/",
+        "https://ventas.loteriadelrisaralda.com/resultados",
         "traditional_result_page",
         "traditional_four_digit_series",
         True,
