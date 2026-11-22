@@ -1,8 +1,8 @@
 from datetime import UTC, datetime
 
-import pytest
-
 from scripts.validate_risaralda_live import SOURCE_URL, parse_live_html
+
+import pytest
 
 
 FETCHED_AT = datetime(2026, 11, 22, 12, 0, tzinfo=UTC)
