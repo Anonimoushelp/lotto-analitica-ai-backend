@@ -3,7 +3,7 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from app.sources.fetchers import RisaraldaOfficialSourceFetcher
+from app.sources.fetchers import RisaraldaOfficialSourceFetcher, SourceFetchError
 from app.sources.provider_registry import build_traditional_lottery_components
 
 
