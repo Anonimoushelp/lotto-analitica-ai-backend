@@ -42,6 +42,7 @@ class HttpSourceFetcher:
         allowed_hosts: set[str] | None = None,
         max_response_bytes: int = 2_000_000,
         transport: httpx.BaseTransport | None = None,
+        follow_redirects: bool = True,
     ) -> None:
         if timeout <= 0:
             raise ValueError("timeout must be greater than zero")
@@ -52,6 +53,7 @@ class HttpSourceFetcher:
         self.allowed_hosts = {host.casefold() for host in (allowed_hosts or set())}
         self.max_response_bytes = max_response_bytes
         self.transport = transport
+        self.follow_redirects = follow_redirects
 
     def _validate_url(self, url: str) -> None:
         parsed = urlparse(url)
@@ -74,7 +76,7 @@ class HttpSourceFetcher:
             with (
                 httpx.Client(
                     timeout=self.timeout,
-                    follow_redirects=True,
+                    follow_redirects=self.follow_redirects,
                     headers={"User-Agent": self.user_agent},
                     transport=self.transport,
                 ) as client,
@@ -144,7 +146,15 @@ class RisaraldaOfficialSourceFetcher(HttpSourceFetcher):
 
     def __init__(self, **kwargs) -> None:
         configured_hosts = set(kwargs.pop("allowed_hosts", None) or ())
-        super().__init__(allowed_hosts=configured_hosts | self.OFFICIAL_HOSTS, **kwargs)
+        self.allow_institutional_fallback = kwargs.pop(
+            "allow_institutional_fallback", True
+        )
+        allowed_hosts = (
+            configured_hosts | self.OFFICIAL_HOSTS
+            if self.allow_institutional_fallback
+            else configured_hosts | {self.SALES_PORTAL_HOST}
+        )
+        super().__init__(allowed_hosts=allowed_hosts, **kwargs)
 
     @staticmethod
     def _has_official_result(result: SourceFetchResult) -> bool:
@@ -180,6 +190,10 @@ class RisaraldaOfficialSourceFetcher(HttpSourceFetcher):
         primary = super().fetch(url)
         if self._has_official_result(primary):
             return primary
+        if not self.allow_institutional_fallback:
+            raise SourceFetchError(
+                "Risaralda sales portal HTML is incomplete and institutional fallback is disabled"
+            )
 
         primary_host = urlparse(primary.url).hostname
         if (
