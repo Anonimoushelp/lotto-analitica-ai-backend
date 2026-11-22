@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import httpx
+import pytest
 
-from app.sources.fetchers import RisaraldaOfficialSourceFetcher
+from app.sources.fetchers import RisaraldaOfficialSourceFetcher, SourceFetchError
 from app.sources.provider_registry import build_traditional_lottery_components
 
 
@@ -137,3 +138,52 @@ def test_risaralda_sales_portal_javascript_shell_uses_official_fallback():
     assert normalized.draw_date.isoformat() == "2026-11-13"
     assert normalized.main_numbers == [8362]
     assert normalized.metadata["series"] == "118"
+
+
+def test_risaralda_strict_live_mode_rejects_javascript_shell_without_fallback():
+    calls: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(str(request.url))
+        return httpx.Response(
+            200,
+            headers={"content-type": "text/html; charset=utf-8"},
+            content=b"<html><body><div id='app'></div><script>hydrate()</script></body></html>",
+            request=request,
+        )
+
+    fetcher = RisaraldaOfficialSourceFetcher(
+        allowed_hosts={"ventas.loteriadelrisaralda.com"},
+        allow_institutional_fallback=False,
+        follow_redirects=False,
+        transport=httpx.MockTransport(handler),
+    )
+
+    with pytest.raises(SourceFetchError, match="institutional fallback is disabled"):
+        fetcher.fetch("https://ventas.loteriadelrisaralda.com/resultados")
+
+    assert calls == ["https://ventas.loteriadelrisaralda.com/resultados"]
+
+
+def test_risaralda_strict_live_mode_does_not_follow_official_portal_redirects():
+    calls: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        calls.append(str(request.url))
+        return httpx.Response(
+            302,
+            headers={"location": "https://loteriadelrisaralda.com/"},
+            request=request,
+        )
+
+    fetcher = RisaraldaOfficialSourceFetcher(
+        allowed_hosts={"ventas.loteriadelrisaralda.com"},
+        allow_institutional_fallback=False,
+        follow_redirects=False,
+        transport=httpx.MockTransport(handler),
+    )
+
+    with pytest.raises(SourceFetchError):
+        fetcher.fetch("https://ventas.loteriadelrisaralda.com/resultados")
+
+    assert calls == ["https://ventas.loteriadelrisaralda.com/resultados"]
