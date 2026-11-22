@@ -3,8 +3,11 @@ from __future__ import annotations
 import json
 import sys
 from datetime import UTC, datetime
+from pathlib import Path
 
 import httpx
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from app.sources.fetchers import SourceFetchResult
 from app.sources.parsers import SourceParseError
