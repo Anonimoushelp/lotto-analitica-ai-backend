@@ -1,15 +1,19 @@
 from __future__ import annotations
 
+import html
 import json
+import re
 import sys
-from datetime import UTC, datetime
+from datetime import datetime
 from pathlib import Path
-
-import httpx
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from app.sources.fetchers import SourceFetchResult
+from app.sources.fetchers import (
+    RisaraldaOfficialSourceFetcher,
+    SourceFetchError,
+    SourceFetchResult,
+)
 from app.sources.parsers import SourceParseError
 from app.sources.provider_registry import build_traditional_lottery_components
 
@@ -81,38 +85,40 @@ def parse_live_html(
 
 
 def main() -> int:
-    timeout = httpx.Timeout(20.0, connect=10.0)
     try:
-        with httpx.Client(
-            timeout=timeout,
+        # Strict mode makes exactly one GET to the sales portal: no redirects
+        # and no institutional fallback requests are permitted in this workflow.
+        fetcher = RisaraldaOfficialSourceFetcher(
+            timeout=20.0,
+            allowed_hosts={"ventas.loteriadelrisaralda.com"},
+            allow_institutional_fallback=False,
             follow_redirects=False,
-            headers={"User-Agent": "LottoAnaliticaAI-RisaraldaLiveValidation/1.0"},
-        ) as client:
-            # Exactly one outbound request: GET to the official sales results URL.
-            response = client.get(SOURCE_URL)
-            if response.status_code != 200:
-                raise ValueError(
-                    f"Official endpoint returned HTTP {response.status_code}; "
-                    "redirects and non-200 responses are not followed"
-                )
-            if str(response.url) != SOURCE_URL:
-                raise ValueError(f"Unexpected response URL: {response.url}")
-            if len(response.content) > MAX_RESPONSE_BYTES:
-                raise ValueError("Official HTML exceeds the 2 MB safety limit")
-            result = parse_live_html(
-                content=response.content,
-                content_type=response.headers.get("content-type", ""),
-                fetched_at=datetime.now(UTC),
-                url=str(response.url),
+        )
+        result = fetcher.fetch(SOURCE_URL)
+        if result.url != SOURCE_URL or result.status_code != 200:
+            raise ValueError(
+                f"Unexpected official response: HTTP {result.status_code} at {result.url}"
             )
-    except (httpx.HTTPError, ValueError) as exc:
+        try:
+            parsed = parse_live_html(
+                content=result.content,
+                content_type=result.content_type,
+                fetched_at=result.fetched_at,
+                url=result.url,
+            )
+        except ValueError:
+            visible_text = " ".join(
+                html.unescape(re.sub(r"<[^>]+>", " ", result.content.decode("utf-8", errors="replace"))).split()
+            )
+            print(f"Official response diagnostic excerpt: {visible_text[:3000]}", file=sys.stderr)
+            raise
+    except (SourceFetchError, ValueError) as exc:
         print(f"Risaralda live validation FAILED: {exc}", file=sys.stderr)
         return 1
 
-    print(json.dumps(result, ensure_ascii=False, indent=2))
-    print("Risaralda live validation PASSED: one GET; no fallback, database, or writes.")
+    print(json.dumps(parsed, ensure_ascii=False, indent=2))
+    print("Risaralda live validation PASSED: one GET to the official portal; no fallback, database, or writes.")
     return 0
-
 
 if __name__ == "__main__":
     raise SystemExit(main())
