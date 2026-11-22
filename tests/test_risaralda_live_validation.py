@@ -2,7 +2,6 @@ from datetime import UTC, datetime
 
 import pytest
 
-from app.sources.parsers import SourceParseError
 from scripts.validate_risaralda_live import SOURCE_URL, parse_live_html
 
 
@@ -62,7 +61,7 @@ def test_live_validator_rejects_javascript_shell_or_missing_explicit_draw(conten
     [
         ({"series": "18"}, "three-digit major-result series"),
         ({"series": "1188"}, "three-digit major-result series"),
-        ({"number": "2975"}, "draw counter as the winning number"),
+        ({"number": "83"}, "recognizable major result"),
         ({"draw": "Sorteo No. 2977", "date": "viernes, 27 de noviembre de 2026"},
          "future relative to source fetch time"),
         ({"draw": "Sorteo No. 2975", "date": "martes, 17 de noviembre de 2026"},
