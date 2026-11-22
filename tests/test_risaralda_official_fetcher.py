@@ -3,7 +3,7 @@ from __future__ import annotations
 import httpx
 import pytest
 
-from app.sources.fetchers import RisaraldaOfficialSourceFetcher, SourceFetchError
+from app.sources.fetchers import RisaraldaOfficialSourceFetcher
 from app.sources.provider_registry import build_traditional_lottery_components
 
 
@@ -140,7 +140,7 @@ def test_risaralda_sales_portal_javascript_shell_uses_official_fallback():
     assert normalized.metadata["series"] == "118"
 
 
-def test_risaralda_strict_live_mode_rejects_javascript_shell_without_fallback():
+def test_risaralda_strict_live_mode_returns_javascript_shell_without_fallback():
     calls: list[str] = []
 
     def handler(request: httpx.Request) -> httpx.Response:
@@ -158,10 +158,10 @@ def test_risaralda_strict_live_mode_rejects_javascript_shell_without_fallback():
         follow_redirects=False,
         transport=httpx.MockTransport(handler),
     )
+    result = fetcher.fetch("https://ventas.loteriadelrisaralda.com/resultados")
 
-    with pytest.raises(SourceFetchError, match="institutional fallback is disabled"):
-        fetcher.fetch("https://ventas.loteriadelrisaralda.com/resultados")
-
+    assert result.status_code == 200
+    assert b"id='app'" in result.content
     assert calls == ["https://ventas.loteriadelrisaralda.com/resultados"]
 
 
