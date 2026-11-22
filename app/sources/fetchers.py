@@ -191,9 +191,7 @@ class RisaraldaOfficialSourceFetcher(HttpSourceFetcher):
         if self._has_official_result(primary):
             return primary
         if not self.allow_institutional_fallback:
-            raise SourceFetchError(
-                "Risaralda sales portal HTML is incomplete and institutional fallback is disabled"
-            )
+            return primary
 
         primary_host = urlparse(primary.url).hostname
         if (
