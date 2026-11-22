@@ -106,3 +106,12 @@ def test_live_validator_rejects_any_url_other_than_official_endpoint():
             fetched_at=FETCHED_AT,
             url="https://loteriadelrisaralda.com/",
         )
+
+
+def test_live_validator_rejects_oversized_html_response():
+    with pytest.raises(ValueError, match="exceeds the 2 MB safety limit"):
+        parse_live_html(
+            content=b"x" * (2_000_001),
+            content_type="text/html; charset=utf-8",
+            fetched_at=FETCHED_AT,
+        )
