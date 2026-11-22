@@ -1,6 +1,7 @@
 from datetime import UTC, datetime
 
 import pytest
+
 from scripts.validate_risaralda_live import SOURCE_URL, parse_live_html
 
 
