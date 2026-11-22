@@ -6,6 +6,7 @@ on:
       - main
     paths:
       - "app/sources/traditional_lottery_components.py"
+      - "app/sources/fetchers.py"
       - "app/sources/provider_registry.py"
       - "scripts/validate_risaralda_live.py"
       - "tests/test_risaralda_live_validation.py"
