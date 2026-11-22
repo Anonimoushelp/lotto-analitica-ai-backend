@@ -88,10 +88,10 @@ def test_controlled_executor_rejects_multiple_matching_records(monkeypatch):
 def test_controlled_executor_maps_duplicate_conflict(monkeypatch):
     html = """
     <html><body>
-    Sorteo 1234
+    Sorteo No. 2970
     25 de septiembre de 2026
-    Resultado: 0042
-    Serie: 17
+    Premio mayor: 0042
+    Serie: 017
     </body></html>
     """
 
@@ -115,10 +115,10 @@ def test_controlled_executor_maps_duplicate_conflict(monkeypatch):
 def test_controlled_executor_extracts_and_persists_verified_result(monkeypatch):
     html = """
     <html><body>
-    Sorteo 1234
+    Sorteo No. 2970
     25 de septiembre de 2026
-    Resultado: 0042
-    Serie: 17
+    Premio mayor: 0042
+    Serie: 017
     </body></html>
     """
 
@@ -141,13 +141,13 @@ def test_controlled_executor_extracts_and_persists_verified_result(monkeypatch):
 
     assert "draw_id=501" in message
     assert captured["lottery_id"] == 77
-    assert captured["draw_number"] == "1234"
+    assert captured["draw_number"] == "2970"
     assert captured["draw_date"].isoformat() == "2026-09-25"
     assert captured["main_numbers"] == [42]
     assert captured["draw_type"] == "LOTERIA_RISARALDA_ORDINARY"
     assert captured["metadata_json"]["raw_result"] == "0042"
-    assert captured["metadata_json"]["series"] == "17"
-    assert captured["source_url"] == "https://loteriadelrisaralda.com/"
+    assert captured["metadata_json"]["series"] == "017"
+    assert captured["source_url"] == "https://ventas.loteriadelrisaralda.com/resultados"
 
 
 

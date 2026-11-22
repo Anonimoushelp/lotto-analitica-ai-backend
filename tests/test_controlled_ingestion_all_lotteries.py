@@ -184,14 +184,26 @@ def test_controlled_ingestion_covers_all_verified_traditional_lotteries(
     assert profile.result_url is not None
 
     source_url = profile.result_url
-    html = (
-        "<html><body>"
-        "<h1>Sorteo número 4187</h1>"
-        "<div>22 de septiembre de 2026</div>"
-        "<div>Número: 6845</div>"
-        "<div>Serie: 031</div>"
-        "</body></html>"
-    )
+    if lottery_code == "LOTERIA_RISARALDA":
+        html = (
+            "<html><body>"
+            "<h1>Sorteo No. 2970</h1>"
+            "<div>22 de septiembre de 2026</div>"
+            "<div>Premio mayor: 6845</div>"
+            "<div>Serie: 031</div>"
+            "</body></html>"
+        )
+        expected_draw_number = "2970"
+    else:
+        html = (
+            "<html><body>"
+            "<h1>Sorteo número 4187</h1>"
+            "<div>22 de septiembre de 2026</div>"
+            "<div>Número: 6845</div>"
+            "<div>Serie: 031</div>"
+            "</body></html>"
+        )
+        expected_draw_number = "4187"
 
     transport = MockTransport(
         lambda request: Response(
@@ -214,7 +226,7 @@ def test_controlled_ingestion_covers_all_verified_traditional_lotteries(
 
     assert normalized.lottery_code == lottery_code
     assert normalized.draw_type == f"{lottery_code}_ORDINARY"
-    assert normalized.draw_number == "4187"
+    assert normalized.draw_number == expected_draw_number
     assert normalized.draw_date == date(2026, 9, 22)
     assert normalized.main_numbers == [6845]
     assert normalized.metadata["raw_result"] == "6845"
@@ -231,7 +243,7 @@ def test_controlled_ingestion_covers_all_verified_traditional_lotteries(
     persisted = LotteryDrawService.persist_raw_record(db=db, record=normalized)
 
     assert persisted.id is not None
-    assert persisted.draw_number == "4187"
+    assert persisted.draw_number == expected_draw_number
     assert persisted.draw_date == date(2026, 9, 22)
     assert persisted.main_numbers == [6845]
     assert persisted.metadata_json["series"] == "031"
